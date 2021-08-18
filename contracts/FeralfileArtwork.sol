@@ -40,7 +40,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         uint256 editionID;
         uint256 artworkID;
         uint256 bitmarkID;
-        string ipfsID;
+        string ipfsCID;
     }
 
     // Exihibition information
@@ -54,6 +54,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
     mapping(uint256 => Artwork) public artworks; // artworkID => Artwork
     mapping(uint256 => ArtworkEdition) public artworkEditions; // artworkEditionID => ArtworkEdition
     mapping(uint256 => uint256[]) internal allArtworkEditions; // artworkID => []ArtworkEditionID
+    mapping(string => bool) internal registeredIPFSCIDs; // ipfsCID => bool
 
     constructor(
         string memory _title,
@@ -111,7 +112,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
     }
 
     // Mint editions for an artwork. For each artwork, it can only mint once.
-    function mintArtwork(uint256 _artworkID, string memory _ipfsID)
+    function mintArtwork(uint256 _artworkID, string[] memory _ipfsCIDs)
         public
         onlyAuthorized
     {
@@ -119,24 +120,39 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         require(_artwork.fingerprint != 0, "artwork is not found");
         require(!_artwork.minted);
 
-        uint256 editionID = uint256(
-            keccak256(
-                abi.encode(_artworkID, allArtworkEditions[_artworkID].length)
-            )
-        );
+        for (uint256 i = 0; i < _ipfsCIDs.length; i++) {
+            uint256 editionID = uint256(
+                keccak256(
+                    abi.encode(
+                        _artworkID,
+                        allArtworkEditions[_artworkID].length
+                    )
+                )
+            );
 
-        ArtworkEdition memory edition = ArtworkEdition(
-            editionID,
-            _artworkID,
-            0,
-            _ipfsID
-        );
+            // ensure the IPFS id is not used by other artwork
+            require(
+                artworkEditions[editionID].editionID == 0,
+                "duplicated edition id"
+            );
 
-        artworkEditions[editionID] = edition;
-        allArtworkEditions[_artworkID].push(editionID);
+            // ensure the IPFS id is not used by other artwork
+            require(!registeredIPFSCIDs[_ipfsCIDs[i]], "ipfs id registered");
 
-        _mint(_artwork.artist, editionID);
-        emit NewArtworkEdition(_artwork.artist, _artworkID, editionID);
+            ArtworkEdition memory edition = ArtworkEdition(
+                editionID,
+                _artworkID,
+                0,
+                _ipfsCIDs[i]
+            );
+
+            registeredIPFSCIDs[_ipfsCIDs[i]] = true;
+            artworkEditions[editionID] = edition;
+            allArtworkEditions[_artworkID].push(editionID);
+
+            _mint(_artwork.artist, editionID);
+            emit NewArtworkEdition(_artwork.artist, _artworkID, editionID);
+        }
     }
 
     // Swap an existent artwork from bitmark to ERC721
@@ -144,7 +160,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         uint256 _artworkID,
         uint256 _bitmarkIDs,
         address _newOwner,
-        string memory _ipfsID
+        string memory _ipfsCID
     ) public onlyAuthorized {
         Artwork memory artwork = artworks[_artworkID];
         require(artwork.fingerprint != 0, "artwork is not found");
@@ -156,14 +172,15 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
             )
         );
 
-        string memory ipfsID = artworkEditions[editionID].ipfsID;
-        require(keccak256(abi.encode(ipfsID)) == keccak256(abi.encode()));
+        string memory ipfsCID = artworkEditions[editionID].ipfsCID;
+
+        require(!registeredIPFSCIDs[ipfsCID], "ipfs id registered");
 
         ArtworkEdition memory edition = ArtworkEdition(
             editionID,
             _artworkID,
             _bitmarkIDs,
-            _ipfsID
+            _ipfsCID
         );
 
         artworkEditions[editionID] = edition;
@@ -207,7 +224,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
             return "";
         }
 
-        string memory ipfsID = artworkEditions[tokenId].ipfsID;
+        string memory ipfsID = artworkEditions[tokenId].ipfsCID;
 
         return string(abi.encodePacked(baseURI, ipfsID, "/metadata.json"));
     }
