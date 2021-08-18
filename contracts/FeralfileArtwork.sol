@@ -43,6 +43,11 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         string ipfsCID;
     }
 
+    struct Provenance {
+        address owner;
+        uint256 timestamp;
+    }
+
     // Exihibition information
     string public title;
     address public curator;
@@ -55,6 +60,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
     mapping(uint256 => ArtworkEdition) public artworkEditions; // artworkEditionID => ArtworkEdition
     mapping(uint256 => uint256[]) internal allArtworkEditions; // artworkID => []ArtworkEditionID
     mapping(string => bool) internal registeredIPFSCIDs; // ipfsCID => bool
+    mapping(uint256 => Provenance[]) internal _editionProvenances; // editionID =>
 
     constructor(
         string memory _title,
@@ -149,10 +155,33 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
             registeredIPFSCIDs[_ipfsCIDs[i]] = true;
             artworkEditions[editionID] = edition;
             allArtworkEditions[_artworkID].push(editionID);
+            _editionProvenances[editionID].push(
+                Provenance(_artwork.artist, block.timestamp)
+            );
 
             _mint(_artwork.artist, editionID);
             emit NewArtworkEdition(_artwork.artist, _artworkID, editionID);
         }
+    }
+
+    // editionProvenances returns the provenance of an artwork edition by
+    // two arrays. One is an array of addresses and another is an array of timestamps.
+    function editionProvenances(uint256 editionID)
+        public
+        view
+        returns (address[] memory, uint256[] memory)
+    {
+        Provenance[] memory provenance = _editionProvenances[editionID];
+
+        address[] memory addresses = new address[](provenance.length);
+        uint256[] memory timestmaps = new uint256[](provenance.length);
+
+        for (uint256 i = 0; i < provenance.length; i++) {
+            addresses[i] = provenance[i].owner;
+            timestmaps[i] = provenance[i].timestamp;
+        }
+
+        return (addresses, timestmaps);
     }
 
     // Swap an existent artwork from bitmark to ERC721
@@ -185,6 +214,9 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
 
         artworkEditions[editionID] = edition;
         allArtworkEditions[_artworkID].push(editionID);
+        _editionProvenances[editionID].push(
+            Provenance(_newOwner, block.timestamp)
+        );
 
         _mint(_newOwner, editionID);
         emit NewArtworkEdition(_newOwner, _artworkID, editionID);
@@ -231,6 +263,15 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
 
     function setArtworkBaseURI(string memory baseURI_) public onlyAuthorized {
         _tokenBaseURI = baseURI_;
+    }
+
+    function _transfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) internal virtual override {
+        super._transfer(from, to, tokenId);
+        _editionProvenances[tokenId].push(Provenance(to, block.timestamp));
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
