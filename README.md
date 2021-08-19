@@ -28,6 +28,14 @@ To compile the smart contract, we use
 truffle compile
 ```
 
+## Test
+
+Test cases are put in `test` folder. To run the test cases, we use
+
+```
+truffle test
+```
+
 It generates contract ABI files in `build/contracts`.
 
 ## Deploy
