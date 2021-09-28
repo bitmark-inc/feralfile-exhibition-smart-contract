@@ -32,7 +32,6 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         address artist;
         string medium;
         uint256 editionSize;
-        bool minted; // the field is designed to limit the minting process
     }
 
     struct ArtworkEdition {
@@ -47,7 +46,6 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
     // Exihibition information
     string public title;
     address public curator;
-    string public curator_notes;
     uint256 public maxEdition;
     uint256 public basePrice;
 
@@ -115,8 +113,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
             _description,
             _artist,
             _medium,
-            _editionSize,
-            false
+            _editionSize
         );
 
         _allArtworks.push(_artworkID);
