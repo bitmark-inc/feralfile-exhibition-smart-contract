@@ -240,10 +240,15 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         return _tokenBaseURI;
     }
 
-    event NewArtwork(address creator, uint256 artworkID);
+    function contractURI() public pure returns (string memory) {
+        return
+            "https://ipfs.bitmark.com/ipfs/QmUn95tx6p9XeJUfNyoAbqVRmPaWM3UUzbvJNvXfcmEpVb";
+    }
+
+    event NewArtwork(address indexed creator, uint256 indexed artworkID);
     event NewArtworkEdition(
-        address owner,
-        uint256 artworkID,
-        uint256 editionID
+        address indexed owner,
+        uint256 indexed artworkID,
+        uint256 indexed editionID
     );
 }
