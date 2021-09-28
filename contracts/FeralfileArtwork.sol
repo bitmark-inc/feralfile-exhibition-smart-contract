@@ -2,14 +2,28 @@
 pragma solidity >=0.4.22 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract FeralfileExhibition is ERC721Enumerable, AccessControlEnumerable {
-    using Strings for uint256;
+contract Authorizable is Ownable {
+    address public trustee;
 
-    bytes32 public constant EXHIBITION_OWNER_ROLE =
-        keccak256("EXHIBITION_OWNER_ROLE");
+    constructor() {
+        trustee = address(0x0);
+    }
+
+    modifier onlyAuthorized() {
+        require(msg.sender == trustee || msg.sender == owner());
+        _;
+    }
+
+    function setTrustee(address _newTrustee) public onlyOwner {
+        trustee = _newTrustee;
+    }
+}
+
+contract FeralfileExhibition is ERC721Enumerable, Authorizable {
+    using Strings for uint256;
 
     struct Artwork {
         string fingerprint;
@@ -58,24 +72,11 @@ contract FeralfileExhibition is ERC721Enumerable, AccessControlEnumerable {
         require(_maxEdition > 0, "maxEdition needs to be greater than zero");
         require(_basePrice > 0, "basePrice needs to be greater than zero");
 
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(EXHIBITION_OWNER_ROLE, _curator);
-
         title = _title;
         curator = _curator;
         maxEdition = _maxEdition;
         basePrice = _basePrice;
         _tokenBaseURI = tokenBaseURI_;
-    }
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override(ERC721Enumerable, AccessControlEnumerable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
     }
 
     // Create an artwork for an exhibition
@@ -86,7 +87,7 @@ contract FeralfileExhibition is ERC721Enumerable, AccessControlEnumerable {
         address _artist,
         string memory _medium,
         uint256 _editionSize
-    ) public onlyRole(EXHIBITION_OWNER_ROLE) {
+    ) public onlyAuthorized {
         require(
             bytes(_fingerprint).length != 0,
             "fingerprint can not be empty"
@@ -151,7 +152,7 @@ contract FeralfileExhibition is ERC721Enumerable, AccessControlEnumerable {
         address _owner,
         string memory _prevProvenance,
         string memory _ipfsCID
-    ) public onlyRole(EXHIBITION_OWNER_ROLE) {
+    ) public onlyAuthorized {
         Artwork memory artwork = artworks[_artworkID];
         require(artwork.artist != address(0), "artwork is not found");
 
@@ -231,10 +232,7 @@ contract FeralfileExhibition is ERC721Enumerable, AccessControlEnumerable {
         return string(abi.encodePacked(baseURI, ipfsID, "/metadata.json"));
     }
 
-    function setArtworkBaseURI(string memory baseURI_)
-        public
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setArtworkBaseURI(string memory baseURI_) public onlyAuthorized {
         _tokenBaseURI = baseURI_;
     }
 
