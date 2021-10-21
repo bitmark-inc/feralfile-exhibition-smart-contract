@@ -2,6 +2,8 @@
 pragma solidity >=0.4.22 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -22,7 +24,7 @@ contract Authorizable is Ownable {
     }
 }
 
-contract FeralfileExhibition is ERC721Enumerable, Authorizable {
+contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
     using Strings for uint256;
 
     struct Artwork {
@@ -48,6 +50,9 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
     address public curator;
     uint256 public maxEditionPerArtwork;
     uint256 public basePrice;
+    uint256 public secondarySaleRoyaltyBPS = 0;
+
+    uint256 public MaxRoyaltyBPS = 100_00;
 
     string private _tokenBaseURI;
     string private _contractURI;
@@ -65,6 +70,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         address _curator,
         uint256 _maxEditionPerArtwork,
         uint256 _basePrice,
+        uint256 _secondarySaleRoyaltyBPS,
         string memory contractURI_,
         string memory tokenBaseURI_
     ) ERC721(_title, _symbol) {
@@ -79,8 +85,21 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         curator = _curator;
         basePrice = _basePrice;
         maxEditionPerArtwork = _maxEditionPerArtwork;
+        secondarySaleRoyaltyBPS = _secondarySaleRoyaltyBPS;
         _contractURI = contractURI_;
         _tokenBaseURI = tokenBaseURI_;
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC721Enumerable, IERC165)
+        returns (bool)
+    {
+        return
+            interfaceId == type(IERC721Enumerable).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     // Create an artwork for an exhibition
@@ -243,6 +262,24 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
 
     function contractURI() public view returns (string memory) {
         return _contractURI;
+    }
+
+    //////////////
+    // ERC-2981 //
+    //////////////
+
+    function royaltyInfo(uint256 _tokenId, uint256 _value)
+        external
+        view
+        override
+        returns (address _receiver, uint256 _royaltyAmount)
+    {
+        ArtworkEdition memory edition = artworkEditions[_tokenId];
+        require(edition.editionID != 0, "artwork edition is not found");
+        Artwork memory artwork = artworks[edition.artworkID];
+
+        _receiver = artwork.artist;
+        _royaltyAmount = (_value / MaxRoyaltyBPS) * secondarySaleRoyaltyBPS;
     }
 
     event NewArtwork(address indexed creator, uint256 indexed artworkID);
