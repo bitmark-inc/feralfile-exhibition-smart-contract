@@ -211,6 +211,20 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
         emit NewArtworkEdition(_owner, _artworkID, editionID);
     }
 
+    // Update the IPFS cid of an edition to a new value
+    function updateArtworkEditionIPFSCid(
+        uint256 _tokenId,
+        string memory _ipfsCID
+    ) public onlyAuthorized {
+        ArtworkEdition memory edition = artworkEditions[_tokenId];
+        require(edition.editionID != 0, "artwork edition is not found");
+        require(!registeredIPFSCIDs[_ipfsCID], "ipfs id has registered");
+
+        delete registeredIPFSCIDs[edition.ipfsCID];
+        registeredIPFSCIDs[_ipfsCID] = true;
+        artworkEditions[_tokenId].ipfsCID = _ipfsCID;
+    }
+
     // Return the edition counts for an artwork
     function totalEditionOfArtwork(uint256 artworkID)
         public
