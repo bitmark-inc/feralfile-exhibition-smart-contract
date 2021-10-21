@@ -46,10 +46,11 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
     // Exihibition information
     string public title;
     address public curator;
-    uint256 public maxEdition;
+    uint256 public maxEditionPerArtwork;
     uint256 public basePrice;
 
     string private _tokenBaseURI;
+    string private _contractURI;
 
     uint256[] private _allArtworks;
     mapping(uint256 => Artwork) public artworks; // artworkID => Artwork
@@ -62,18 +63,23 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         string memory _title,
         string memory _symbol,
         address _curator,
-        uint256 _maxEdition,
+        uint256 _maxEditionPerArtwork,
         uint256 _basePrice,
+        string memory contractURI_,
         string memory tokenBaseURI_
     ) ERC721(_title, _symbol) {
         require(_curator != address(0), "invalid curator address");
-        require(_maxEdition > 0, "maxEdition needs to be greater than zero");
+        require(
+            _maxEditionPerArtwork > 0,
+            "maxEdition of each artwork in an exhibition needs to be greater than zero"
+        );
         require(_basePrice > 0, "basePrice needs to be greater than zero");
 
         title = _title;
         curator = _curator;
-        maxEdition = _maxEdition;
         basePrice = _basePrice;
+        maxEditionPerArtwork = _maxEditionPerArtwork;
+        _contractURI = contractURI_;
         _tokenBaseURI = tokenBaseURI_;
     }
 
@@ -95,8 +101,8 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         require(bytes(_medium).length != 0, "medium can not be empty");
         require(_editionSize > 0, "edition size needs to be at least 1");
         require(
-            _editionSize <= maxEdition,
-            "edition size exceeds the maximum edition size of the exhibition"
+            _editionSize <= maxEditionPerArtwork,
+            "artwork edition size exceeds the maximum edition size of the exhibition"
         );
 
         uint256 _artworkID = uint256(keccak256(abi.encode(_fingerprint)));
@@ -152,22 +158,20 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
     ) public onlyAuthorized {
         Artwork memory artwork = artworks[_artworkID];
         require(artwork.artist != address(0), "artwork is not found");
-
         // The range of _editionNumber should be between 0 (AP) ~ artwork.editionSize
         require(
             _editionNumber <= artwork.editionSize,
             "edition number exceed the edition size of the artwork"
         );
-
-        require(_owner != address(0), "invalid artist address");
+        require(_owner != address(0), "invalid owner address");
+        require(!registeredBitmarks[_bitmarkID], "bitmark id has registered");
+        require(!registeredIPFSCIDs[_ipfsCID], "ipfs id has registered");
 
         uint256 editionID = _artworkID + _editionNumber;
         require(
             artworkEditions[editionID].editionID == 0,
             "the edition is existent"
         );
-        require(!registeredBitmarks[_bitmarkID], "bitmark id has registered");
-        require(!registeredIPFSCIDs[_ipfsCID], "ipfs id has registered");
 
         ArtworkEdition memory edition = ArtworkEdition(
             editionID,
@@ -184,7 +188,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         registeredBitmarks[_bitmarkID] = true;
         registeredIPFSCIDs[_ipfsCID] = true;
 
-        _mint(_owner, editionID);
+        _safeMint(_owner, editionID);
         emit NewArtworkEdition(_owner, _artworkID, editionID);
     }
 
@@ -237,9 +241,8 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable {
         return _tokenBaseURI;
     }
 
-    function contractURI() public pure returns (string memory) {
-        return
-            "https://ipfs.bitmark.com/ipfs/QmUn95tx6p9XeJUfNyoAbqVRmPaWM3UUzbvJNvXfcmEpVb";
+    function contractURI() public view returns (string memory) {
+        return _contractURI;
     }
 
     event NewArtwork(address indexed creator, uint256 indexed artworkID);

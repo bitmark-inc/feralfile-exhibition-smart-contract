@@ -13,5 +13,6 @@ module.exports = function (deployer) {
 
   deployer.deploy(FeralfileExhibition, exhibition_name, exhibition_symbol,
     exhibition_curator.toString(), exhibition_edition_size, exhibition_initial_price,
-    "https://cloudflare-ipfs.com/ipfs/");
+    "https://ipfs.bitmark.com/ipfs/QmUn95tx6p9XeJUfNyoAbqVRmPaWM3UUzbvJNvXfcmEpVb",
+    "https://ipfs.bitmark.com/ipfs/");
 };
