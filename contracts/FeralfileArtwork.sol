@@ -51,6 +51,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
     uint256 public maxEditionPerArtwork;
     uint256 public basePrice;
     uint256 public secondarySaleRoyaltyBPS = 0;
+    address public multipleRoyaltySharingPayoutAddress;
 
     uint256 public MaxRoyaltyBPS = 100_00;
 
@@ -225,6 +226,15 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
         artworkEditions[_tokenId].ipfsCID = _ipfsCID;
     }
 
+    // setMultipleRoyaltySharingPayoutAddress assigns a payout address so
+    // that we can split the royalty.
+    function setMultipleRoyaltySharingPayoutAddress(address payoutAddress)
+        public
+        onlyAuthorized
+    {
+        multipleRoyaltySharingPayoutAddress = payoutAddress;
+    }
+
     // Return the edition counts for an artwork
     function totalEditionOfArtwork(uint256 artworkID)
         public
@@ -292,7 +302,11 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
         require(edition.editionID != 0, "artwork edition is not found");
         Artwork memory artwork = artworks[edition.artworkID];
 
-        _receiver = artwork.artist;
+        if (multipleRoyaltySharingPayoutAddress == address(0)) {
+            _receiver = artwork.artist;
+        } else {
+            _receiver = multipleRoyaltySharingPayoutAddress;
+        }
         _royaltyAmount = (_value / MaxRoyaltyBPS) * secondarySaleRoyaltyBPS;
     }
 
