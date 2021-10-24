@@ -168,7 +168,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
     }
 
     // Swap an existent artwork from bitmark to ERC721
-    function swapArtworkFromBitmarks(
+    function swapArtworkFromBitmark(
         uint256 _artworkID,
         uint256 _bitmarkID,
         uint256 _editionNumber,
