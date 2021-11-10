@@ -246,24 +246,24 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
             "ERC721Metadata: URI query for nonexistent token"
         );
 
-        string memory baseURI = _baseURI();
+        string memory baseURI = _tokenBaseURI;
         if (bytes(baseURI).length == 0) {
-            return "";
+            baseURI = "ipfs://";
         }
 
-        string memory ipfsID = artworkEditions[tokenId].ipfsCID;
-
-        return string(abi.encodePacked(baseURI, ipfsID, "/metadata.json"));
+        return
+            string(
+                abi.encodePacked(
+                    baseURI,
+                    artworkEditions[tokenId].ipfsCID,
+                    "/metadata.json"
+                )
+            );
     }
 
     /// @notice Update the base URI for all tokens
     function setTokenBaseURI(string memory baseURI_) external onlyAuthorized {
         _tokenBaseURI = baseURI_;
-    }
-
-    /// @notice Base URI for all tokens
-    function _baseURI() internal view virtual override returns (string memory) {
-        return _tokenBaseURI;
     }
 
     /// @notice A URL for the opensea storefront-level metadata
