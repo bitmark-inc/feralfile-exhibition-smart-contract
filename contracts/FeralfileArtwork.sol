@@ -4,25 +4,8 @@ pragma solidity >=0.4.22 <0.9.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Authorizable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-
-contract Authorizable is Ownable {
-    address public trustee;
-
-    constructor() {
-        trustee = address(0x0);
-    }
-
-    modifier onlyAuthorized() {
-        require(msg.sender == trustee || msg.sender == owner());
-        _;
-    }
-
-    function setTrustee(address _newTrustee) public onlyOwner {
-        trustee = _newTrustee;
-    }
-}
 
 contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
     using Strings for uint256;
