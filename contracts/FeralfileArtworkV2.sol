@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.9.0;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
@@ -7,39 +7,42 @@ import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./Authorizable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
+contract FeralfileExhibitionV2 is ERC721Enumerable, Authorizable, IERC2981 {
     using Strings for uint256;
 
+    // Exihibition title
+    string public exhibitionTitle;
+
+    // royalty payout address
+    address public royaltyPayoutAddress;
+
+    // The maximum limit of edition size for each exhibitions
+    uint256 public immutable maxEditionPerArtwork;
+
+    // the basis points of royalty payments for each secondary sales
+    uint256 public immutable secondarySaleRoyaltyBPS;
+
+    // the maximum basis points of royalty payments
+    uint256 public constant MAX_ROYALITY_BPS = 100_00;
+
+    // token base URI
+    string private _tokenBaseURI;
+
+    // contract URI
+    string private _contractURI;
+
+    /// @notice A structure for Feral File artwork
     struct Artwork {
-        string fingerprint;
         string title;
-        string description;
-        address artist;
-        string medium;
+        string artistName;
+        string fingerprint;
         uint256 editionSize;
     }
 
     struct ArtworkEdition {
         uint256 editionID;
-        uint256 editionNumber;
-        uint256 artworkID;
-        uint256 bitmarkID;
-        string prevProvenance;
         string ipfsCID;
     }
-
-    // Exihibition information
-    string public title;
-    address public curator;
-    uint256 public maxEditionPerArtwork;
-    uint256 public basePrice;
-    uint256 public secondarySaleRoyaltyBPS = 0;
-    address public multipleRoyaltySharingPayoutAddress;
-
-    uint256 public MaxRoyaltyBPS = 100_00;
-
-    string private _tokenBaseURI;
-    string private _contractURI;
 
     uint256[] private _allArtworks;
     mapping(uint256 => Artwork) public artworks; // artworkID => Artwork
@@ -49,27 +52,32 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
     mapping(string => bool) internal registeredIPFSCIDs; // ipfsCID => bool
 
     constructor(
-        string memory _title,
+        string memory _name,
         string memory _symbol,
-        address _curator,
+        string memory _exhibitionTitle,
         uint256 _maxEditionPerArtwork,
-        uint256 _basePrice,
         uint256 _secondarySaleRoyaltyBPS,
+        address _royaltyPayoutAddress,
         string memory contractURI_,
         string memory tokenBaseURI_
-    ) ERC721(_title, _symbol) {
-        require(_curator != address(0), "invalid curator address");
+    ) ERC721(_name, _symbol) {
         require(
             _maxEditionPerArtwork > 0,
             "maxEdition of each artwork in an exhibition needs to be greater than zero"
         );
-        require(_basePrice > 0, "basePrice needs to be greater than zero");
+        require(
+            _secondarySaleRoyaltyBPS <= MAX_ROYALITY_BPS,
+            "royalty BPS for secondary sales can not be greater than the maximum royalty BPS"
+        );
+        require(
+            _royaltyPayoutAddress != address(0),
+            "invalid royalty payout address"
+        );
 
-        title = _title;
-        curator = _curator;
-        basePrice = _basePrice;
+        exhibitionTitle = _exhibitionTitle;
         maxEditionPerArtwork = _maxEditionPerArtwork;
         secondarySaleRoyaltyBPS = _secondarySaleRoyaltyBPS;
+        royaltyPayoutAddress = _royaltyPayoutAddress;
         _contractURI = contractURI_;
         _tokenBaseURI = tokenBaseURI_;
     }
@@ -86,22 +94,23 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
             super.supportsInterface(interfaceId);
     }
 
-    // Create an artwork for an exhibition
+    /// @notice Call to create an artwork in the exhibition
+    /// @param _fingerprint - the fingerprint of an artwork
+    /// @param _title - the title of an artwork
+    /// @param _artistName - the artist of an artwork
+    /// @param _editionSize - the maximum edition size of an artwork
     function createArtwork(
         string memory _fingerprint,
         string memory _title,
-        string memory _description,
-        address _artist,
-        string memory _medium,
+        string memory _artistName,
         uint256 _editionSize
-    ) public onlyAuthorized {
+    ) external onlyAuthorized {
+        require(bytes(_title).length != 0, "title can not be empty");
+        require(bytes(_artistName).length != 0, "artist can not be empty");
         require(
             bytes(_fingerprint).length != 0,
             "fingerprint can not be empty"
         );
-        require(bytes(_title).length != 0, "title can not be empty");
-        require(_artist != address(0), "invalid artist address");
-        require(bytes(_medium).length != 0, "medium can not be empty");
         require(_editionSize > 0, "edition size needs to be at least 1");
         require(
             _editionSize <= maxEditionPerArtwork,
@@ -110,33 +119,31 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
 
         uint256 _artworkID = uint256(keccak256(abi.encode(_fingerprint)));
 
-        // make sure an artwork have not been registered
+        /// @notice make sure the artwork have not been registered
         require(
-            artworks[_artworkID].artist == address(0),
+            bytes(artworks[_artworkID].fingerprint).length == 0,
             "an artwork with the same fingerprint has already registered"
         );
 
         Artwork memory _artwork = Artwork(
             _fingerprint,
             _title,
-            _description,
-            _artist,
-            _medium,
+            _artistName,
             _editionSize
         );
 
         _allArtworks.push(_artworkID);
         artworks[_artworkID] = _artwork;
 
-        emit NewArtwork(_artist, _artworkID);
+        emit NewArtwork(_artworkID);
     }
 
-    // Return a count of artworks registered in this exhibition
+    /// @notice Return a count of artworks registered in this exhibition
     function totalArtworks() public view virtual returns (uint256) {
         return _allArtworks.length;
     }
 
-    // Return the token identifier for the `_index`th artwork
+    /// @notice Return the token identifier for the `index`th artwork
     function getArtworkByIndex(uint256 index)
         public
         view
@@ -150,20 +157,24 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
         return _allArtworks[index];
     }
 
-    // Swap an existent artwork from bitmark to ERC721
+    /// @notice Swap an existent artwork from bitmark to ERC721
+    /// @param _artworkID - the artwork id where the new edition is referenced to
+    /// @param _bitmarkID - the bitmark id of artwork edition before swapped
+    /// @param _editionNumber - the edition number of the artwork edition
+    /// @param _owner - the owner address of the new minted token
+    /// @param _ipfsCID - the IPFS cid for the new token
     function swapArtworkFromBitmark(
         uint256 _artworkID,
         uint256 _bitmarkID,
         uint256 _editionNumber,
         address _owner,
-        string memory _prevProvenance,
         string memory _ipfsCID
-    ) public onlyAuthorized {
-        Artwork memory artwork = artworks[_artworkID];
-        require(artwork.artist != address(0), "artwork is not found");
-        // The range of _editionNumber should be between 0 (AP) ~ artwork.editionSize
+    ) external onlyAuthorized {
+        /// @notice the edition size is not set implies the artwork is not created
+        require(artworks[_artworkID].editionSize > 0, "artwork is not found");
+        /// @notice The range of _editionNumber should be between 0 (AP) ~ artwork.editionSize
         require(
-            _editionNumber <= artwork.editionSize,
+            _editionNumber <= artworks[_artworkID].editionSize,
             "edition number exceed the edition size of the artwork"
         );
         require(_owner != address(0), "invalid owner address");
@@ -176,14 +187,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
             "the edition is existent"
         );
 
-        ArtworkEdition memory edition = ArtworkEdition(
-            editionID,
-            _editionNumber,
-            _artworkID,
-            _bitmarkID,
-            _prevProvenance,
-            _ipfsCID
-        );
+        ArtworkEdition memory edition = ArtworkEdition(editionID, _ipfsCID);
 
         artworkEditions[editionID] = edition;
         allArtworkEditions[_artworkID].push(editionID);
@@ -195,30 +199,31 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
         emit NewArtworkEdition(_owner, _artworkID, editionID);
     }
 
-    // Update the IPFS cid of an edition to a new value
+    /// @notice Update the IPFS cid of an edition to a new value
     function updateArtworkEditionIPFSCid(
         uint256 _tokenId,
         string memory _ipfsCID
-    ) public onlyAuthorized {
-        ArtworkEdition memory edition = artworkEditions[_tokenId];
+    ) external onlyAuthorized {
+        ArtworkEdition storage edition = artworkEditions[_tokenId];
         require(edition.editionID != 0, "artwork edition is not found");
         require(!registeredIPFSCIDs[_ipfsCID], "ipfs id has registered");
 
         delete registeredIPFSCIDs[edition.ipfsCID];
         registeredIPFSCIDs[_ipfsCID] = true;
-        artworkEditions[_tokenId].ipfsCID = _ipfsCID;
+        edition.ipfsCID = _ipfsCID;
     }
 
-    // setMultipleRoyaltySharingPayoutAddress assigns a payout address so
-    // that we can split the royalty.
-    function setMultipleRoyaltySharingPayoutAddress(address payoutAddress)
-        public
+    /// @notice setRoyaltyPayoutAddress assigns a payout address so
+    //          that we can split the royalty.
+    function setRoyaltyPayoutAddress(address payoutAddress)
+        external
         onlyAuthorized
     {
-        multipleRoyaltySharingPayoutAddress = payoutAddress;
+        require(payoutAddress != address(0), "invalid royalty payout address");
+        royaltyPayoutAddress = payoutAddress;
     }
 
-    // Return the edition counts for an artwork
+    /// @notice Return the edition counts for an artwork
     function totalEditionOfArtwork(uint256 artworkID)
         public
         view
@@ -227,7 +232,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
         return allArtworkEditions[artworkID].length;
     }
 
-    // Return the edition id of an artwork by index
+    /// @notice Return the edition id of an artwork by index
     function getArtworkEditionByIndex(uint256 artworkID, uint256 index)
         public
         view
@@ -237,6 +242,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
         return allArtworkEditions[artworkID][index];
     }
 
+    /// @notice A distinct Uniform Resource Identifier (URI) for a given asset.
     function tokenURI(uint256 tokenId)
         public
         view
@@ -249,51 +255,54 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
             "ERC721Metadata: URI query for nonexistent token"
         );
 
-        string memory baseURI = _baseURI();
+        string memory baseURI = _tokenBaseURI;
         if (bytes(baseURI).length == 0) {
-            return "";
+            baseURI = "ipfs://";
         }
 
-        string memory ipfsID = artworkEditions[tokenId].ipfsCID;
-
-        return string(abi.encodePacked(baseURI, ipfsID, "/metadata.json"));
+        return
+            string(
+                abi.encodePacked(
+                    baseURI,
+                    artworkEditions[tokenId].ipfsCID,
+                    "/metadata.json"
+                )
+            );
     }
 
-    function setArtworkBaseURI(string memory baseURI_) public onlyAuthorized {
+    /// @notice Update the base URI for all tokens
+    function setTokenBaseURI(string memory baseURI_) external onlyAuthorized {
         _tokenBaseURI = baseURI_;
     }
 
-    function _baseURI() internal view virtual override returns (string memory) {
-        return _tokenBaseURI;
-    }
-
+    /// @notice A URL for the opensea storefront-level metadata
     function contractURI() public view returns (string memory) {
         return _contractURI;
     }
 
-    //////////////
-    // ERC-2981 //
-    //////////////
-
-    function royaltyInfo(uint256 _tokenId, uint256 _value)
+    /// @notice Called with the sale price to determine how much royalty
+    //          is owed and to whom.
+    /// @param _tokenId - the NFT asset queried for royalty information
+    /// @param _salePrice - the sale price of the NFT asset specified by _tokenId
+    /// @return receiver - address of who should be sent the royalty payment
+    /// @return royaltyAmount - the royalty payment amount for _salePrice
+    function royaltyInfo(uint256 _tokenId, uint256 _salePrice)
         external
         view
         override
-        returns (address _receiver, uint256 _royaltyAmount)
+        returns (address receiver, uint256 royaltyAmount)
     {
         ArtworkEdition memory edition = artworkEditions[_tokenId];
         require(edition.editionID != 0, "artwork edition is not found");
-        Artwork memory artwork = artworks[edition.artworkID];
 
-        if (multipleRoyaltySharingPayoutAddress == address(0)) {
-            _receiver = artwork.artist;
-        } else {
-            _receiver = multipleRoyaltySharingPayoutAddress;
-        }
-        _royaltyAmount = (_value / MaxRoyaltyBPS) * secondarySaleRoyaltyBPS;
+        receiver = royaltyPayoutAddress;
+
+        royaltyAmount =
+            (_salePrice * secondarySaleRoyaltyBPS) /
+            MAX_ROYALITY_BPS;
     }
 
-    event NewArtwork(address indexed creator, uint256 indexed artworkID);
+    event NewArtwork(uint256 indexed artworkID);
     event NewArtworkEdition(
         address indexed owner,
         uint256 indexed artworkID,
