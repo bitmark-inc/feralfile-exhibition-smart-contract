@@ -297,7 +297,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
 
         receiver = royaltyPayoutAddress;
 
-        royaltyAmount = (_salePrice / maxRoyaltyBPS) * secondarySaleRoyaltyBPS;
+        royaltyAmount = (_salePrice * secondarySaleRoyaltyBPS) / maxRoyaltyBPS;
     }
 
     event NewArtwork(uint256 indexed artworkID);
