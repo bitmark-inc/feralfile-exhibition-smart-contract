@@ -17,13 +17,13 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
     address public royaltyPayoutAddress;
 
     // The maximum limit of edition size for each exhibitions
-    uint256 public maxEditionPerArtwork;
+    uint256 public immutable maxEditionPerArtwork;
 
-    // the biase points of royalty payments for each secondary sales
-    uint256 public secondarySaleRoyaltyBPS = 0;
+    // the basis points of royalty payments for each secondary sales
+    uint256 public immutable secondarySaleRoyaltyBPS;
 
-    // the maximum biase points of royalty payments
-    uint256 public constant maxRoyaltyBPS = 100_00;
+    // the maximum basis points of royalty payments
+    uint256 public constant MAX_ROYALITY_BPS = 100_00;
 
     // token base URI
     string private _tokenBaseURI;
@@ -297,7 +297,9 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
 
         receiver = royaltyPayoutAddress;
 
-        royaltyAmount = (_salePrice * secondarySaleRoyaltyBPS) / maxRoyaltyBPS;
+        royaltyAmount =
+            (_salePrice * secondarySaleRoyaltyBPS) /
+            MAX_ROYALITY_BPS;
     }
 
     event NewArtwork(uint256 indexed artworkID);
