@@ -65,6 +65,14 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
             _maxEditionPerArtwork > 0,
             "maxEdition of each artwork in an exhibition needs to be greater than zero"
         );
+        require(
+            _secondarySaleRoyaltyBPS <= MAX_ROYALITY_BPS,
+            "royalty BPS for secondary sales can not be greater than the maximum royalty BPS"
+        );
+        require(
+            _royaltyPayoutAddress != address(0),
+            "invalid royalty payout address"
+        );
 
         exhibitionTitle = _exhibitionTitle;
         maxEditionPerArtwork = _maxEditionPerArtwork;
@@ -211,6 +219,7 @@ contract FeralfileExhibition is ERC721Enumerable, Authorizable, IERC2981 {
         external
         onlyAuthorized
     {
+        require(payoutAddress != address(0), "invalid royalty payout address");
         royaltyPayoutAddress = payoutAddress;
     }
 
