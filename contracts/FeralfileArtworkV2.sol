@@ -10,9 +10,6 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 contract FeralfileExhibitionV2 is ERC721Enumerable, Authorizable, IERC2981 {
     using Strings for uint256;
 
-    // Exihibition title
-    string public exhibitionTitle;
-
     // royalty payout address
     address public royaltyPayoutAddress;
 
@@ -54,7 +51,6 @@ contract FeralfileExhibitionV2 is ERC721Enumerable, Authorizable, IERC2981 {
     constructor(
         string memory _name,
         string memory _symbol,
-        string memory _exhibitionTitle,
         uint256 _maxEditionPerArtwork,
         uint256 _secondarySaleRoyaltyBPS,
         address _royaltyPayoutAddress,
@@ -74,7 +70,6 @@ contract FeralfileExhibitionV2 is ERC721Enumerable, Authorizable, IERC2981 {
             "invalid royalty payout address"
         );
 
-        exhibitionTitle = _exhibitionTitle;
         maxEditionPerArtwork = _maxEditionPerArtwork;
         secondarySaleRoyaltyBPS = _secondarySaleRoyaltyBPS;
         royaltyPayoutAddress = _royaltyPayoutAddress;
