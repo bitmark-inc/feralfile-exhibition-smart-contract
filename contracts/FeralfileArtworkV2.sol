@@ -204,10 +204,10 @@ contract FeralfileExhibitionV2 is ERC721Enumerable, Authorizable, IERC2981 {
         uint256 _tokenId,
         string memory _ipfsCID
     ) external onlyAuthorized {
-        ArtworkEdition storage edition = artworkEditions[_tokenId];
-        require(edition.editionID != 0, "artwork edition is not found");
+        require(_exists(_tokenId), "artwork edition is not found");
         require(!registeredIPFSCIDs[_ipfsCID], "ipfs id has registered");
 
+        ArtworkEdition storage edition = artworkEditions[_tokenId];
         delete registeredIPFSCIDs[edition.ipfsCID];
         registeredIPFSCIDs[_ipfsCID] = true;
         edition.ipfsCID = _ipfsCID;
@@ -292,8 +292,10 @@ contract FeralfileExhibitionV2 is ERC721Enumerable, Authorizable, IERC2981 {
         override
         returns (address receiver, uint256 royaltyAmount)
     {
-        ArtworkEdition memory edition = artworkEditions[_tokenId];
-        require(edition.editionID != 0, "artwork edition is not found");
+        require(
+            _exists(_tokenId),
+            "ERC2981: query royalty info for nonexistent token"
+        );
 
         receiver = royaltyPayoutAddress;
 
