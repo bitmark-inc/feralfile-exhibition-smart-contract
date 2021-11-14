@@ -4,11 +4,13 @@ const IPFS_GATEWAY_PREFIX = "https://cloudflare-ipfs.com/ipfs/"
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
+const originArtworkCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc"
+
 contract("FeralfileExhibitionV2", async accounts => {
 
   before(async function () {
     this.exhibition = await FeralfileExhibitionV2.new(
-      "Feral File V2 Test 001", "FFV2", "Exhibition Title",
+      "Feral File V2 Test 001", "FFV2",
       50, 1000, "0x8fd310de32848798eB64Bd88f9C5656Eea32415e",
       "https://ipfs.bitmark.com/ipfs/QmaptARVxNSP36PQai5oiCPqbrATvpydcJ8SPx6T6Yp1CZ",
       IPFS_GATEWAY_PREFIX);
@@ -78,26 +80,62 @@ contract("FeralfileExhibitionV2", async accounts => {
     }
   })
 
-
-
   it("can swap tokens from bitmark blockchain correctly", async function () {
     let tokenOwner = "0xbbed1c61b6e68c397b021c1274080a2005042c08"
 
     let bitmarkID = Buffer.from("793eb498de01783e0e350830ea43d24d3c340c7ddee07dbb79c74a840e29e382", "hex")
 
-    let artworkCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc"
-
     let testEditionNumber = 3
 
-    await this.exhibition.swapArtworkFromBitmark(this.artworkID, bitmarkID, testEditionNumber, tokenOwner, artworkCID)
+    await this.exhibition.swapArtworkFromBitmark(this.artworkID, bitmarkID, testEditionNumber, tokenOwner, originArtworkCID)
 
     let editionID = BigInt(this.artworkID) + BigInt(testEditionNumber)
     let artworkEdition = await this.exhibition.artworkEditions(editionID)
 
     assert.equal(artworkEdition.editionID, editionID)
-    assert.equal(artworkEdition.ipfsCID, artworkCID)
+    assert.equal(artworkEdition.ipfsCID, originArtworkCID)
   })
 
+  it("can update the IPFS to a new one", async function () {
+    let newCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXcNew"
+
+    let testEditionNumber = 3
+    let editionID = BigInt(this.artworkID) + BigInt(testEditionNumber)
+    await this.exhibition.updateArtworkEditionIPFSCid(editionID, newCID)
+
+    let artworkEdition = await this.exhibition.artworkEditions(editionID)
+
+    assert.equal(artworkEdition.ipfsCID, newCID)
+  })
+
+  it("cannot update the IPFS cid using an existent IPFS cid", async function () {
+    let testEditionNumber = 3
+    let editionID = BigInt(this.artworkID) + BigInt(testEditionNumber)
+    try {
+      await this.exhibition.updateArtworkEditionIPFSCid(editionID, originArtworkCID)
+    } catch (error) {
+      assert.equal(error.message, "error herer")
+    }
+  })
+
+  it("cannot update the IPFS cid for a non-existent token", async function () {
+    let newCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXcNew"
+
+    let editionID = 1
+    try {
+      await this.exhibition.updateArtworkEditionIPFSCid(editionID, newCID)
+    } catch (error) {
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert artwork edition is not found -- Reason given: artwork edition is not found.")
+    }
+  })
+
+  it("can not set royalty payout address to zero address", async function () {
+    try {
+      await this.exhibition.setRoyaltyPayoutAddress(ZERO_ADDRESS)
+    } catch (error) {
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert invalid royalty payout address -- Reason given: invalid royalty payout address.")
+    }
+  })
 
   it("can not set royalty payout address to zero address", async function () {
     try {
