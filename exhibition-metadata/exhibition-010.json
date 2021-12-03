@@ -1,0 +1,8 @@
+{
+  "name": "Feral File #010 - –GRAPH - Casey Reas",
+  "description": "A plotter drawing is a physical drawing created with a mechanical drawing machine. In the 1960s, plotters were created to automate precise technical drawings, but were co-opted by artists in order to explore new ways of creating art. Before high-resolution printers and computers with screens, plotters were the primary way that code became drawings. Today, using a plotter to create images from code is one decision among many others. Making plotter drawings is difficult and wonderful, and the artists in –GRAPH are passionate about this medium. They share a love of working with visual systems and writing code, and transforming how the code is rendered through drawing machines. Each of the six artists in –GRAPH have created one software artwork that creates 30 unique physical drawings. Alongside these drawings, millions of other compositions are embedded in the software, to be viewed through an interface created by each artist. — Casey Reas",
+  "image": "https://ipfs.bitmark.com/ipfs/QmUqMhPndTg7bPjaCitRqJLGVTc4vvQQ9rXXBo38qeANqg",
+  "external_link": "https://feralfile.com",
+  "seller_fee_basis_points": 1000,
+  "fee_recipient": "0x080FEB125bA730D6D12789B6AAAB01f4E31D8Bd1"
+}

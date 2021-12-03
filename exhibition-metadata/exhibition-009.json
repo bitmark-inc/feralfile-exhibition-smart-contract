@@ -1,0 +1,8 @@
+{
+  "name": "Feral File #009 - Unsupervised - Refik Anadol",
+  "description": "Unsupervised is part of Machine Hallucinations, Refik Anadol Studio’s ongoing project exploring data aesthetics based on collective visual memories. The exhibition processes 138,151 pieces of metadata from the vast collection of The Museum of Modern Art in the mind of a machine. Using StyleGAN2 ADA to capture the machine’s transformative “hallucinations” of modern art in a multi-dimensional space, Anadol trains a unique AI model with subsets of the archive of MoMA’s collection of artworks, creating embeddings in 1024 dimensions. The sorted image datasets are then clustered into thematic categories to better understand the semantic context of data. This expanding data universe not only represents the interpolation of data as synthesis, but also becomes a latent cosmos in which hallucinatory potential arises from a novel form of artistic creativity interpreting MoMA’s unparalleled collection of modern and contemporary art. — Refik Anadol",
+  "image": "https://ipfs.bitmark.com/ipfs/QmUqMhPndTg7bPjaCitRqJLGVTc4vvQQ9rXXBo38qeANqg",
+  "external_link": "https://feralfile.com",
+  "seller_fee_basis_points": 1000,
+  "fee_recipient": "0x080FEB125bA730D6D12789B6AAAB01f4E31D8Bd1"
+}
