@@ -118,10 +118,10 @@ contract FeralfileExhibitionV2 is ERC721Enumerable, Authorizable, IERC2981 {
         );
 
         Artwork memory artwork = Artwork(
-            fingerprint,
-            title,
-            artistName,
-            editionSize
+            title = title,
+            artistName = artistName,
+            fingerprint = fingerprint,
+            editionSize = editionSize
         );
 
         _allArtworks.push(artworkID);
@@ -179,7 +179,10 @@ contract FeralfileExhibitionV2 is ERC721Enumerable, Authorizable, IERC2981 {
             "the edition is existent"
         );
 
-        ArtworkEdition memory edition = ArtworkEdition(editionID, ipfsCID);
+        ArtworkEdition memory edition = ArtworkEdition(
+            editionID = editionID,
+            ipfsCID = ipfsCID
+        );
 
         artworkEditions[editionID] = edition;
         allArtworkEditions[artworkID].push(editionID);
