@@ -24,7 +24,11 @@ const fs = require('fs');
 let secret = JSON.parse(fs.readFileSync(".secret.json"));
 let {
   mnemonic,
-  endpoint
+  mainnet_mnemonic,
+  mainnet_endpoint,
+  ropsten_endpoint,
+  rinkeby_endpoint,
+  goerli_endpoint
 } = secret;
 
 module.exports = {
@@ -45,6 +49,14 @@ module.exports = {
     // tab if you use this network and you must also set the `host`, `port` and `network_id`
     // options below to some value.
     //
+    mainnet: {
+      provider: function () {
+        return new HDWalletProvider(mainnet_mnemonic, mainnet_endpoint)
+      },
+      gas: 3500000,
+      gasPrice: 90000000000, // 20 gwei (in wei) (default: 100 gwei)
+      network_id: 1
+    },
     development: {
       host: "127.0.0.1", // Localhost (default: none)
       port: 7545, // Standard Ethereum port (default: none)
@@ -52,9 +64,23 @@ module.exports = {
     },
     ropsten: {
       provider: function () {
-        return new HDWalletProvider(mnemonic, endpoint)
+        return new HDWalletProvider(mnemonic, ropsten_endpoint)
       },
       network_id: 3
+    },
+    rinkeby: {
+      provider: function () {
+        return new HDWalletProvider(mnemonic, rinkeby_endpoint)
+      },
+      gas: 4500000,
+      network_id: 4
+    },
+    goerli: {
+      provider: function () {
+        return new HDWalletProvider(mnemonic, goerli_endpoint)
+      },
+      gas: 4500000,
+      network_id: 5
     }
     // Another network with more advanced options...
     // advanced: {
@@ -91,7 +117,7 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.9", // Fetch exact version from solc-bin (default: truffle's version)
+      version: "0.8.17", // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
       settings: { // See the solidity docs for advice about optimization and evmVersion
         optimizer: {
