@@ -26,7 +26,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 			'TestArtwork',
 			'TestArtwork',
 			'TestUser',
-			5
+			10
 		);
 		this.artworkID = r.logs[0].args.artworkID;
 
@@ -79,7 +79,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 				'',
 				'TestArtwork',
 				'TestUser',
-				5
+				10
 			);
 		} catch (error) {
 			console.log(error.message);
@@ -284,5 +284,83 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 			ownerOfEdition.toLowerCase(),
 			'0x487ba00d91015dcc905bb93b528c12a05fbc7a4f'.toLowerCase()
 		);
+	});
+
+	it('fail to batch transfer out of recv window', async function () {
+		let editionNumber = 6;
+
+		// Mint to 0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2 and transfer to 0xD588e5EC7900C881Cec1843f2EbC73601D75e584
+		await this.exhibition.batchMint([
+			[
+				this.artworkID,
+				editionNumber,
+				'0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
+				'0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+				'test6',
+			],
+		]);
+
+		let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
+
+		let timestamp = (new Date().getTime() / 1000 - 400).toFixed(0);
+
+		try {
+			// Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
+			let transferredResult = await this.exhibition.authorizedTransfer([
+				[
+					'0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+					'0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
+					editionID.toString(),
+					timestamp,
+					'0x4b1be9d4a91bf5f0462e96be0a67e738ac3ee2b191896c51b6b071f35c590563',
+					'0x5a3c40da5f67db32aa3e8026f55d3305bc40e025f9ccac5067ef47256bb49483',
+					'0x1b',
+				],
+			]);
+		} catch (error) {
+			assert.equal(
+				error.message,
+				'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: timestamp is over recv window'
+			);
+		}
+	});
+
+	it('fail to batch transfer invalid signature', async function () {
+		let editionNumber = 7;
+
+		// Mint to 0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2 and transfer to 0xD588e5EC7900C881Cec1843f2EbC73601D75e584
+		await this.exhibition.batchMint([
+			[
+				this.artworkID,
+				editionNumber,
+				'0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
+				'0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+				'test7',
+			],
+		]);
+
+		let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
+
+		let timestamp = (new Date().getTime() / 1000).toFixed(0);
+
+		try {
+			// Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
+			let transferredResult = await this.exhibition.authorizedTransfer([
+				[
+					'0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+					'0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
+					editionID.toString(),
+					timestamp,
+					'0x4b1be9d4a91bf5f0462e96be0a67e738ac3ee2b191896c51b6b071f35c590563',
+					'0x5a3c40da5f67db32aa3e8026f55d3305bc40e025f9ccac5067ef47256bb49483',
+					'0x1b',
+				],
+			]);
+		} catch (error) {
+			assert.equal(
+				error.message,
+				'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: the transfer request is not authorized'
+			);
+		}
 	});
 });

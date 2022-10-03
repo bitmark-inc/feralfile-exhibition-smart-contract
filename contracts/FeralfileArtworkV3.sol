@@ -277,8 +277,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     }
 
     /// @notice isValidRequest validates a message by ecrecover to ensure
-    //          it is signed by either the contract owner or a trustee
-    //          who is set by the contract owner.
+    //          it is signed by owner of token.
     /// @param message_ - the raw message for signing
     /// @param owner_ - owner address of token
     /// @param r_ - part of signature for validating parameters integrity
@@ -290,14 +289,14 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         bytes32 r_,
         bytes32 s_,
         uint8 v_
-    ) internal view returns (bool authorized) {
+    ) internal pure returns (bool) {
         address signer = ECDSA.recover(
             ECDSA.toEthSignedMessageHash(message_),
             v_,
             r_,
             s_
         );
-        authorized = signer == owner_;
+        return signer == owner_;
     }
 
     /// @notice authorizedTransfer use for transfer list of items in a transaction
