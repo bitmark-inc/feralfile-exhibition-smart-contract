@@ -280,15 +280,16 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     //          it is signed by either the contract owner or a trustee
     //          who is set by the contract owner.
     /// @param message_ - the raw message for signing
+    /// @param owner_ - owner address of token
     /// @param r_ - part of signature for validating parameters integrity
     /// @param s_ - part of signature for validating parameters integrity
     /// @param v_ - part of signature for validating parameters integrity
     function isValidRequest(
         bytes32 message_,
+        address owner_,
         bytes32 r_,
         bytes32 s_,
-        uint8 v_,
-        uint256 tokenID_
+        uint8 v_
     ) internal view returns (bool authorized) {
         address signer = ECDSA.recover(
             ECDSA.toEthSignedMessageHash(message_),
@@ -296,10 +297,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             r_,
             s_
         );
-        authorized =
-            signer == trustee ||
-            signer == ownerOf(tokenID_) ||
-            signer == getApproved(tokenID_);
+        authorized = signer == owner_;
     }
 
     /// @notice authorizedTransfer use for transfer list of items in a transaction
@@ -343,10 +341,10 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         require(
             isValidRequest(
                 requestHash,
+                transferParam_.from,
                 transferParam_.r_,
                 transferParam_.s_,
-                transferParam_.v_,
-                transferParam_.tokenID
+                transferParam_.v_
             ),
             "FeralfileExhibitionV3: the transfer request is not authorized"
         );
@@ -399,6 +397,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             editionNumber_ <= artworks[artworkID_].editionSize,
             "FeralfileExhibitionV3: edition number exceed the edition size of the artwork"
         );
+        require(artist_ != address(0), "invalid artist address");
         require(owner_ != address(0), "invalid owner address");
         require(!registeredIPFSCIDs[ipfsCID_], "ipfs id has registered");
 
