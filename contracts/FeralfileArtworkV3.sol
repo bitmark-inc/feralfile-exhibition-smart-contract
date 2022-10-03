@@ -4,9 +4,9 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./Authorizable.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     using Strings for uint256;
