@@ -21,14 +21,15 @@
 const HDWalletProvider = require('@truffle/hdwallet-provider');
 //
 const fs = require('fs');
-let secret = JSON.parse(fs.readFileSync(".secret.json"));
+let secret = JSON.parse(fs.readFileSync('.secret.json'));
 let {
   mnemonic,
   mainnet_mnemonic,
   mainnet_endpoint,
   ropsten_endpoint,
   rinkeby_endpoint,
-  goerli_endpoint
+  goerli_endpoint,
+  etherscan_api,
 } = secret;
 
 module.exports = {
@@ -51,37 +52,37 @@ module.exports = {
     //
     mainnet: {
       provider: function () {
-        return new HDWalletProvider(mainnet_mnemonic, mainnet_endpoint)
+        return new HDWalletProvider(mainnet_mnemonic, mainnet_endpoint);
       },
       gas: 3500000,
       gasPrice: 90000000000, // 20 gwei (in wei) (default: 100 gwei)
-      network_id: 1
+      network_id: 1,
     },
     development: {
-      host: "127.0.0.1", // Localhost (default: none)
+      host: '127.0.0.1', // Localhost (default: none)
       port: 7545, // Standard Ethereum port (default: none)
-      network_id: "*", // Any network (default: none)
+      network_id: '*', // Any network (default: none)
     },
     ropsten: {
       provider: function () {
-        return new HDWalletProvider(mnemonic, ropsten_endpoint)
+        return new HDWalletProvider(mnemonic, ropsten_endpoint);
       },
-      network_id: 3
+      network_id: 3,
     },
     rinkeby: {
       provider: function () {
-        return new HDWalletProvider(mnemonic, rinkeby_endpoint)
+        return new HDWalletProvider(mnemonic, rinkeby_endpoint);
       },
       gas: 4500000,
-      network_id: 4
+      network_id: 4,
     },
     goerli: {
       provider: function () {
-        return new HDWalletProvider(mnemonic, goerli_endpoint)
+        return new HDWalletProvider(mnemonic, goerli_endpoint);
       },
       gas: 4500000,
-      network_id: 5
-    }
+      network_id: 5,
+    },
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port
@@ -117,16 +118,17 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.17", // Fetch exact version from solc-bin (default: truffle's version)
+      version: '0.8.17', // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
-      settings: { // See the solidity docs for advice about optimization and evmVersion
+      settings: {
+        // See the solidity docs for advice about optimization and evmVersion
         optimizer: {
           enabled: true,
-          runs: 10
-        }
+          runs: 10,
+        },
         //  evmVersion: "byzantium"
-      }
-    }
+      },
+    },
   },
 
   // Truffle DB is currently disabled by default; to enable it, change enabled: false to enabled: true
@@ -136,6 +138,10 @@ module.exports = {
   // $ truffle migrate --reset --compile-all
 
   db: {
-    enabled: false
-  }
+    enabled: false,
+  },
+  plugins: ['truffle-plugin-verify'],
+  api_keys: {
+    etherscan: etherscan_api,
+  },
 };
