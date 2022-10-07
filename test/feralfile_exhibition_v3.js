@@ -22,12 +22,9 @@ contract('FeralfileExhibitionV3', async (accounts) => {
   });
 
   it('create an artwork correctly with no editions on it', async function () {
-    let r = await this.exhibition.createArtwork(
-      'TestArtwork',
-      'TestArtwork',
-      'TestUser',
-      10
-    );
+    let r = await this.exhibition.createArtworks([
+      ['TestArtwork', 'TestUser', 'TestArtwork', 10],
+    ]);
     this.artworkID = r.logs[0].args.artworkID;
 
     let artwork = await this.exhibition.artworks(this.artworkID);
@@ -41,12 +38,9 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
   it('fail to create an artwork if the edition size is greater than exhibition limits', async function () {
     try {
-      let r = await this.exhibition.createArtwork(
-        'TestArtworkFail',
-        'TestArtworkFail',
-        'TestUser',
-        100
-      );
+      let r = await this.exhibition.createArtworks([
+        ['TestArtworkFail', 'TestUser', 'TestArtworkFail', 100],
+      ]);
     } catch (error) {
       assert.equal(
         error.message,
@@ -57,12 +51,9 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
   it('fail to create an artwork with duplicated fingerprint', async function () {
     try {
-      let r = await this.exhibition.createArtwork(
-        'TestArtwork',
-        'TestArtwork',
-        'TestUser',
-        5
-      );
+      let r = await this.exhibition.createArtworks([
+        ['TestArtwork', 'TestUser', 'TestArtwork', 5],
+      ]);
     } catch (error) {
       console.log(error.message);
 
@@ -75,12 +66,9 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
   it('fail to create an artwork with empty fingerprint', async function () {
     try {
-      let r = await this.exhibition.createArtwork(
-        '',
-        'TestArtwork',
-        'TestUser',
-        10
-      );
+      let r = await this.exhibition.createArtworks([
+        ['TestArtwork', 'TestUser', '', 10],
+      ]);
     } catch (error) {
       console.log(error.message);
 
@@ -93,12 +81,9 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
   it('fail to create an artwork with empty title', async function () {
     try {
-      let r = await this.exhibition.createArtwork(
-        'TestArtwork',
-        '',
-        'TestUser',
-        5
-      );
+      let r = await this.exhibition.createArtworks([
+        ['', 'TestUser','TestArtwork',  5],
+      ]);
     } catch (error) {
       console.log(error.message);
 
@@ -111,12 +96,9 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
   it('fail to create an artwork with empty artist name', async function () {
     try {
-      let r = await this.exhibition.createArtwork(
-        'TestArtwork',
-        'TestArtwork',
-        '',
-        5
-      );
+      let r = await this.exhibition.createArtworks([
+        ['TestArtwork', '', 'TestArtwork', 5],
+      ]);
     } catch (error) {
       console.log(error.message);
 
