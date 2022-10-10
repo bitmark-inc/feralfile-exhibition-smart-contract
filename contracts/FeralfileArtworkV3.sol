@@ -107,30 +107,27 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             super.supportsInterface(interfaceId);
     }
 
-    /// @notice Call to create an artworks in the exhibition
-    /// @param artwork_ - the artwork data included fingerprint, title, artistName and editionSize
-    function _createArtwork(Artwork memory artwork_) internal onlyAuthorized {
-        require(bytes(artwork_.title).length != 0, "title can not be empty");
+    /// @notice Call to create an artwork in the exhibition
+    /// @param fingerprint - the fingerprint of an artwork
+    /// @param title - the title of an artwork
+    /// @param artistName - the artist of an artwork
+    /// @param editionSize - the maximum edition size of an artwork
+    function _createArtwork(
+        string memory fingerprint,
+        string memory title,
+        string memory artistName,
+        uint256 editionSize
+    ) internal onlyAuthorized {
+        require(bytes(title).length != 0, "title can not be empty");
+        require(bytes(artistName).length != 0, "artist can not be empty");
+        require(bytes(fingerprint).length != 0, "fingerprint can not be empty");
+        require(editionSize > 0, "edition size needs to be at least 1");
         require(
-            bytes(artwork_.artistName).length != 0,
-            "artist can not be empty"
-        );
-        require(
-            bytes(artwork_.fingerprint).length != 0,
-            "fingerprint can not be empty"
-        );
-        require(
-            artwork_.editionSize > 0,
-            "edition size needs to be at least 1"
-        );
-        require(
-            artwork_.editionSize <= maxEditionPerArtwork,
+            editionSize <= maxEditionPerArtwork,
             "artwork edition size exceeds the maximum edition size of the exhibition"
         );
 
-        uint256 artworkID = uint256(
-            keccak256(abi.encode(artwork_.fingerprint))
-        );
+        uint256 artworkID = uint256(keccak256(abi.encode(fingerprint)));
 
         /// @notice make sure the artwork have not been registered
         require(
@@ -139,10 +136,10 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         );
 
         Artwork memory artwork = Artwork(
-            artwork_.title,
-            artwork_.artistName,
-            artwork_.fingerprint,
-            artwork_.editionSize
+            title = title,
+            artistName = artistName,
+            fingerprint = fingerprint,
+            editionSize = editionSize
         );
 
         _allArtworks.push(artworkID);
@@ -158,7 +155,12 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         onlyAuthorized
     {
         for (uint256 i = 0; i < artworks_.length; i++) {
-            _createArtwork(artworks_[i]);
+            _createArtwork(
+                artworks_[i].fingerprint,
+                artworks_[i].title,
+                artworks_[i].artistName,
+                artworks_[i].editionSize
+            );
         }
     }
 
