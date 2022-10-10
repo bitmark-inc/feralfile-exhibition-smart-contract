@@ -112,12 +112,12 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     /// @param title - the title of an artwork
     /// @param artistName - the artist of an artwork
     /// @param editionSize - the maximum edition size of an artwork
-    function createArtwork(
+    function _createArtwork(
         string memory fingerprint,
         string memory title,
         string memory artistName,
         uint256 editionSize
-    ) external onlyAuthorized {
+    ) internal onlyAuthorized {
         require(bytes(title).length != 0, "title can not be empty");
         require(bytes(artistName).length != 0, "artist can not be empty");
         require(bytes(fingerprint).length != 0, "fingerprint can not be empty");
@@ -146,6 +146,22 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         artworks[artworkID] = artwork;
 
         emit NewArtwork(artworkID);
+    }
+
+    /// @notice createArtworks use for create list of artworks in a transaction
+    /// @param artworks_ - the array of artwork
+    function createArtworks(Artwork[] memory artworks_)
+        external
+        onlyAuthorized
+    {
+        for (uint256 i = 0; i < artworks_.length; i++) {
+            _createArtwork(
+                artworks_[i].fingerprint,
+                artworks_[i].title,
+                artworks_[i].artistName,
+                artworks_[i].editionSize
+            );
+        }
     }
 
     /// @notice Return a count of artworks registered in this exhibition
