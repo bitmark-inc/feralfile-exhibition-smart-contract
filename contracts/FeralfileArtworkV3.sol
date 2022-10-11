@@ -14,9 +14,6 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     // royalty payout address
     address public royaltyPayoutAddress;
 
-    // The maximum limit of edition size for each exhibitions
-    uint256 public immutable maxEditionPerArtwork;
-
     // the basis points of royalty payments for each secondary sales
     uint256 public immutable secondarySaleRoyaltyBPS;
 
@@ -69,16 +66,11 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     constructor(
         string memory name_,
         string memory symbol_,
-        uint256 maxEditionPerArtwork_,
         uint256 secondarySaleRoyaltyBPS_,
         address royaltyPayoutAddress_,
         string memory contractURI_,
         string memory tokenBaseURI_
     ) ERC721(name_, symbol_) {
-        require(
-            maxEditionPerArtwork_ > 0,
-            "maxEdition of each artwork in an exhibition needs to be greater than zero"
-        );
         require(
             secondarySaleRoyaltyBPS_ <= MAX_ROYALITY_BPS,
             "royalty BPS for secondary sales can not be greater than the maximum royalty BPS"
@@ -88,7 +80,6 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             "invalid royalty payout address"
         );
 
-        maxEditionPerArtwork = maxEditionPerArtwork_;
         secondarySaleRoyaltyBPS = secondarySaleRoyaltyBPS_;
         royaltyPayoutAddress = royaltyPayoutAddress_;
         _contractURI = contractURI_;
@@ -117,15 +108,11 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         string memory title,
         string memory artistName,
         uint256 editionSize
-    ) internal onlyAuthorized {
+    ) private {
         require(bytes(title).length != 0, "title can not be empty");
         require(bytes(artistName).length != 0, "artist can not be empty");
         require(bytes(fingerprint).length != 0, "fingerprint can not be empty");
         require(editionSize > 0, "edition size needs to be at least 1");
-        require(
-            editionSize <= maxEditionPerArtwork,
-            "artwork edition size exceeds the maximum edition size of the exhibition"
-        );
 
         uint256 artworkID = uint256(keccak256(abi.encode(fingerprint)));
 
@@ -327,7 +314,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     }
 
     function _authorizedTransfer(TransferArtworkParam memory transferParam_)
-        internal
+        private
     {
         require(
             _exists(transferParam_.tokenID),
@@ -401,7 +388,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         address artist_,
         address owner_,
         string memory ipfsCID_
-    ) internal {
+    ) private {
         /// @notice the edition size is not set implies the artwork is not created
         require(
             artworks[artworkID_].editionSize > 0,

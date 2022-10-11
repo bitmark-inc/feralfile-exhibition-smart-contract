@@ -4,18 +4,23 @@ pragma solidity >=0.4.22 <0.9.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Authorizable is Ownable {
-    address public trustee;
+    address[] public trustees;
 
-    constructor() {
-        trustee = address(0x0);
-    }
+    constructor() {}
 
     modifier onlyAuthorized() {
-        require(msg.sender == trustee || msg.sender == owner());
+        bool isAuthorized = false;
+        for (uint256 i = 0; i < trustees.length; i++) {
+            if (msg.sender == trustees[i]) {
+                isAuthorized = true;
+                break;
+            }
+        }
+        require(isAuthorized || msg.sender == owner());
         _;
     }
 
-    function setTrustee(address _newTrustee) public onlyOwner {
-        trustee = _newTrustee;
+    function setTrustees(address[] memory _newTrustees) public onlyOwner {
+        trustees = _newTrustees;
     }
 }

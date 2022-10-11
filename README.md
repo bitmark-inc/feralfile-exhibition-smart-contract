@@ -86,5 +86,5 @@ you would enter the shell mode.
 `go-ethereum` includes a command `abigen` which creates `golang` structures and interfaces based on an ABI file. With this file, we can execute smart contract with `golang` easily.
 
 ```shell
-jq ".abi" FeralfileExhibition.json | abigen  --abi="-" --type="FeralfileExhibition" --pkg=contract --out="feralaile.go"
+jq ".abi" FeralfileExhibitionV3.json | abigen  --abi="-" --type="FeralfileExhibitionV3" --pkg=feralfilev3 --out="FeralfileExhibitionV3.go"
 ```
