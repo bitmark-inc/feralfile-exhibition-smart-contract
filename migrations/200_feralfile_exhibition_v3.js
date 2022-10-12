@@ -12,13 +12,11 @@ module.exports = function (deployer) {
     '0x2760869A50D48F1C67253C4461c0A6f9e1440Cac';
   let exhibition_secondary_sale_royalty_bps =
     argv.exhibition_secondary_sale_royalty_bps || 1000;
-  let exhibition_edition_size = argv.exhibition_edition_size || 50;
 
   deployer.deploy(
     FeralfileExhibitionV3,
     exhibition_name,
     exhibition_symbol,
-    exhibition_edition_size,
     exhibition_secondary_sale_royalty_bps,
     exhibition_royalty_payout_address,
     'https://ipfs.bitmark.com/ipfs/QmaptARVxNSP36PQai5oiCPqbrATvpydcJ8SPx6T6Yp1CZ',
