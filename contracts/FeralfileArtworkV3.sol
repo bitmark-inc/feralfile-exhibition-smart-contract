@@ -132,8 +132,6 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         require(bytes(artistName).length != 0, "artist can not be empty");
         require(bytes(fingerprint).length != 0, "fingerprint can not be empty");
         require(editionSize > 0, "edition size needs to be at least 1");
-        require(aeAmount > 0, "AE amount needs to be at least 1");
-        require(ppAmount > 0, "PP amount needs to be at least 1");
 
         uint256 artworkID = uint256(keccak256(abi.encode(fingerprint)));
 

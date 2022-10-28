@@ -123,36 +123,6 @@ contract('FeralfileExhibitionV3', async (accounts) => {
     }
   });
 
-  it('fail to create an artwork with empty AE amount', async function () {
-    try {
-      let r = await this.exhibition.createArtworks([
-        ['TestArtwork', 'TestArtwork', 'TestArtwork', 3, 0, 1],
-      ]);
-    } catch (error) {
-      console.log(error.message);
-
-      assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert AE amount needs to be at least 1'
-      );
-    }
-  });
-
-  it('fail to create an artwork with empty PP amount', async function () {
-    try {
-      let r = await this.exhibition.createArtworks([
-        ['TestArtwork', 'TestArtwork', 'TestArtwork', 3, 2, 0],
-      ]);
-    } catch (error) {
-      console.log(error.message);
-
-      assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert PP amount needs to be at least 1'
-      );
-    }
-  });
-
   it('can update the IPFS to a new one', async function () {
     let newCID = 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXcNew';
 
