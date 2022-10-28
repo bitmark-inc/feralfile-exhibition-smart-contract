@@ -20,6 +20,15 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     // the maximum basis points of royalty payments
     uint256 public constant MAX_ROYALITY_BPS = 100_00;
 
+    // version code of contract
+    string public codeVersion;
+
+    // burnable
+    bool public isBurnable;
+
+    // bridgeable
+    bool public isBridgeable;
+
     // token base URI
     string private _tokenBaseURI;
 
@@ -32,6 +41,8 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         string artistName;
         string fingerprint;
         uint256 editionSize;
+        uint256 aeAmount;
+        uint256 ppAmount;
     }
 
     struct ArtworkEdition {
@@ -66,10 +77,13 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     constructor(
         string memory name_,
         string memory symbol_,
+        string memory codeVersion_,
         uint256 secondarySaleRoyaltyBPS_,
         address royaltyPayoutAddress_,
         string memory contractURI_,
-        string memory tokenBaseURI_
+        string memory tokenBaseURI_,
+        bool isBurnable_,
+        bool isBridgeable_
     ) ERC721(name_, symbol_) {
         require(
             secondarySaleRoyaltyBPS_ <= MAX_ROYALITY_BPS,
@@ -80,10 +94,13 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             "invalid royalty payout address"
         );
 
+        codeVersion = codeVersion_;
         secondarySaleRoyaltyBPS = secondarySaleRoyaltyBPS_;
         royaltyPayoutAddress = royaltyPayoutAddress_;
         _contractURI = contractURI_;
         _tokenBaseURI = tokenBaseURI_;
+        isBurnable = isBurnable_;
+        isBridgeable = isBridgeable_;
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -107,7 +124,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         string memory fingerprint,
         string memory title,
         string memory artistName,
-        uint256 editionSize
+        uint256 editionSize,
+        uint256 aeAmount,
+        uint256 ppAmount
     ) private {
         require(bytes(title).length != 0, "title can not be empty");
         require(bytes(artistName).length != 0, "artist can not be empty");
@@ -126,7 +145,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             title = title,
             artistName = artistName,
             fingerprint = fingerprint,
-            editionSize = editionSize
+            editionSize = editionSize,
+            aeAmount = aeAmount,
+            ppAmount = ppAmount
         );
 
         _allArtworks.push(artworkID);
@@ -146,7 +167,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
                 artworks_[i].fingerprint,
                 artworks_[i].title,
                 artworks_[i].artistName,
-                artworks_[i].editionSize
+                artworks_[i].editionSize,
+                artworks_[i].aeAmount,
+                artworks_[i].ppAmount
             );
         }
     }
@@ -394,9 +417,12 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             artworks[artworkID_].editionSize > 0,
             "FeralfileExhibitionV3: artwork is not found"
         );
-        /// @notice The range of editionNumber should be between 0 (AP) ~ artwork.editionSize
+        /// @notice The range of editionNumber should be between 0 to artwork.editionSize + artwork.aeAmount + artwork.ppAmount - 1
         require(
-            editionNumber_ <= artworks[artworkID_].editionSize,
+            editionNumber_ <
+                artworks[artworkID_].editionSize +
+                    artworks[artworkID_].aeAmount +
+                    artworks[artworkID_].ppAmount,
             "FeralfileExhibitionV3: edition number exceed the edition size of the artwork"
         );
         require(artist_ != address(0), "invalid artist address");
@@ -425,10 +451,36 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         emit NewArtworkEdition(owner_, artworkID_, editionID);
     }
 
+    /// @notice burn editions
+    /// @param editionIDs_ - the list of edition id will be burned
+    function burnEditions(uint256[] memory editionIDs_) public {
+        require(isBurnable, "FeralfileExhibitionV3: not allow burn edition");
+
+        for (uint256 i = 0; i < editionIDs_.length; i++) {
+            require(
+                _exists(editionIDs_[i]),
+                "ERC721: artwork edition is not found"
+            );
+            require(
+                _isApprovedOrOwner(_msgSender(), editionIDs_[i]),
+                "ERC721: caller is not token owner nor approved"
+            );
+            ArtworkEdition memory edition = artworkEditions[editionIDs_[i]];
+
+            delete registeredIPFSCIDs[edition.ipfsCID];
+            delete artworkEditions[editionIDs_[i]];
+
+            _burn(editionIDs_[i]);
+
+            emit BurnArtworkEdition(editionIDs_[i]);
+        }
+    }
+
     event NewArtwork(uint256 indexed artworkID);
     event NewArtworkEdition(
         address indexed owner,
         uint256 indexed artworkID,
         uint256 indexed editionID
     );
+    event BurnArtworkEdition(uint256 indexed editionID);
 }

@@ -1,6 +1,6 @@
-const axios = require('axios');
-
 const FeralfileExhibitionV3 = artifacts.require('FeralfileExhibitionV3');
+
+const axios = require('axios');
 
 const IPFS_GATEWAY_PREFIX = 'https://cloudflare-ipfs.com/ipfs/';
 
@@ -13,17 +13,29 @@ contract('FeralfileExhibitionV3', async (accounts) => {
     this.exhibition = await FeralfileExhibitionV3.new(
       'Feral File V3 Test 001',
       'FFV3',
-      50,
+      'V3',
       1000,
       '0x8fd310de32848798eB64Bd88f9C5656Eea32415e',
       'https://ipfs.bitmark.com/ipfs/QmaptARVxNSP36PQai5oiCPqbrATvpydcJ8SPx6T6Yp1CZ',
-      IPFS_GATEWAY_PREFIX
+      IPFS_GATEWAY_PREFIX,
+      true,
+      true
     );
+  });
+
+  it('check contract is burnable', async function () {
+    let isBurnable = await this.exhibition.isBurnable();
+    assert.equal(isBurnable, true);
+  });
+
+  it('check contract is bridgeable', async function () {
+    let isBridgeable = await this.exhibition.isBridgeable();
+    assert.equal(isBridgeable, true);
   });
 
   it('create an artwork correctly with no editions on it', async function () {
     let r = await this.exhibition.createArtworks([
-      ['TestArtwork', 'TestUser', 'TestArtwork', 10],
+      ['TestArtwork', 'TestUser', 'TestArtwork', 10, 2, 1],
     ]);
     this.artworkID = r.logs[0].args.artworkID;
 
@@ -36,23 +48,10 @@ contract('FeralfileExhibitionV3', async (accounts) => {
     assert.equal(artworkEditions, 0);
   });
 
-  it('fail to create an artwork if the edition size is greater than exhibition limits', async function () {
-    try {
-      let r = await this.exhibition.createArtworks([
-        ['TestArtworkFail', 'TestUser', 'TestArtworkFail', 100],
-      ]);
-    } catch (error) {
-      assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert artwork edition size exceeds the maximum edition size of the exhibition'
-      );
-    }
-  });
-
   it('fail to create an artwork with duplicated fingerprint', async function () {
     try {
       let r = await this.exhibition.createArtworks([
-        ['TestArtwork', 'TestUser', 'TestArtwork', 5],
+        ['TestArtwork', 'TestUser', 'TestArtwork', 5, 2, 1],
       ]);
     } catch (error) {
       console.log(error.message);
@@ -67,7 +66,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
   it('fail to create an artwork with empty fingerprint', async function () {
     try {
       let r = await this.exhibition.createArtworks([
-        ['TestArtwork', 'TestUser', '', 10],
+        ['TestArtwork', 'TestUser', '', 10, 2, 1],
       ]);
     } catch (error) {
       console.log(error.message);
@@ -82,7 +81,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
   it('fail to create an artwork with empty title', async function () {
     try {
       let r = await this.exhibition.createArtworks([
-        ['', 'TestUser','TestArtwork',  5],
+        ['', 'TestUser', 'TestArtwork', 5, 2, 1],
       ]);
     } catch (error) {
       console.log(error.message);
@@ -97,7 +96,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
   it('fail to create an artwork with empty artist name', async function () {
     try {
       let r = await this.exhibition.createArtworks([
-        ['TestArtwork', '', 'TestArtwork', 5],
+        ['TestArtwork', '', 'TestArtwork', 5, 2, 1],
       ]);
     } catch (error) {
       console.log(error.message);
@@ -105,6 +104,21 @@ contract('FeralfileExhibitionV3', async (accounts) => {
       assert.equal(
         error.message,
         'Returned error: VM Exception while processing transaction: revert artist can not be empty'
+      );
+    }
+  });
+
+  it('fail to create an artwork with empty edition size', async function () {
+    try {
+      let r = await this.exhibition.createArtworks([
+        ['TestArtwork', 'TestArtwork', 'TestArtwork', 0, 2, 1],
+      ]);
+    } catch (error) {
+      console.log(error.message);
+
+      assert.equal(
+        error.message,
+        'Returned error: VM Exception while processing transaction: revert edition size needs to be at least 1'
       );
     }
   });
@@ -342,6 +356,50 @@ contract('FeralfileExhibitionV3', async (accounts) => {
       assert.equal(
         error.message,
         'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: the transfer request is not authorized'
+      );
+    }
+  });
+
+  it('test burn edition successfully', async function () {
+    let editionNumber = 8;
+
+    await this.exhibition.batchMint([
+      [this.artworkID, editionNumber, accounts[0], accounts[0], 'test8'],
+    ]);
+
+    let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
+
+    try {
+      let burnedResult = await this.exhibition.burnEditions([editionID]);
+    } catch (error) {
+      assert.equal(
+        error.message,
+        'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: the transfer request is not authorized'
+      );
+    }
+  });
+
+  it('test burn edition successfully', async function () {
+    let editionNumber = 9;
+
+    await this.exhibition.batchMint([
+      [
+        this.artworkID,
+        editionNumber,
+        '0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
+        '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+        'test9',
+      ],
+    ]);
+
+    let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
+
+    try {
+      let burnedResult = await this.exhibition.burnEditions([editionID]);
+    } catch (error) {
+      assert.equal(
+        error.message,
+        'Returned error: VM Exception while processing transaction: revert ERC721: caller is not token owner nor approved'
       );
     }
   });
