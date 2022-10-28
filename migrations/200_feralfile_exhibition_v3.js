@@ -7,7 +7,7 @@ const argv = require('minimist')(process.argv.slice(2), {
 module.exports = function (deployer) {
   let exhibition_name = argv.exhibition_name || 'Feral File V3';
   let exhibition_symbol = argv.exhibition_symbol || 'FFDV2001';
-  let code_version = argv.code_version || 'V3';
+  let code_version = argv.code_version || 'FeralfileExhibitionV3';
   let exhibition_royalty_payout_address =
     argv.exhibition_royalty_payout_address ||
     '0x2760869A50D48F1C67253C4461c0A6f9e1440Cac';

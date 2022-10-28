@@ -419,9 +419,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             artworks[artworkID_].editionSize > 0,
             "FeralfileExhibitionV3: artwork is not found"
         );
-        /// @notice The range of editionNumber should be between 0 to artwork.editionSize + artwork.aeAmount + artwork.ppAmount
+        /// @notice The range of editionNumber should be between 0 to artwork.editionSize + artwork.aeAmount + artwork.ppAmount - 1
         require(
-            editionNumber_ <=
+            editionNumber_ <
                 artworks[artworkID_].editionSize +
                     artworks[artworkID_].aeAmount +
                     artworks[artworkID_].ppAmount,
@@ -467,14 +467,14 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
                 _isApprovedOrOwner(_msgSender(), editionIDs_[i]),
                 "ERC721: caller is not token owner nor approved"
             );
-            ArtworkEdition storage edition = artworkEditions[editionIDs_[i]];
+            ArtworkEdition memory edition = artworkEditions[editionIDs_[i]];
 
             delete registeredIPFSCIDs[edition.ipfsCID];
             delete artworkEditions[editionIDs_[i]];
 
             _burn(editionIDs_[i]);
 
-            emit BurnedEdition(editionIDs_[i]);
+            emit BurnArtworkEdition(editionIDs_[i]);
         }
     }
 
@@ -484,5 +484,5 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         uint256 indexed artworkID,
         uint256 indexed editionID
     );
-    event BurnedEdition(uint256 indexed editionID);
+    event BurnArtworkEdition(uint256 indexed editionID);
 }
