@@ -41,8 +41,8 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         string artistName;
         string fingerprint;
         uint256 editionSize;
-        uint256 aeAmount;
-        uint256 ppAmount;
+        uint256 AEAmount;
+        uint256 PPAmount;
     }
 
     struct ArtworkEdition {
@@ -168,8 +168,8 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
                 artworks_[i].title,
                 artworks_[i].artistName,
                 artworks_[i].editionSize,
-                artworks_[i].aeAmount,
-                artworks_[i].ppAmount
+                artworks_[i].AEAmount,
+                artworks_[i].PPAmount
             );
         }
     }
@@ -259,13 +259,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         }
 
         return
-            string(
-                abi.encodePacked(
-                    baseURI,
-                    artworkEditions[tokenId].ipfsCID,
-                    "/metadata.json"
-                )
-            );
+            string(abi.encodePacked(baseURI, artworkEditions[tokenId].ipfsCID));
     }
 
     /// @notice Update the base URI for all tokens
@@ -417,12 +411,12 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             artworks[artworkID_].editionSize > 0,
             "FeralfileExhibitionV3: artwork is not found"
         );
-        /// @notice The range of editionNumber should be between 0 to artwork.editionSize + artwork.aeAmount + artwork.ppAmount - 1
+        /// @notice The range of editionNumber should be between 0 to artwork.editionSize + artwork.AEAmount + artwork.PPAmount - 1
         require(
             editionNumber_ <
                 artworks[artworkID_].editionSize +
-                    artworks[artworkID_].aeAmount +
-                    artworks[artworkID_].ppAmount,
+                    artworks[artworkID_].AEAmount +
+                    artworks[artworkID_].PPAmount,
             "FeralfileExhibitionV3: edition number exceed the edition size of the artwork"
         );
         require(artist_ != address(0), "invalid artist address");
