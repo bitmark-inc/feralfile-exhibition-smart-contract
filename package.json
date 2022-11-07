@@ -13,7 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@openzeppelin/contracts": ">=4.4.1",
+    "@openzeppelin/contracts": "4.7.3",
     "@truffle/hdwallet-provider": "^2.0.3",
     "axios": "^0.27.2"
   },
