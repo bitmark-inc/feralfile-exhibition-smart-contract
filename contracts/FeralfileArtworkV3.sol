@@ -443,6 +443,22 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         emit NewArtworkEdition(owner_, artworkID_, editionID);
     }
 
+    function _getEditionIndex(uint256 editionID)
+        private
+        view
+        returns (uint256, uint256)
+    {
+        for (uint256 i = 0; i < _allArtworks.length; i++) {
+            uint256 artworkID = _allArtworks[i];
+            for (uint256 j = 0; j < allArtworkEditions[artworkID].length; j++) {
+                if (allArtworkEditions[artworkID][j] == editionID) {
+                    return (artworkID, j);
+                }
+            }
+        }
+        return (0, 0);
+    }
+
     /// @notice burn editions
     /// @param editionIDs_ - the list of edition id will be burned
     function burnEditions(uint256[] memory editionIDs_) public {
@@ -461,6 +477,24 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
 
             delete registeredIPFSCIDs[edition.ipfsCID];
             delete artworkEditions[editionIDs_[i]];
+
+            uint256 artworkID;
+            uint256 index;
+
+            (artworkID, index) = _getEditionIndex(editionIDs_[i]);
+            // Remove edition from allArtworkEditions
+            if (artworkID > 0 && index >= 0) {
+                for (
+                    uint256 j = index;
+                    j < allArtworkEditions[artworkID].length - 1;
+                    j++
+                ) {
+                    allArtworkEditions[artworkID][index] = allArtworkEditions[
+                        artworkID
+                    ][j + 1];
+                }
+                allArtworkEditions[artworkID].pop();
+            }
 
             _burn(editionIDs_[i]);
 

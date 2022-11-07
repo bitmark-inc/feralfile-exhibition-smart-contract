@@ -369,7 +369,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
     let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
 
     try {
-      let burnedResult = await this.exhibition.burnEditions([editionID]);
+      await this.exhibition.burnEditions([editionID]);
     } catch (error) {
       assert.equal(
         error.message,
@@ -378,7 +378,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
     }
   });
 
-  it('test burn edition successfully', async function () {
+  it('test burn edition failed', async function () {
     let editionNumber = 9;
 
     await this.exhibition.batchMint([
