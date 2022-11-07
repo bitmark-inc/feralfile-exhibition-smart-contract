@@ -31,7 +31,7 @@ contract("FeralfileExhibitionV2", async accounts => {
     try {
       let r = await this.exhibition.createArtwork("TestArtworkFail", "TestArtworkFail", "TestUser", 100);
     } catch (error) {
-      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert artwork edition size exceeds the maximum edition size of the exhibition -- Reason given: artwork edition size exceeds the maximum edition size of the exhibition.")
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert artwork edition size exceeds the maximum edition size of the exhibition")
     }
   })
 
@@ -42,7 +42,7 @@ contract("FeralfileExhibitionV2", async accounts => {
 
       console.log(error.message)
 
-      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert an artwork with the same fingerprint has already registered -- Reason given: an artwork with the same fingerprint has already registered.")
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert an artwork with the same fingerprint has already registered")
     }
   })
 
@@ -53,7 +53,7 @@ contract("FeralfileExhibitionV2", async accounts => {
 
       console.log(error.message)
 
-      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert fingerprint can not be empty -- Reason given: fingerprint can not be empty.")
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert fingerprint can not be empty")
     }
   })
 
@@ -65,7 +65,7 @@ contract("FeralfileExhibitionV2", async accounts => {
 
       console.log(error.message)
 
-      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert title can not be empty -- Reason given: title can not be empty.")
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert title can not be empty")
     }
   })
 
@@ -76,7 +76,7 @@ contract("FeralfileExhibitionV2", async accounts => {
 
       console.log(error.message)
 
-      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert artist can not be empty -- Reason given: artist can not be empty.")
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert artist can not be empty")
     }
   })
 
@@ -125,7 +125,7 @@ contract("FeralfileExhibitionV2", async accounts => {
     try {
       await this.exhibition.updateArtworkEditionIPFSCid(editionID, newCID)
     } catch (error) {
-      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert artwork edition is not found -- Reason given: artwork edition is not found.")
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert artwork edition is not found")
     }
   })
 
@@ -133,15 +133,15 @@ contract("FeralfileExhibitionV2", async accounts => {
     try {
       await this.exhibition.setRoyaltyPayoutAddress(ZERO_ADDRESS)
     } catch (error) {
-      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert invalid royalty payout address -- Reason given: invalid royalty payout address.")
+      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert invalid royalty payout address")
     }
   })
 
-  it("can not set royalty payout address to zero address", async function () {
-    try {
-      await this.exhibition.setRoyaltyPayoutAddress(ZERO_ADDRESS)
-    } catch (error) {
-      assert.equal(error.message, "Returned error: VM Exception while processing transaction: revert invalid royalty payout address -- Reason given: invalid royalty payout address.")
-    }
+  it("return the correct amount of royalty corresponded to the percentage we set", async function () {
+    let testEditionNumber = 3
+    let editionID = BigInt(this.artworkID) + BigInt(testEditionNumber)
+    let info = await this.exhibition.royaltyInfo(editionID, 1000000000)
+
+    assert.equal(Number(info.royaltyAmount), 100000000)
   })
 })
