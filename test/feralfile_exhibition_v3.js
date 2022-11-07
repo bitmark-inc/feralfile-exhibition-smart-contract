@@ -13,7 +13,6 @@ contract('FeralfileExhibitionV3', async (accounts) => {
     this.exhibition = await FeralfileExhibitionV3.new(
       'Feral File V3 Test 001',
       'FFV3',
-      'V3',
       1000,
       '0x8fd310de32848798eB64Bd88f9C5656Eea32415e',
       'https://ipfs.bitmark.com/ipfs/QmaptARVxNSP36PQai5oiCPqbrATvpydcJ8SPx6T6Yp1CZ',
