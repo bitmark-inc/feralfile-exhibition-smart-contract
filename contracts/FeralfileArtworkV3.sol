@@ -21,7 +21,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     uint256 public constant MAX_ROYALITY_BPS = 100_00;
 
     // version code of contract
-    string public codeVersion;
+    string public constant codeVersion = "FeralfileExhibitionV3";
 
     // burnable
     bool public isBurnable;
@@ -77,7 +77,6 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     constructor(
         string memory name_,
         string memory symbol_,
-        string memory codeVersion_,
         uint256 secondarySaleRoyaltyBPS_,
         address royaltyPayoutAddress_,
         string memory contractURI_,
@@ -94,7 +93,6 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             "invalid royalty payout address"
         );
 
-        codeVersion = codeVersion_;
         secondarySaleRoyaltyBPS = secondarySaleRoyaltyBPS_;
         royaltyPayoutAddress = royaltyPayoutAddress_;
         _contractURI = contractURI_;
