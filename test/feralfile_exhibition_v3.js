@@ -297,7 +297,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
 
-    let timestamp = (new Date().getTime() / 1000 - 400).toFixed(0);
+    let timestamp = (new Date().getTime() / 1000 + 300).toFixed(0);
 
     try {
       // Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
@@ -336,7 +336,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
 
-    let timestamp = (new Date().getTime() / 1000).toFixed(0);
+    let timestamp = (new Date().getTime() / 1000 + 300).toFixed(0);
 
     try {
       // Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
