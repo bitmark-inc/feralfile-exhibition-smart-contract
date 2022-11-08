@@ -54,7 +54,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         address from;
         address to;
         uint256 tokenID;
-        uint256 timestamp;
+        uint256 expireTime;
         bytes32 r_;
         bytes32 s_;
         uint8 v_;
@@ -342,8 +342,8 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         );
 
         require(
-            transferParam_.timestamp + 5 minutes >= block.timestamp,
-            "FeralfileExhibitionV3: timestamp is over recv window"
+            block.timestamp <= transferParam_.expireTime,
+            "FeralfileExhibitionV3: the transfer request is expired"
         );
 
         bytes32 requestHash = keccak256(
@@ -351,7 +351,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
                 transferParam_.from,
                 transferParam_.to,
                 transferParam_.tokenID,
-                transferParam_.timestamp
+                transferParam_.expireTime
             )
         );
 

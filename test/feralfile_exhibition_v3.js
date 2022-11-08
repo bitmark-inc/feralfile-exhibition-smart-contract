@@ -239,21 +239,19 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
 
-    let timestamp = (new Date().getTime() / 1000).toFixed(0);
+    let expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
 
     // TODO:
     let signature = await axios.post(
-      'http://localhost:8081/users/e1h4Q15yN29aVgyowe4oD8nvG2wbvf1r6JFNnLhso17aMBjDi4/sign_abi_parameter',
-      {
+      'http://localhost:8081/users/e1h4Q15yN29aVgyowe4oD8nvG2wbvf1r6JFNnLhso17aMBjDi4/sign_abi_parameter', {
         types: ['address', 'address', 'uint256', 'uint256'],
         values: [
           '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
           '0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
           editionID.toString(),
-          timestamp,
+          expiryTime,
         ],
-      },
-      {
+      }, {
         headers: {
           'Content-Type': 'application/json',
           'X-API-KEY': 'w729FVB1S4tCkLiNcs3ljxvd',
@@ -297,7 +295,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
 
-    let timestamp = (new Date().getTime() / 1000 - 400).toFixed(0);
+    let expiryTime = (new Date().getTime() / 1000 - 5).toFixed(0);
 
     try {
       // Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
@@ -306,7 +304,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
           '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
           '0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
           editionID.toString(),
-          timestamp,
+          expiryTime,
           '0x4b1be9d4a91bf5f0462e96be0a67e738ac3ee2b191896c51b6b071f35c590563',
           '0x5a3c40da5f67db32aa3e8026f55d3305bc40e025f9ccac5067ef47256bb49483',
           '0x1b',
@@ -315,7 +313,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
     } catch (error) {
       assert.equal(
         error.message,
-        'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: timestamp is over recv window'
+        'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: the transfer request is expired'
       );
     }
   });
@@ -336,7 +334,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
 
-    let timestamp = (new Date().getTime() / 1000).toFixed(0);
+    let expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
 
     try {
       // Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
@@ -345,7 +343,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
           '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
           '0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
           editionID.toString(),
-          timestamp,
+          expiryTime,
           '0x4b1be9d4a91bf5f0462e96be0a67e738ac3ee2b191896c51b6b071f35c590563',
           '0x5a3c40da5f67db32aa3e8026f55d3305bc40e025f9ccac5067ef47256bb49483',
           '0x1b',
