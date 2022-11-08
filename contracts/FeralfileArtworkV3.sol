@@ -453,6 +453,8 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         emit NewArtworkEdition(owner_, artworkID_, editionID);
     }
 
+    /// @notice remove an edition from allArtworkEditions
+    /// @param editionID - the edition id where we are going to remove from allArtworkEditions
     function _removeEditionFromAllArtworkEditions(uint256 editionID) private {
         ArtworkEditionIndex
             memory artworkEditionIndex = allArtworkEditionsIndex[editionID];
