@@ -78,7 +78,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     mapping(uint256 => ArtworkEdition) public artworkEditions; // artworkEditionID => ArtworkEdition
     mapping(uint256 => uint256[]) internal allArtworkEditions; // artworkID => []ArtworkEditionID
     mapping(string => bool) internal registeredIPFSCIDs; // ipfsCID => bool
-    mapping(uint256 => ArtworkEditionIndex) internal allEditionIndexs; // editionID => ArtworkEditionIndex
+    mapping(uint256 => ArtworkEditionIndex) internal allArtworkEditionsIndex; // editionID => ArtworkEditionIndex
 
     constructor(
         string memory name_,
@@ -437,7 +437,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
 
         artworkEditions[editionID] = edition;
         allArtworkEditions[artworkID_].push(editionID);
-        allEditionIndexs[editionID] = ArtworkEditionIndex(
+        allArtworkEditionsIndex[editionID] = ArtworkEditionIndex(
             artworkID_,
             allArtworkEditions[artworkID_].length - 1
         );
@@ -454,30 +454,32 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     }
 
     function _removeEditionFromAllArtworkEditions(uint256 editionID) private {
-        ArtworkEditionIndex memory aeIndex_ = allEditionIndexs[editionID];
+        ArtworkEditionIndex
+            memory artworkEditionIndex = allArtworkEditionsIndex[editionID];
 
         require(
-            aeIndex_.artworkID > 0,
-            "FeralfileExhibitionV3: edition not found in all artwork editions"
+            artworkEditionIndex.artworkID > 0,
+            "FeralfileExhibitionV3: artworkID is no found for the artworkEditionIndex"
         );
 
-        uint256[] memory artworkEditions_ = allArtworkEditions[
-            aeIndex_.artworkID
+        uint256[] storage artworkEditions_ = allArtworkEditions[
+            artworkEditionIndex.artworkID
         ];
 
-        require(allArtworkEditions[aeIndex_.artworkID].length > 0, "");
+        require(
+            artworkEditions_.length > 0,
+            "FeralfileExhibitionV3: no editions in this artwork of allArtworkEditions"
+        );
 
         uint256 lastEditionIndex = artworkEditions_.length - 1;
-        uint256 lastEditionID = artworkEditions_[lastEditionIndex];
+        uint256 lastEditionID = artworkEditions_[artworkEditions_.length - 1];
 
-        allArtworkEditions[aeIndex_.artworkID][aeIndex_.index] = lastEditionID; // Move the last token to the slot of the to-delete token
+        // Swap between the last token and the to-delete token and pop up the last token
+        artworkEditions_[artworkEditionIndex.index] = lastEditionID;
+        artworkEditions_[lastEditionIndex] = artworkEditionIndex.index;
+        artworkEditions_.pop();
 
-        allArtworkEditions[aeIndex_.artworkID][lastEditionIndex] = aeIndex_
-            .index; // Update the moved token's index
-
-        delete allArtworkEditions[aeIndex_.artworkID][lastEditionIndex];
-
-        allArtworkEditions[aeIndex_.artworkID].pop();
+        delete allArtworkEditionsIndex[editionID];
     }
 
     /// @notice burn editions
