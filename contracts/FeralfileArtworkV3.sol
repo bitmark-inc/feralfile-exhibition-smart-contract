@@ -68,11 +68,17 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         string ipfsCID;
     }
 
+    struct ArtworkEditionIndex {
+        uint256 artworkID;
+        uint256 index;
+    }
+
     uint256[] private _allArtworks;
     mapping(uint256 => Artwork) public artworks; // artworkID => Artwork
     mapping(uint256 => ArtworkEdition) public artworkEditions; // artworkEditionID => ArtworkEdition
     mapping(uint256 => uint256[]) internal allArtworkEditions; // artworkID => []ArtworkEditionID
     mapping(string => bool) internal registeredIPFSCIDs; // ipfsCID => bool
+    mapping(uint256 => ArtworkEditionIndex) internal allArtworkEditionsIndex; // editionID => ArtworkEditionIndex
 
     constructor(
         string memory name_,
@@ -431,6 +437,10 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
 
         artworkEditions[editionID] = edition;
         allArtworkEditions[artworkID_].push(editionID);
+        allArtworkEditionsIndex[editionID] = ArtworkEditionIndex(
+            artworkID_,
+            allArtworkEditions[artworkID_].length - 1
+        );
 
         registeredIPFSCIDs[ipfsCID_] = true;
 
@@ -441,6 +451,37 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         }
 
         emit NewArtworkEdition(owner_, artworkID_, editionID);
+    }
+
+    /// @notice remove an edition from allArtworkEditions
+    /// @param editionID - the edition id where we are going to remove from allArtworkEditions
+    function _removeEditionFromAllArtworkEditions(uint256 editionID) private {
+        ArtworkEditionIndex
+            memory artworkEditionIndex = allArtworkEditionsIndex[editionID];
+
+        require(
+            artworkEditionIndex.artworkID > 0,
+            "FeralfileExhibitionV3: artworkID is no found for the artworkEditionIndex"
+        );
+
+        uint256[] storage artworkEditions_ = allArtworkEditions[
+            artworkEditionIndex.artworkID
+        ];
+
+        require(
+            artworkEditions_.length > 0,
+            "FeralfileExhibitionV3: no editions in this artwork of allArtworkEditions"
+        );
+
+        uint256 lastEditionIndex = artworkEditions_.length - 1;
+        uint256 lastEditionID = artworkEditions_[artworkEditions_.length - 1];
+
+        // Swap between the last token and the to-delete token and pop up the last token
+        artworkEditions_[artworkEditionIndex.index] = lastEditionID;
+        artworkEditions_[lastEditionIndex] = artworkEditionIndex.index;
+        artworkEditions_.pop();
+
+        delete allArtworkEditionsIndex[editionID];
     }
 
     /// @notice burn editions
@@ -461,6 +502,8 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
 
             delete registeredIPFSCIDs[edition.ipfsCID];
             delete artworkEditions[editionIDs_[i]];
+
+            _removeEditionFromAllArtworkEditions(editionIDs_[i]);
 
             _burn(editionIDs_[i]);
 
