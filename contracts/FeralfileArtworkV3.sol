@@ -54,6 +54,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         address from;
         address to;
         uint256 tokenID;
+        uint256 expireTime;
         bytes32 r_;
         bytes32 s_;
         uint8 v_;
@@ -318,19 +319,18 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
 
     /// @notice authorizedTransfer use for transfer list of items in a transaction
     /// @param transferParams_ - the array of transfer parameters
-    function authorizedTransfer(
-        uint256 expiryTime_,
-        TransferArtworkParam[] memory transferParams_
-    ) external onlyAuthorized {
+    function authorizedTransfer(TransferArtworkParam[] memory transferParams_)
+        external
+        onlyAuthorized
+    {
         for (uint256 i = 0; i < transferParams_.length; i++) {
-            _authorizedTransfer(expiryTime_, transferParams_[i]);
+            _authorizedTransfer(transferParams_[i]);
         }
     }
 
-    function _authorizedTransfer(
-        uint256 expiryTime_,
-        TransferArtworkParam memory transferParam_
-    ) private {
+    function _authorizedTransfer(TransferArtworkParam memory transferParam_)
+        private
+    {
         require(
             _exists(transferParam_.tokenID),
             "ERC721: artwork edition is not found"
@@ -342,7 +342,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         );
 
         require(
-            block.timestamp <= expiryTime_,
+            block.timestamp <= transferParam_.expireTime,
             "FeralfileExhibitionV3: the transfer request is expired"
         );
 
@@ -351,7 +351,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
                 transferParam_.from,
                 transferParam_.to,
                 transferParam_.tokenID,
-                expiryTime_
+                transferParam_.expireTime
             )
         );
 
