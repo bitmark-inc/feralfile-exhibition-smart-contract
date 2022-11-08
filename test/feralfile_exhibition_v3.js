@@ -368,14 +368,12 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
 
-    try {
-      await this.exhibition.burnEditions([editionID]);
-    } catch (error) {
-      assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: the transfer request is not authorized'
-      );
-    }
+    let editionCountBeforeBurn = await this.exhibition.totalEditionOfArtwork(this.artworkID)
+    assert.equal(editionCountBeforeBurn.toNumber(), 7)
+
+    await this.exhibition.burnEditions([editionID]);
+    let editionCountAfterBurn = await this.exhibition.totalEditionOfArtwork(this.artworkID)
+    assert.equal(editionCountAfterBurn.toNumber(), 6)
   });
 
   it('test burn edition failed', async function () {
