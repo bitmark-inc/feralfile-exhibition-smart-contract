@@ -132,7 +132,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
         this.artworkID,
         testEditionNumber,
         '0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
-        '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+        accounts[1],
         'test',
       ],
     ]);
@@ -206,7 +206,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
         this.artworkID,
         editionNumber2,
         '0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
-        '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+        accounts[1],
         'test2',
       ],
     ]);
@@ -217,10 +217,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let editionID2 = BigInt(this.artworkID) + BigInt(editionNumber2);
     let ownerOfEdition2 = await this.exhibition.ownerOf(editionID2.toString());
-    assert.equal(
-      ownerOfEdition2.toLowerCase(),
-      '0xD588e5EC7900C881Cec1843f2EbC73601D75e584'.toLowerCase()
-    );
+    assert.equal(ownerOfEdition2.toLowerCase(), accounts[1].toLowerCase());
   });
 
   it('test batch transfer artworks successfully in 1 transaction', async function () {
@@ -232,7 +229,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
         this.artworkID,
         editionNumber,
         '0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
-        '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+        accounts[1],
         'test',
       ],
     ]);
@@ -241,34 +238,33 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
 
-    // TODO:
-    let signature = await axios.post(
-      'http://localhost:8081/users/e1h4Q15yN29aVgyowe4oD8nvG2wbvf1r6JFNnLhso17aMBjDi4/sign_abi_parameter', {
-        types: ['address', 'address', 'uint256', 'uint256'],
-        values: [
-          '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
-          '0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
-          editionID.toString(),
-          expiryTime,
-        ],
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-KEY': 'w729FVB1S4tCkLiNcs3ljxvd',
-        },
-      }
+    var instrucmentCode = web3.eth.abi.encodeParameters(
+      ['address', 'address', 'uint256', 'uint256'],
+      [
+        accounts[1],
+        '0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
+        editionID.toString(),
+        expiryTime,
+      ]
     );
+    var hash = web3.utils.keccak256(instrucmentCode);
+    var sig = await web3.eth.sign(hash, accounts[1]);
+
+    sig = sig.substr(2);
+    r = '0x' + sig.slice(0, 64);
+    s = '0x' + sig.slice(64, 128);
+    v = '0x' + sig.slice(128, 130);
 
     // Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
     let transferredResult = await this.exhibition.authorizedTransfer([
       [
-        '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+        accounts[1],
         '0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
         editionID.toString(),
-        timestamp,
-        signature.data.r,
-        signature.data.s,
-        signature.data.v,
+        expiryTime,
+        r,
+        s,
+        web3.utils.toDecimal(v) + 27, // magic 27
       ],
     ]);
 
@@ -288,7 +284,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
         this.artworkID,
         editionNumber,
         '0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
-        '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+        accounts[1],
         'test6',
       ],
     ]);
@@ -301,7 +297,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
       // Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
       let transferredResult = await this.exhibition.authorizedTransfer([
         [
-          '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+          accounts[1],
           '0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
           editionID.toString(),
           expiryTime,
@@ -327,7 +323,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
         this.artworkID,
         editionNumber,
         '0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
-        '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+        accounts[1],
         'test7',
       ],
     ]);
@@ -340,7 +336,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
       // Transfer item to 0x487ba00d91015dcc905bb93b528c12a05fbc7a4f
       let transferredResult = await this.exhibition.authorizedTransfer([
         [
-          '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+          accounts[1],
           '0x487ba00d91015dcc905bb93b528c12a05fbc7a4f',
           editionID.toString(),
           expiryTime,
@@ -366,12 +362,16 @@ contract('FeralfileExhibitionV3', async (accounts) => {
 
     let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
 
-    let editionCountBeforeBurn = await this.exhibition.totalEditionOfArtwork(this.artworkID)
-    assert.equal(editionCountBeforeBurn.toNumber(), 7)
+    let editionCountBeforeBurn = await this.exhibition.totalEditionOfArtwork(
+      this.artworkID
+    );
+    assert.equal(editionCountBeforeBurn.toNumber(), 7);
 
     await this.exhibition.burnEditions([editionID]);
-    let editionCountAfterBurn = await this.exhibition.totalEditionOfArtwork(this.artworkID)
-    assert.equal(editionCountAfterBurn.toNumber(), 6)
+    let editionCountAfterBurn = await this.exhibition.totalEditionOfArtwork(
+      this.artworkID
+    );
+    assert.equal(editionCountAfterBurn.toNumber(), 6);
   });
 
   it('test burn edition failed', async function () {
@@ -382,7 +382,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
         this.artworkID,
         editionNumber,
         '0xb824edfc5dced3ac86b6f5816763a35c2ba66fa2',
-        '0xD588e5EC7900C881Cec1843f2EbC73601D75e584',
+        accounts[1],
         'test9',
       ],
     ]);
