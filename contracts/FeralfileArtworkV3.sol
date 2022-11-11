@@ -30,7 +30,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     bool public isBridgeable;
 
     // token base URI
-    string private _tokenBaseURI;
+    string internal _tokenBaseURI;
 
     // contract URI
     string private _contractURI;
@@ -131,7 +131,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         uint256 editionSize,
         uint256 aeAmount,
         uint256 ppAmount
-    ) private {
+    ) internal returns (uint256) {
         require(bytes(title).length != 0, "title can not be empty");
         require(bytes(artistName).length != 0, "artist can not be empty");
         require(bytes(fingerprint).length != 0, "fingerprint can not be empty");
@@ -158,6 +158,8 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         artworks[artworkID] = artwork;
 
         emit NewArtwork(artworkID);
+
+        return artworkID;
     }
 
     /// @notice createArtworks use for create list of artworks in a transaction
