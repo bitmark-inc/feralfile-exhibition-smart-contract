@@ -48,15 +48,17 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
         decentralandTokenID = tokenId;
     }
 
-    /// @notice createArtworkWithIPFSCID use for create list of artworks in a transaction
-    /// @param artwork - the array of artwork
+    /// @notice createArtworkWithIPFSCID creates an artwork with a specific
+    /// artwork IPFS CID given.
+    /// @param artwork - the artwork information to be created
+    /// @param artworkIPFSCID - the artwork CID of the external artwork file
     function createArtworkWithIPFSCID(
         Artwork memory artwork,
         string memory artworkIPFSCID
     ) external onlyAuthorized {
         require(
             bytes(artworkIPFSCID).length != 0,
-            "artwor IPFS CID can not be empty"
+            "artwork IPFS CID can not be empty"
         );
 
         uint256 artworkID = _createArtwork(
