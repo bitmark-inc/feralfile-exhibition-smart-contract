@@ -71,14 +71,15 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
         externalArtworkIPFSCID[artworkID] = artworkIPFSCID;
     }
 
-    function buildHTML(uint256 artworkID, string memory ipfsCID)
+    /// @notice buildArtworkData returns an object of artwork which would push to the actually artwork
+    /// @param artworkID - the artwork ID for building artwork data
+    function buildArtworkData(uint256 artworkID)
         private
         view
         returns (string memory)
     {
         Decentraland dc = Decentraland(decentralandAddress);
         uint256[] memory editionIDs = allArtworkEditions[artworkID];
-
         bytes memory ownersArray = bytes("[");
 
         for (uint256 i = 0; i < editionIDs.length; i++) {
@@ -93,33 +94,53 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
         ownersArray = abi.encodePacked(ownersArray, "]");
 
         return
-            Base64.encode(
+            string(
                 abi.encodePacked(
-                    '<!DOCTYPE html><html lang="en"><head>'
-                    "<script> var artworkData = {"
+                    "{"
                     'landOwner:"',
                     Strings.toHexString(dc.ownerOf(decentralandTokenID)),
                     '", ownerArray:',
                     string(ownersArray),
-                    "} </script>"
-                    '<script>window.addEventListener("message",function(e)'
-                    '{let t=document.getElementById("mainframe");if("object"==typeof e.data){let n=e.data.newHeight;n&&(t.style.minHeight=n+"px",t.style.height=n+"px")}});'
-                    'function initData(){let e=document.getElementById("mainframe");artworkData&&e.contentWindow.postMessage(artworkData,"*")}</script>'
+                    "}"
+                )
+            );
+    }
+
+    /// @notice buildIframe returns a base64 encoded data for ff-frame
+    /// @param artworkData - the artwork data which would bring into the artwork
+    /// @param iframeURI - the artwork URL to loaded into iframe
+    function buildIframe(string memory artworkData, string memory iframeURI)
+        private
+        pure
+        returns (string memory)
+    {
+        return
+            Base64.encode(
+                abi.encodePacked(
+                    '<!DOCTYPE html><html lang="en"><head><script> var defaultArtworkData= ',
+                    artworkData,
+                    "</script><script>"
+                    'let allowOrigins={"https://feralfile.com":!0};function resizeIframe(t){let e=document.getElementById("mainframe");t&&(e.style.minHeight=t+"px",e.style.height=t+"px")}'
+                    'function initData(){pushArtworkDataToIframe(defaultArtworkData)}function pushArtworkDataToIframe(t){t&&document.getElementById("mainframe").contentWindow.postMessage(t,"*")}'
+                    'function updateArtowrkData(t){document.getElementById("mainframe").contentWindow.postMessage(t,"*")}window.addEventListener("message",function(t){allowOrigins[t.origin]?'
+                    '"update-artwork-data"===t.data.type&&updateArtowrkData(t.data.artworkData):"object"==typeof t.data&&"resize-iframe"===t.data.type&&resizeIframe(t.data.newHeight)});</script>'
                     '</head><body style="overflow-x: hidden; padding: 0; margin: 0; width: 100%;" onload="initData()">'
                     '<iframe id="mainframe" style="display:block; padding: 0; margin: 0; border:none; width: 100%;" src="',
-                    buildIPFSURI(ipfsCID),
+                    iframeURI,
                     '"></iframe> </body></html>'
                 )
             );
     }
 
-    function buildMetadata(uint256 artworkID, string memory ipfsCID)
+    /// @notice buildDataURL returns a base64 encoded data for ff-frame
+    /// @param artworkID - the artwork ID for building artwork data
+    /// @param ipfsCID - the artwork ipfs CID for this specific artwork
+    function buildDataURL(uint256 artworkID, string memory ipfsCID)
         private
         view
         returns (string memory)
     {
         Artwork memory artwork = artworks[artworkID];
-        // ArtworkEdition memory edition = artworkEditions[tokenID];
         return
             string(
                 abi.encodePacked(
@@ -132,16 +153,20 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
                             artworkID.toString(),
                             '", "image":"',
                             '", "animation_url":"data:text/html;base64,',
-                            buildHTML(artworkID, ipfsCID),
-                            '"',
-                            "}"
+                            buildIframe(
+                                buildArtworkData(artworkID),
+                                buildIPFSURL(ipfsCID)
+                            ),
+                            '"}'
                         )
                     )
                 )
             );
     }
 
-    function buildIPFSURI(string memory ipfsCID)
+    /// @notice buildIPFSURL returns a formatted IPFS link based on the _tokenBaseURI
+    /// @param ipfsCID - thei IPFS Cid
+    function buildIPFSURL(string memory ipfsCID)
         private
         view
         returns (string memory)
@@ -174,9 +199,9 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
         string memory artworkIPFSCID = externalArtworkIPFSCID[artworkID];
 
         if (bytes(artworkIPFSCID).length > 0) {
-            return buildMetadata(artworkID, artworkIPFSCID);
+            return buildDataURL(artworkID, artworkIPFSCID);
         } else {
-            return buildIPFSURI(artworkEditions[tokenId].ipfsCID);
+            return buildIPFSURL(artworkEditions[tokenId].ipfsCID);
         }
     }
 }
