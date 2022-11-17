@@ -1,4 +1,4 @@
-const FeralfileExhibitionV3 = artifacts.require('FeralfileExhibitionV31');
+const FeralfileExhibitionV3_1 = artifacts.require('FeralfileExhibitionV3_1');
 const MockDecentraland = artifacts.require('MockDecentraland');
 
 const axios = require('axios');
@@ -9,13 +9,13 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 const originArtworkCID = 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc';
 
-contract('FeralfileExhibitionV31', async (accounts) => {
+contract('FeralfileExhibitionV3_1', async (accounts) => {
   before(async function () {
     this.decentraland = await MockDecentraland.new()
     this.testThumbnailCid = "QmV68mphFwMraCE9J6KpQc89Sz8ppvJx5CP6XFruhGQrX8" // AKG test IPFS thumbnail CID
     this.testArtworkCid = "QmTn3PfHHvoDHKawTPXutqxAk2k8ynFK9cZfsSwggryjkX" // AKG test IPFS artwork CID
 
-    this.exhibition = await FeralfileExhibitionV3.new(
+    this.exhibition = await FeralfileExhibitionV3_1.new(
       'Feral File V3 Test 002',
       'FFV3',
       1000,

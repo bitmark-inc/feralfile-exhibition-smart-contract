@@ -1,4 +1,4 @@
-const FeralfileExhibitionV31 = artifacts.require('FeralfileExhibitionV31');
+const FeralfileExhibitionV3_1 = artifacts.require('FeralfileExhibitionV3_1');
 
 const axios = require('axios');
 
@@ -8,9 +8,9 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 const originArtworkCID = 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc';
 
-contract('FeralfileExhibitionV31', async (accounts) => {
+contract('FeralfileExhibitionV3_1', async (accounts) => {
   before(async function () {
-    this.exhibition = await FeralfileExhibitionV31.new(
+    this.exhibition = await FeralfileExhibitionV3_1.new(
       'Feral File V3 Test 001',
       'FFV3',
       1000,

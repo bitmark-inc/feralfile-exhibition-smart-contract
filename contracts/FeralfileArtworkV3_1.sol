@@ -8,7 +8,7 @@ import "./Authorizable.sol";
 import "./Decentraland.sol";
 import "./FeralfileArtworkV3.sol";
 
-contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
+contract FeralfileExhibitionV3_1 is FeralfileExhibitionV3 {
     using Strings for uint256;
 
     struct ExternalArtworkData {

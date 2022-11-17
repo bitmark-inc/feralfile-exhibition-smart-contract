@@ -1,4 +1,4 @@
-var FeralfileExhibitionV31 = artifacts.require('FeralfileExhibitionV31');
+var FeralfileExhibitionV3_1 = artifacts.require('FeralfileExhibitionV3_1');
 
 const argv = require('minimist')(process.argv.slice(2), {
   string: ['exhibition_curator'],
@@ -16,7 +16,7 @@ module.exports = function (deployer) {
   let bridgeable = argv.bridgeable || true;
 
   deployer.deploy(
-    FeralfileExhibitionV31,
+    FeralfileExhibitionV3_1,
     exhibition_name,
     exhibition_symbol,
     exhibition_secondary_sale_royalty_bps,
