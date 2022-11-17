@@ -80,7 +80,7 @@ module.exports = {
       provider: function () {
         return new HDWalletProvider(mnemonic, goerli_endpoint);
       },
-      gas: 5000000,
+      gas: 6000000,
       network_id: 5,
     },
     // Another network with more advanced options...
