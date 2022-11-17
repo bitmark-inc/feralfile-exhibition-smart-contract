@@ -11,7 +11,12 @@ import "./FeralfileArtworkV3.sol";
 contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
     using Strings for uint256;
 
-    mapping(uint256 => string) public externalArtworkIPFSCID; // artworkID => string (IPFS CID)
+    struct ExternalArtworkData {
+        string thumbnailCID;
+        string artworkCID;
+    }
+
+    mapping(uint256 => ExternalArtworkData) public externalArtworkIPFSCID; // artworkID => ExternalArtworkData
 
     constructor(
         string memory name_,
@@ -51,13 +56,20 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
     /// @notice createArtworkWithIPFSCID creates an artwork with a specific
     /// artwork IPFS CID given.
     /// @param artwork - the artwork information to be created
-    /// @param artworkIPFSCID - the artwork CID of the external artwork file
+    /// @param thumbnailCID - the thumbnail CID of the external artwork file
+    /// @param artworkCID - the artwork CID of the external artwork file
     function createArtworkWithIPFSCID(
         Artwork memory artwork,
-        string memory artworkIPFSCID
+        string memory thumbnailCID,
+        string memory artworkCID
     ) external onlyAuthorized {
         require(
-            bytes(artworkIPFSCID).length != 0,
+            bytes(thumbnailCID).length != 0,
+            "thumbnail IPFS CID can not be empty"
+        );
+
+        require(
+            bytes(artworkCID).length != 0,
             "artwork IPFS CID can not be empty"
         );
 
@@ -70,7 +82,69 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
             artwork.PPAmount
         );
 
-        externalArtworkIPFSCID[artworkID] = artworkIPFSCID;
+        externalArtworkIPFSCID[artworkID] = ExternalArtworkData(
+            thumbnailCID,
+            artworkCID
+        );
+    }
+
+    /// @notice createArtworkWithIPFSCID creates an artwork with a specific
+    /// artwork IPFS CID given.
+    /// @param artworkID - the artwork ID for updateing external artwork files
+    /// @param thumbnailCID - the thumbnail CID of the external artwork file
+    /// @param artworkCID - the artwork CID of the external artwork file
+    function updateExternalArtworkIPFSCID(
+        uint256 artworkID,
+        string memory thumbnailCID,
+        string memory artworkCID
+    ) external onlyAuthorized {
+        /// @notice make sure the artwork has already registered
+        require(
+            bytes(artworks[artworkID].fingerprint).length != 0,
+            "the target artwork is not existent"
+        );
+
+        require(
+            bytes(thumbnailCID).length != 0,
+            "thumbnail IPFS CID can not be empty"
+        );
+
+        require(
+            bytes(artworkCID).length != 0,
+            "artwork IPFS CID can not be empty"
+        );
+
+        externalArtworkIPFSCID[artworkID] = ExternalArtworkData(
+            thumbnailCID,
+            artworkCID
+        );
+    }
+
+    /// @notice tokenEditionNumber returns the edition number of a token
+    function tokenEditionNumber(uint256 tokenID)
+        public
+        view
+        returns (string memory)
+    {
+        ArtworkEditionIndex
+            memory artworkEditionIndex = allArtworkEditionsIndex[tokenID];
+
+        uint256 artworkID = artworkEditionIndex.artworkID;
+
+        Artwork memory artwork = artworks[artworkID];
+        uint256 ppStart = artworkID + artwork.AEAmount;
+        uint256 neStart = artworkID + artwork.AEAmount + artwork.PPAmount;
+
+        if (tokenID < ppStart) {
+            return "AE";
+        } else if (tokenID < neStart) {
+            return "PP";
+        } else {
+            return
+                string(
+                    abi.encodePacked("#", (tokenID - neStart + 1).toString())
+                );
+        }
     }
 
     /// @notice buildArtworkData returns an object of artwork which would push to the actually artwork
@@ -136,28 +210,49 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
 
     /// @notice buildDataURL returns a base64 encoded data for ff-frame
     /// @param artworkID - the artwork ID for building artwork data
-    /// @param ipfsCID - the artwork ipfs CID for this specific artwork
-    function buildDataURL(uint256 artworkID, string memory ipfsCID)
-        private
-        view
-        returns (string memory)
-    {
+    /// @param tokenID - the token ID for building artwork data
+    /// @param thumbnailCID - the thumbnail ipfs CID for this specific artwork
+    /// @param artworkCID - the artwork ipfs CID for this specific artwork
+    function buildDataURL(
+        uint256 artworkID,
+        uint256 tokenID,
+        string memory thumbnailCID,
+        string memory artworkCID
+    ) private view returns (string memory) {
         Artwork memory artwork = artworks[artworkID];
+
+        string memory editionNumber = tokenEditionNumber(tokenID);
+        string memory tokenName = string(
+            abi.encodePacked(artwork.title, " ", editionNumber)
+        );
         return
             string(
                 abi.encodePacked(
                     "data:application/json;base64,",
                     Base64.encode(
+                        // We need to encode twice since the parameters are too many and
+                        // cause the `Stack too deep` error on compilation.
                         abi.encodePacked(
-                            '{"name":"',
-                            artwork.title,
-                            '", "artwork_id":"',
-                            artworkID.toString(),
-                            '", "image":"',
+                            abi.encodePacked(
+                                '{"id":"',
+                                tokenID.toString(),
+                                '", "name":"',
+                                tokenName,
+                                '", "artist":"',
+                                artwork.artistName,
+                                '", "artwork_id":"',
+                                artworkID.toHexString(),
+                                '", "edition_index":"',
+                                (tokenID - artworkID).toString(),
+                                '", "edition_number":"',
+                                editionNumber
+                            ),
+                            '", "external_url":"https://feralfile.com", "image":"',
+                            buildIPFSURL(thumbnailCID),
                             '", "animation_url":"data:text/html;base64,',
                             buildIframe(
                                 buildArtworkData(artworkID),
-                                buildIPFSURL(ipfsCID)
+                                buildIPFSURL(artworkCID)
                             ),
                             '"}'
                         )
@@ -198,10 +293,12 @@ contract FeralfileExhibitionV31 is FeralfileExhibitionV3 {
             memory artworkEditionIndex = allArtworkEditionsIndex[tokenId];
 
         uint256 artworkID = artworkEditionIndex.artworkID;
-        string memory artworkIPFSCID = externalArtworkIPFSCID[artworkID];
+        string memory thumbnailCID = externalArtworkIPFSCID[artworkID]
+            .thumbnailCID;
+        string memory artworkCID = externalArtworkIPFSCID[artworkID].artworkCID;
 
-        if (bytes(artworkIPFSCID).length > 0) {
-            return buildDataURL(artworkID, artworkIPFSCID);
+        if (bytes(artworkCID).length > 0 && bytes(thumbnailCID).length > 0) {
+            return buildDataURL(artworkID, tokenId, thumbnailCID, artworkCID);
         } else {
             return buildIPFSURL(artworkEditions[tokenId].ipfsCID);
         }
