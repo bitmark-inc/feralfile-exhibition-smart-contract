@@ -97,21 +97,11 @@ contract FeralfileExhibitionV3_1 is FeralfileExhibitionV3 {
         uint256 artworkID,
         string memory thumbnailCID,
         string memory artworkCID
-    ) external onlyAuthorized {
+    ) external onlyOwner {
         /// @notice make sure the artwork has already registered
         require(
             bytes(artworks[artworkID].fingerprint).length != 0,
             "the target artwork is not existent"
-        );
-
-        require(
-            bytes(thumbnailCID).length != 0,
-            "thumbnail IPFS CID can not be empty"
-        );
-
-        require(
-            bytes(artworkCID).length != 0,
-            "artwork IPFS CID can not be empty"
         );
 
         externalArtworkIPFSCID[artworkID] = ExternalArtworkData(
@@ -196,12 +186,12 @@ contract FeralfileExhibitionV3_1 is FeralfileExhibitionV3 {
                     '<!DOCTYPE html><html lang="en"><head><script> var defaultArtworkData= ',
                     artworkData,
                     "</script><script>"
-                    'let allowOrigins={"https://feralfile.com":!0};function resizeIframe(t){let e=document.getElementById("mainframe");t&&(e.style.minHeight=t+"px",e.style.height=t+"px")}'
+                    'let allowOrigins={"https://feralfile.com":!0};function resizeIframe(t){let e=document.getElementById("mainframe");t&&(e.style.minHeight=t+"px")}'
                     'function initData(){pushArtworkDataToIframe(defaultArtworkData)}function pushArtworkDataToIframe(t){t&&document.getElementById("mainframe").contentWindow.postMessage(t,"*")}'
                     'function updateArtowrkData(t){document.getElementById("mainframe").contentWindow.postMessage(t,"*")}window.addEventListener("message",function(t){allowOrigins[t.origin]?'
                     '"update-artwork-data"===t.data.type&&updateArtowrkData(t.data.artworkData):"object"==typeof t.data&&"resize-iframe"===t.data.type&&resizeIframe(t.data.newHeight)});</script>'
-                    '</head><body style="overflow-x: hidden; padding: 0; margin: 0; width: 100%;" onload="initData()">'
-                    '<iframe id="mainframe" style="display:block; padding: 0; margin: 0; border:none; width: 100%;" src="',
+                    '</head><body style="overflow-x:hidden;padding:0;margin:0;width: 100%;" onload="initData()">'
+                    '<iframe id="mainframe" style="display:block;padding:0;margin:0;border:none;width:100%;height:100vh;" src="',
                     iframeURI,
                     '"></iframe> </body></html>'
                 )
