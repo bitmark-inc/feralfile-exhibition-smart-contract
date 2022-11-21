@@ -104,6 +104,13 @@ contract FeralfileExhibitionV3_1 is FeralfileExhibitionV3 {
             "the target artwork is not existent"
         );
 
+        /// @notice remove external artwork info for an artwork if both
+        /// thumbnailCID and thumbnailCID are empty
+        if (bytes(thumbnailCID).length == 0 && bytes(artworkCID).length == 0) {
+            delete externalArtworkIPFSCID[artworkID];
+            return;
+        }
+
         externalArtworkIPFSCID[artworkID] = ExternalArtworkData(
             thumbnailCID,
             artworkCID
