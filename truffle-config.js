@@ -26,8 +26,6 @@ let {
   mnemonic,
   mainnet_mnemonic,
   mainnet_endpoint,
-  ropsten_endpoint,
-  rinkeby_endpoint,
   goerli_endpoint,
   etherscan_api,
 } = secret;
@@ -63,24 +61,11 @@ module.exports = {
       port: 7545, // Standard Ethereum port (default: none)
       network_id: '*', // Any network (default: none)
     },
-    ropsten: {
-      provider: function () {
-        return new HDWalletProvider(mnemonic, ropsten_endpoint);
-      },
-      network_id: 3,
-    },
-    rinkeby: {
-      provider: function () {
-        return new HDWalletProvider(mnemonic, rinkeby_endpoint);
-      },
-      gas: 4500000,
-      network_id: 4,
-    },
     goerli: {
       provider: function () {
         return new HDWalletProvider(mnemonic, goerli_endpoint);
       },
-      gas: 6000000,
+      // gas: 6000000,
       network_id: 5,
     },
     // Another network with more advanced options...
