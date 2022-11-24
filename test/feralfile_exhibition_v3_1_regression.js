@@ -8,7 +8,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 const originArtworkCID = 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc';
 
-contract('FeralfileExhibitionV3_1', async (accounts) => {
+contract('FeralfileExhibitionV3_1->V3_regression', async (accounts) => {
   before(async function () {
     this.exhibition = await FeralfileExhibitionV3_1.new(
       'Feral File V3 Test 001',
