@@ -1,7 +1,7 @@
 {
-  "name": "FFV3 - Test 1",
+  "name": "FFV3_3 - Test 1",
   "description": "Feral File V3 Test Contract",
-  "image": "ipfs://QmV68mphFwMraCE9J6KpQc89Sz8ppvJx5CP6XFruhGQrX8",
+  "image": "https://ipfs.bitmark.com/ipfs/QmekKPW5vphtHLpg1LoHbFBAHeMDTKKNT7yNdakCzCtY7m",
   "external_link": "https://feralfile.com",
   "seller_fee_basis_points": 1000,
   "fee_recipient": "0x2033606bE146405870F92Ea3144ef5057b9DEA48"

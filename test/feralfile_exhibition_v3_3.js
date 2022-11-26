@@ -13,7 +13,7 @@ contract('FeralfileExhibitionV3_3', async (accounts) => {
   before(async function () {
     this.decentraland = await MockDecentraland.new()
     this.testThumbnailCid = "QmV68mphFwMraCE9J6KpQc89Sz8ppvJx5CP6XFruhGQrX8" // AKG test IPFS thumbnail CID
-    this.testArtworkCid = "QmTn3PfHHvoDHKawTPXutqxAk2k8ynFK9cZfsSwggryjkX" // AKG test IPFS artwork CID
+    this.testArtworkCid = "QmXsDVEszo4XzyVK3UF8mKzUNfaUT3fpXwarca6VmGPwvq" // AKG test IPFS artwork CID
 
     this.exhibition = await FeralfileExhibitionV3_3.new(
       'Feral File V3 Test 002',
@@ -61,8 +61,8 @@ contract('FeralfileExhibitionV3_3', async (accounts) => {
       [this.artworkID, editionIndex0, accounts[0], accounts[0], 'test0'],
       [this.artworkID, editionIndex1, accounts[0], accounts[1], 'test1'],
       [this.artworkID, editionIndex2, accounts[0], accounts[2], 'test2'],
-      [this.artworkID, editionIndex3, accounts[0], accounts[3], 'test3'],
-      [this.artworkID, editionIndex4, accounts[0], accounts[4], 'test4'],
+      [this.artworkID, editionIndex3, accounts[0], accounts[2], 'test3'],
+      [this.artworkID, editionIndex4, accounts[0], accounts[3], 'test4'],
     ]);
 
     let editionID0 = BigInt(this.artworkID) + BigInt(editionIndex0);
@@ -85,13 +85,13 @@ contract('FeralfileExhibitionV3_3', async (accounts) => {
 
     let editionID3 = BigInt(this.artworkID) + BigInt(editionIndex3);
     let ownerOfEdition3 = await this.exhibition.ownerOf(editionID3.toString());
-    assert.equal(ownerOfEdition3.toLowerCase(), accounts[3].toLowerCase());
+    assert.equal(ownerOfEdition3.toLowerCase(), accounts[2].toLowerCase());
     let editionNumber3 = await this.exhibition.tokenEditionNumber(editionID3.toString());
     assert.equal(editionNumber3, "#1");
 
     let editionID4 = BigInt(this.artworkID) + BigInt(editionIndex4);
     let ownerOfEdition4 = await this.exhibition.ownerOf(editionID4.toString());
-    assert.equal(ownerOfEdition4.toLowerCase(), accounts[4].toLowerCase());
+    assert.equal(ownerOfEdition4.toLowerCase(), accounts[3].toLowerCase());
     let editionNumber4 = await this.exhibition.tokenEditionNumber(editionID4.toString());
     assert.equal(editionNumber4, "#2");
   })
@@ -107,7 +107,8 @@ contract('FeralfileExhibitionV3_3', async (accounts) => {
     const metadataJSON = JSON.parse(Buffer.from(tokenURI.replace("data:application/json;base64,", ""), "base64").toString());
     assert.equal(metadataJSON.image, "https://ipfs.bitmark.com/ipfs/" + this.testThumbnailCid);
     // TODO: use regular expression to validate the html data
-    assert.equal(metadataJSON.animation_url, "data:text/html;base64,PCFET0NUWVBFIGh0bWw+PGh0bWwgbGFuZz0iZW4iPjxoZWFkPjxzY3JpcHQ+IHZhciBkZWZhdWx0QXJ0d29ya0RhdGE9IHtsYW5kT3duZXI6IjB4MDE3N2JhMmFkMDVjYjEyZDZkZDYzNzk2M2UwNDAwOTI2NzZlZThkZSIsIG93bmVyQXJyYXk6WyIweGRhMTQ5NWNhNmNhZGI1ODFjNDI0YTI2NTVmNDM3M2RiYzBiMDJhMmEiLCIweDJkYjVhM2Q2MDNmZTdmNDNiMzBjZTA5MDg1NWMxMTJmYTIyMjE2ODciLCIweDQ0NGQxOGY3NmVjMDkzN2ZmMmE4M2MzMTI4OTFhYjg1M2E3MTkxZDMiLCIweDNkYjFlOTg4MzU2OWY0MjllOGViZmNmZDBhZmMyYzIyOGFmNDQxZGQiLCIweDVmZWQ0MzFhOWY4MzRmN2QyMzk1N2ZmZGE0NWMwNTFmOTQ0YjE3YjQiLF19PC9zY3JpcHQ+PHNjcmlwdD5sZXQgYWxsb3dPcmlnaW5zPXsiaHR0cHM6Ly9mZXJhbGZpbGUuY29tIjohMH07ZnVuY3Rpb24gcmVzaXplSWZyYW1lKHQpe2xldCBlPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJtYWluZnJhbWUiKTt0JiYoZS5zdHlsZS5taW5IZWlnaHQ9dCsicHgiKX1mdW5jdGlvbiBpbml0RGF0YSgpe3B1c2hBcnR3b3JrRGF0YVRvSWZyYW1lKGRlZmF1bHRBcnR3b3JrRGF0YSl9ZnVuY3Rpb24gcHVzaEFydHdvcmtEYXRhVG9JZnJhbWUodCl7dCYmZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoIm1haW5mcmFtZSIpLmNvbnRlbnRXaW5kb3cucG9zdE1lc3NhZ2UodCwiKiIpfWZ1bmN0aW9uIHVwZGF0ZUFydG93cmtEYXRhKHQpe2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJtYWluZnJhbWUiKS5jb250ZW50V2luZG93LnBvc3RNZXNzYWdlKHQsIioiKX13aW5kb3cuYWRkRXZlbnRMaXN0ZW5lcigibWVzc2FnZSIsZnVuY3Rpb24odCl7YWxsb3dPcmlnaW5zW3Qub3JpZ2luXT8idXBkYXRlLWFydHdvcmstZGF0YSI9PT10LmRhdGEudHlwZSYmdXBkYXRlQXJ0b3dya0RhdGEodC5kYXRhLmFydHdvcmtEYXRhKToib2JqZWN0Ij09dHlwZW9mIHQuZGF0YSYmInJlc2l6ZS1pZnJhbWUiPT09dC5kYXRhLnR5cGUmJnJlc2l6ZUlmcmFtZSh0LmRhdGEubmV3SGVpZ2h0KX0pOzwvc2NyaXB0PjwvaGVhZD48Ym9keSBzdHlsZT0ib3ZlcmZsb3cteDpoaWRkZW47cGFkZGluZzowO21hcmdpbjowO3dpZHRoOiAxMDAlOyIgb25sb2FkPSJpbml0RGF0YSgpIj48aWZyYW1lIGlkPSJtYWluZnJhbWUiIHN0eWxlPSJkaXNwbGF5OmJsb2NrO3BhZGRpbmc6MDttYXJnaW46MDtib3JkZXI6bm9uZTt3aWR0aDoxMDAlO2hlaWdodDoxMDB2aDsiIHNyYz0iaHR0cHM6Ly9pcGZzLmJpdG1hcmsuY29tL2lwZnMvUW1UbjNQZkhIdm9ESEthd1RQWHV0cXhBazJrOHluRks5Y1pmc1N3Z2dyeWprWCI+PC9pZnJhbWU+IDwvYm9keT48L2h0bWw+");
+    // This test case now will be broken when ganache restarted (the account changes).
+    assert.equal(metadataJSON.animation_url, "data:text/html;base64,PCFET0NUWVBFIGh0bWw+PGh0bWwgbGFuZz0iZW4iPjxoZWFkPjxzY3JpcHQ+IHZhciBkZWZhdWx0QXJ0d29ya0RhdGE9IHtsYW5kT3duZXI6IjB4MDE3N2JhMmFkMDVjYjEyZDZkZDYzNzk2M2UwNDAwOTI2NzZlZThkZSIsIG93bmVyTWFwOnswOiIweDQzMTJmOGNkMTcxYmRkNTdkY2U4NWJjNGJmNzE5MTYxODJiZmIzM2UiLDE6IjB4YjI3Nzc3NWJkMzI2NzA2MzZhMTFjMDZlMmY2ZGQ3ZjZiNjVmMDdjYiIsMjoiMHgxMjZhYmUwMzNkYmNlNGU1YWQ3ZTU4OWY2MmExMmJjNDk5ZjNmMTBhIiwzOiIweDEyNmFiZTAzM2RiY2U0ZTVhZDdlNTg5ZjYyYTEyYmM0OTlmM2YxMGEiLDQ6IjB4MzlhYzExYTM1ODFjZmIzMDYxMzYzOTY3ZDI3NDZmNzBiNjhlNDI3ZiIsfX08L3NjcmlwdD48c2NyaXB0PmxldCBhbGxvd09yaWdpbnM9eyJodHRwczovL2ZlcmFsZmlsZS5jb20iOiEwfTtmdW5jdGlvbiByZXNpemVJZnJhbWUoZSl7bGV0IHQ9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoIm1haW5mcmFtZSIpO2UmJih0LnN0eWxlLm1pbkhlaWdodD1lKyJweCIpfWZ1bmN0aW9uIGluaXREYXRhKCl7ZGVmYXVsdEFydHdvcmtEYXRhLm93bmVyQXJyYXk9W107bGV0IGU9ZGVmYXVsdEFydHdvcmtEYXRhLm93bmVyTWFwO09iamVjdC5rZXlzKGUpLnNvcnQoKGUsdCk9PmU8dCkuZm9yRWFjaCh0PT57ZGVmYXVsdEFydHdvcmtEYXRhLm93bmVyQXJyYXkucHVzaChlW3RdKX0pLHB1c2hBcnR3b3JrRGF0YVRvSWZyYW1lKGRlZmF1bHRBcnR3b3JrRGF0YSl9ZnVuY3Rpb24gcHVzaEFydHdvcmtEYXRhVG9JZnJhbWUoZSl7ZSYmZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoIm1haW5mcmFtZSIpLmNvbnRlbnRXaW5kb3cucG9zdE1lc3NhZ2UoZSwiKiIpfWZ1bmN0aW9uIHVwZGF0ZUFydG93cmtEYXRhKGUpe2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJtYWluZnJhbWUiKS5jb250ZW50V2luZG93LnBvc3RNZXNzYWdlKGUsIioiKX13aW5kb3cuYWRkRXZlbnRMaXN0ZW5lcigibWVzc2FnZSIsZnVuY3Rpb24oZSl7YWxsb3dPcmlnaW5zW2Uub3JpZ2luXT8idXBkYXRlLWFydHdvcmstZGF0YSI9PT1lLmRhdGEudHlwZSYmdXBkYXRlQXJ0b3dya0RhdGEoZS5kYXRhLmFydHdvcmtEYXRhKToib2JqZWN0Ij09dHlwZW9mIGUuZGF0YSYmInJlc2l6ZS1pZnJhbWUiPT09ZS5kYXRhLnR5cGUmJnJlc2l6ZUlmcmFtZShlLmRhdGEubmV3SGVpZ2h0KX0pOzwvc2NyaXB0PjwvaGVhZD48Ym9keSBzdHlsZT0ib3ZlcmZsb3cteDpoaWRkZW47cGFkZGluZzowO21hcmdpbjowO3dpZHRoOjEwMCU7IiBvbmxvYWQ9ImluaXREYXRhKCkiPjxpZnJhbWUgaWQ9Im1haW5mcmFtZSIgc3R5bGU9ImRpc3BsYXk6YmxvY2s7cGFkZGluZzowO21hcmdpbjowO2JvcmRlcjpub25lO3dpZHRoOjEwMCU7aGVpZ2h0OjEwMHZoOyIgc3JjPSJodHRwczovL2lwZnMuYml0bWFyay5jb20vaXBmcy9RbVhzRFZFc3pvNFh6eVZLM1VGOG1LelVOZmFVVDNmcFh3YXJjYTZWbUdQd3ZxIj48L2lmcmFtZT4gPC9ib2R5PjwvaHRtbD4=");
   })
 
   it('test update artwork external file CIDs', async function () {

@@ -153,18 +153,20 @@ contract FeralfileExhibitionV3_3 is FeralfileExhibitionV3_2 {
     {
         Decentraland dc = Decentraland(decentralandAddress);
         uint256[] memory editionIDs = allArtworkEditions[artworkID];
-        bytes memory ownersArray = bytes("[");
+        bytes memory ownersMap = bytes("{");
 
         for (uint256 i = 0; i < editionIDs.length; i++) {
-            ownersArray = abi.encodePacked(
-                ownersArray,
-                '"',
-                Strings.toHexString(ownerOf(editionIDs[i])),
+            uint256 tokenID = editionIDs[i];
+            ownersMap = abi.encodePacked(
+                ownersMap,
+                (tokenID - artworkID).toString(),
+                ':"',
+                Strings.toHexString(ownerOf(tokenID)),
                 '",'
             );
         }
 
-        ownersArray = abi.encodePacked(ownersArray, "]");
+        ownersMap = abi.encodePacked(ownersMap, "}");
 
         return
             string(
@@ -172,8 +174,8 @@ contract FeralfileExhibitionV3_3 is FeralfileExhibitionV3_2 {
                     "{"
                     'landOwner:"',
                     Strings.toHexString(dc.ownerOf(decentralandTokenID)),
-                    '", ownerArray:',
-                    string(ownersArray),
+                    '", ownerMap:',
+                    string(ownersMap),
                     "}"
                 )
             );
@@ -193,11 +195,12 @@ contract FeralfileExhibitionV3_3 is FeralfileExhibitionV3_2 {
                     '<!DOCTYPE html><html lang="en"><head><script> var defaultArtworkData= ',
                     artworkData,
                     "</script><script>"
-                    'let allowOrigins={"https://feralfile.com":!0};function resizeIframe(t){let e=document.getElementById("mainframe");t&&(e.style.minHeight=t+"px")}'
-                    'function initData(){pushArtworkDataToIframe(defaultArtworkData)}function pushArtworkDataToIframe(t){t&&document.getElementById("mainframe").contentWindow.postMessage(t,"*")}'
-                    'function updateArtowrkData(t){document.getElementById("mainframe").contentWindow.postMessage(t,"*")}window.addEventListener("message",function(t){allowOrigins[t.origin]?'
-                    '"update-artwork-data"===t.data.type&&updateArtowrkData(t.data.artworkData):"object"==typeof t.data&&"resize-iframe"===t.data.type&&resizeIframe(t.data.newHeight)});</script>'
-                    '</head><body style="overflow-x:hidden;padding:0;margin:0;width: 100%;" onload="initData()">'
+                    'let allowOrigins={"https://feralfile.com":!0};function resizeIframe(e){let t=document.getElementById("mainframe");e&&(t.style.minHeight=e+"px")}'
+                    "function initData(){defaultArtworkData.ownerArray=[];let e=defaultArtworkData.ownerMap;Object.keys(e).sort((e,t)=>e<t).forEach(t=>{defaultArtworkData.ownerArray.push(e[t])}),"
+                    'pushArtworkDataToIframe(defaultArtworkData)}function pushArtworkDataToIframe(e){e&&document.getElementById("mainframe").contentWindow.postMessage(e,"*")}'
+                    'function updateArtowrkData(e){document.getElementById("mainframe").contentWindow.postMessage(e,"*")}window.addEventListener("message",function(e){allowOrigins[e.origin]?'
+                    '"update-artwork-data"===e.data.type&&updateArtowrkData(e.data.artworkData):"object"==typeof e.data&&"resize-iframe"===e.data.type&&resizeIframe(e.data.newHeight)});'
+                    '</script></head><body style="overflow-x:hidden;padding:0;margin:0;width:100%;" onload="initData()">'
                     '<iframe id="mainframe" style="display:block;padding:0;margin:0;border:none;width:100%;height:100vh;" src="',
                     iframeURI,
                     '"></iframe> </body></html>'
