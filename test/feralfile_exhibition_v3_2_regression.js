@@ -56,8 +56,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       console.log(error.message);
 
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert an artwork with the same fingerprint has already registered'
+        error.reason,
+        'an artwork with the same fingerprint has already registered'
       );
     }
   });
@@ -71,8 +71,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       console.log(error.message);
 
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert fingerprint can not be empty'
+        error.reason,
+        'fingerprint can not be empty'
       );
     }
   });
@@ -86,8 +86,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       console.log(error.message);
 
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert title can not be empty'
+        error.reason,
+        'title can not be empty'
       );
     }
   });
@@ -101,8 +101,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       console.log(error.message);
 
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert artist can not be empty'
+        error.reason,
+        'artist can not be empty'
       );
     }
   });
@@ -116,8 +116,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       console.log(error.message);
 
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert edition size needs to be at least 1'
+        error.reason,
+        'edition size needs to be at least 1'
       );
     }
   });
@@ -153,8 +153,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       );
     } catch (error) {
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert artwork edition is not found'
+        error.reason,
+        'artwork edition is not found'
       );
     }
   });
@@ -167,8 +167,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       await this.exhibition.updateArtworkEditionIPFSCid(editionID, newCID);
     } catch (error) {
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert artwork edition is not found'
+        error.reason,
+        'artwork edition is not found'
       );
     }
   });
@@ -178,8 +178,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       await this.exhibition.setRoyaltyPayoutAddress(ZERO_ADDRESS);
     } catch (error) {
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert invalid royalty payout address'
+        error.reason,
+        'invalid royalty payout address'
       );
     }
   });
@@ -189,8 +189,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       await this.exhibition.setRoyaltyPayoutAddress(ZERO_ADDRESS);
     } catch (error) {
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert invalid royalty payout address'
+        error.reason,
+        'invalid royalty payout address'
       );
     }
   });
@@ -308,8 +308,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       ]);
     } catch (error) {
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: the transfer request is expired'
+        error.reason,
+        'FeralfileExhibitionV3: the transfer request is expired'
       );
     }
   });
@@ -347,8 +347,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       ]);
     } catch (error) {
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert FeralfileExhibitionV3: the transfer request is not authorized'
+        error.reason,
+        'FeralfileExhibitionV3: the transfer request is not authorized'
       );
     }
   });
@@ -393,8 +393,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
       let burnedResult = await this.exhibition.burnEditions([editionID]);
     } catch (error) {
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert ERC721: caller is not token owner nor approved'
+        error.reason,
+        'ERC721: caller is not token owner nor approved'
       );
     }
   });

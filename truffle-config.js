@@ -125,7 +125,7 @@ module.exports = {
   db: {
     enabled: false,
   },
-  plugins: ['truffle-plugin-verify'],
+  plugins: ['truffle-plugin-verify', 'solidity-coverage'],
   api_keys: {
     etherscan: etherscan_api,
   },

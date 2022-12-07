@@ -8,7 +8,8 @@
   },
   "scripts": {
     "flattern": "truffle-flattener",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx truffle test -g FeralfileExhibitionV3_2",
+    "coverage": "npx truffle run coverage --file 'test/feralfile_exhibition_v3_2*'"
   },
   "author": "",
   "license": "ISC",
@@ -18,6 +19,10 @@
     "axios": "^0.27.2"
   },
   "devDependencies": {
+    "coveralls": "^3.1.1",
+    "ganache-cli": "^6.12.2",
+    "solidity-coverage": "^0.7.22",
+    "truffle": "^5.4.33",
     "truffle-flattener": "^1.6.0",
     "truffle-plugin-verify": "^0.5.28"
   }

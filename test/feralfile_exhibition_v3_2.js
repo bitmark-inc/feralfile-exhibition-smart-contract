@@ -83,8 +83,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     } catch (error) {
       onError = true
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert operator is not allowed'
+        error.reason,
+        'operator is not allowed'
       );
     }
     assert.equal(onError, true)
@@ -108,8 +108,8 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     } catch (error) {
       onError = true
       assert.equal(
-        error.message,
-        'Returned error: VM Exception while processing transaction: revert ERC721: caller is not token owner nor approved'
+        error.reason,
+        'ERC721: caller is not token owner nor approved'
       );
     }
     assert.equal(onError, true)
