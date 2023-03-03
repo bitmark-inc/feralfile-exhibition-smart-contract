@@ -1,7 +1,5 @@
 const FeralfileExhibitionV3_2 = artifacts.require('FeralfileExhibitionV3_2');
 
-const axios = require('axios');
-
 const IPFS_GATEWAY_PREFIX = 'https://cloudflare-ipfs.com/ipfs/';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -70,10 +68,7 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     } catch (error) {
       console.log(error.message);
 
-      assert.equal(
-        error.reason,
-        'fingerprint can not be empty'
-      );
+      assert.equal(error.reason, 'fingerprint can not be empty');
     }
   });
 
@@ -85,10 +80,7 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     } catch (error) {
       console.log(error.message);
 
-      assert.equal(
-        error.reason,
-        'title can not be empty'
-      );
+      assert.equal(error.reason, 'title can not be empty');
     }
   });
 
@@ -100,10 +92,7 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     } catch (error) {
       console.log(error.message);
 
-      assert.equal(
-        error.reason,
-        'artist can not be empty'
-      );
+      assert.equal(error.reason, 'artist can not be empty');
     }
   });
 
@@ -115,10 +104,7 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     } catch (error) {
       console.log(error.message);
 
-      assert.equal(
-        error.reason,
-        'edition size needs to be at least 1'
-      );
+      assert.equal(error.reason, 'edition size needs to be at least 1');
     }
   });
 
@@ -152,10 +138,7 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
         originArtworkCID
       );
     } catch (error) {
-      assert.equal(
-        error.reason,
-        'artwork edition is not found'
-      );
+      assert.equal(error.reason, 'artwork edition is not found');
     }
   });
 
@@ -166,10 +149,7 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     try {
       await this.exhibition.updateArtworkEditionIPFSCid(editionID, newCID);
     } catch (error) {
-      assert.equal(
-        error.reason,
-        'artwork edition is not found'
-      );
+      assert.equal(error.reason, 'artwork edition is not found');
     }
   });
 
@@ -177,10 +157,7 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     try {
       await this.exhibition.setRoyaltyPayoutAddress(ZERO_ADDRESS);
     } catch (error) {
-      assert.equal(
-        error.reason,
-        'invalid royalty payout address'
-      );
+      assert.equal(error.reason, 'invalid royalty payout address');
     }
   });
 
@@ -188,10 +165,7 @@ contract('FeralfileExhibitionV3_2', async (accounts) => {
     try {
       await this.exhibition.setRoyaltyPayoutAddress(ZERO_ADDRESS);
     } catch (error) {
-      assert.equal(
-        error.reason,
-        'invalid royalty payout address'
-      );
+      assert.equal(error.reason, 'invalid royalty payout address');
     }
   });
 

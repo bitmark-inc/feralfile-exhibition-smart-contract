@@ -1,7 +1,5 @@
 const FeralfileExhibitionV3 = artifacts.require('FeralfileExhibitionV3');
 
-const axios = require('axios');
-
 const IPFS_GATEWAY_PREFIX = 'https://cloudflare-ipfs.com/ipfs/';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
