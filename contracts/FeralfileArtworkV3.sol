@@ -107,13 +107,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         isBridgeable = isBridgeable_;
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override(ERC721Enumerable, IERC165)
-        returns (bool)
-    {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(ERC721Enumerable, IERC165) returns (bool) {
         return
             interfaceId == type(IERC721Enumerable).interfaceId ||
             super.supportsInterface(interfaceId);
@@ -164,10 +160,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
 
     /// @notice createArtworks use for create list of artworks in a transaction
     /// @param artworks_ - the array of artwork
-    function createArtworks(Artwork[] memory artworks_)
-        external
-        onlyAuthorized
-    {
+    function createArtworks(
+        Artwork[] memory artworks_
+    ) external onlyAuthorized {
         for (uint256 i = 0; i < artworks_.length; i++) {
             _createArtwork(
                 artworks_[i].fingerprint,
@@ -186,12 +181,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     }
 
     /// @notice Return the token identifier for the `index`th artwork
-    function getArtworkByIndex(uint256 index)
-        public
-        view
-        virtual
-        returns (uint256)
-    {
+    function getArtworkByIndex(
+        uint256 index
+    ) public view virtual returns (uint256) {
         require(
             index < totalArtworks(),
             "artworks: global index out of bounds"
@@ -200,10 +192,10 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     }
 
     /// @notice Update the IPFS cid of an edition to a new value
-    function updateArtworkEditionIPFSCid(uint256 tokenId, string memory ipfsCID)
-        external
-        onlyAuthorized
-    {
+    function updateArtworkEditionIPFSCid(
+        uint256 tokenId,
+        string memory ipfsCID
+    ) external onlyAuthorized {
         require(_exists(tokenId), "artwork edition is not found");
         require(!registeredIPFSCIDs[ipfsCID], "ipfs id has registered");
 
@@ -216,10 +208,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     /// @notice setRoyaltyPayoutAddress assigns a payout address so
     //          that we can split the royalty.
     /// @param royaltyPayoutAddress_ - the new royalty payout address
-    function setRoyaltyPayoutAddress(address royaltyPayoutAddress_)
-        external
-        onlyAuthorized
-    {
+    function setRoyaltyPayoutAddress(
+        address royaltyPayoutAddress_
+    ) external onlyAuthorized {
         require(
             royaltyPayoutAddress_ != address(0),
             "invalid royalty payout address"
@@ -228,32 +219,25 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     }
 
     /// @notice Return the edition counts for an artwork
-    function totalEditionOfArtwork(uint256 artworkID)
-        public
-        view
-        returns (uint256)
-    {
+    function totalEditionOfArtwork(
+        uint256 artworkID
+    ) public view returns (uint256) {
         return allArtworkEditions[artworkID].length;
     }
 
     /// @notice Return the edition id of an artwork by index
-    function getArtworkEditionByIndex(uint256 artworkID, uint256 index)
-        public
-        view
-        returns (uint256)
-    {
+    function getArtworkEditionByIndex(
+        uint256 artworkID,
+        uint256 index
+    ) public view returns (uint256) {
         require(index < totalEditionOfArtwork(artworkID));
         return allArtworkEditions[artworkID][index];
     }
 
     /// @notice A distinct Uniform Resource Identifier (URI) for a given asset.
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        virtual
-        override
-        returns (string memory)
-    {
+    function tokenURI(
+        uint256 tokenId
+    ) public view virtual override returns (string memory) {
         require(
             _exists(tokenId),
             "ERC721Metadata: URI query for nonexistent token"
@@ -284,12 +268,10 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     /// @param salePrice - the sale price of the NFT asset specified by tokenId
     /// @return receiver - address of who should be sent the royalty payment
     /// @return royaltyAmount - the royalty payment amount for salePrice
-    function royaltyInfo(uint256 tokenId, uint256 salePrice)
-        external
-        view
-        override
-        returns (address receiver, uint256 royaltyAmount)
-    {
+    function royaltyInfo(
+        uint256 tokenId,
+        uint256 salePrice
+    ) external view override returns (address receiver, uint256 royaltyAmount) {
         require(
             _exists(tokenId),
             "ERC2981: query royalty info for nonexistent token"
@@ -327,18 +309,17 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
 
     /// @notice authorizedTransfer use for transfer list of items in a transaction
     /// @param transferParams_ - the array of transfer parameters
-    function authorizedTransfer(TransferArtworkParam[] memory transferParams_)
-        external
-        onlyAuthorized
-    {
+    function authorizedTransfer(
+        TransferArtworkParam[] memory transferParams_
+    ) external onlyAuthorized {
         for (uint256 i = 0; i < transferParams_.length; i++) {
             _authorizedTransfer(transferParams_[i]);
         }
     }
 
-    function _authorizedTransfer(TransferArtworkParam memory transferParam_)
-        private
-    {
+    function _authorizedTransfer(
+        TransferArtworkParam memory transferParam_
+    ) private {
         require(
             _exists(transferParam_.tokenID),
             "ERC721: artwork edition is not found"
@@ -384,10 +365,9 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
 
     /// @notice batchMint is function mint array of tokens
     /// @param mintParams_ - the array of transfer parameters
-    function batchMint(MintArtworkParam[] memory mintParams_)
-        external
-        onlyAuthorized
-    {
+    function batchMint(
+        MintArtworkParam[] memory mintParams_
+    ) external virtual onlyAuthorized {
         for (uint256 i = 0; i < mintParams_.length; i++) {
             _mintArtwork(
                 mintParams_[i].artworkID,
@@ -411,7 +391,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         address artist_,
         address owner_,
         string memory ipfsCID_
-    ) private {
+    ) internal {
         /// @notice the edition size is not set implies the artwork is not created
         require(
             artworks[artworkID_].editionSize > 0,
