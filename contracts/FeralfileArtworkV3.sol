@@ -386,6 +386,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
     /// @param mintParams_ - the array of transfer parameters
     function batchMint(MintArtworkParam[] memory mintParams_)
         external
+        virtual
         onlyAuthorized
     {
         for (uint256 i = 0; i < mintParams_.length; i++) {
@@ -411,7 +412,7 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
         address artist_,
         address owner_,
         string memory ipfsCID_
-    ) private {
+    ) internal {
         /// @notice the edition size is not set implies the artwork is not created
         require(
             artworks[artworkID_].editionSize > 0,
