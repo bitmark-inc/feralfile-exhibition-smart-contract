@@ -24,6 +24,6 @@
     "solidity-coverage": "^0.7.22",
     "truffle": "^5.4.33",
     "truffle-flattener": "^1.6.0",
-    "truffle-plugin-verify": "^0.5.28"
+    "truffle-plugin-verify": "0.6.2"
   }
 }

@@ -5,11 +5,11 @@ const argv = require('minimist')(process.argv.slice(2), {
 });
 
 module.exports = function (deployer) {
-  let exhibition_name = argv.exhibition_name || 'Feral File V3';
-  let exhibition_symbol = argv.exhibition_symbol || 'FFDV2001';
+  let exhibition_name = argv.exhibition_name || 'FFV3';
+  let exhibition_symbol = argv.exhibition_symbol || 'FFV3';
   let exhibition_royalty_payout_address =
     argv.exhibition_royalty_payout_address ||
-    '0x2760869A50D48F1C67253C4461c0A6f9e1440Cac';
+    '0xdB33365a8730de2F7574ff1189fB9D337bF4c36d';
   let exhibition_secondary_sale_royalty_bps =
     argv.exhibition_secondary_sale_royalty_bps || 1000;
   let burnable = argv.burnable || true;
