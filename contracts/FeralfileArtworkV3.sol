@@ -476,14 +476,13 @@ contract FeralfileExhibitionV3 is ERC721Enumerable, Authorizable, IERC2981 {
             "FeralfileExhibitionV3: no editions in this artwork of allArtworkEditions"
         );
 
-        uint256 lastEditionIndex = artworkEditions_.length - 1;
         uint256 lastEditionID = artworkEditions_[artworkEditions_.length - 1];
 
         // Swap between the last token and the to-delete token and pop up the last token
         artworkEditions_[artworkEditionIndex.index] = lastEditionID;
-        artworkEditions_[lastEditionIndex] = artworkEditionIndex.index;
         artworkEditions_.pop();
-
+        allArtworkEditionsIndex[lastEditionID].index = artworkEditionIndex
+            .index;
         delete allArtworkEditionsIndex[editionID];
     }
 

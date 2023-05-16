@@ -8,7 +8,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 const originArtworkCID = 'QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc';
 
-contract('FeralfileExhibitionV3', async (accounts) => {
+contract('FeralfileExhibitionV3_0', async (accounts) => {
   before(async function () {
     this.exhibition = await FeralfileExhibitionV3.new(
       'Feral File V3 Test 001',
@@ -354,20 +354,32 @@ contract('FeralfileExhibitionV3', async (accounts) => {
   });
 
   it('test burn edition successfully', async function () {
-    let editionNumber = 8;
+    let editionNumber1 = 8;
+    let editionNumber2 = 9;
+    let editionNumber3 = 10;
 
     await this.exhibition.batchMint([
-      [this.artworkID, editionNumber, accounts[0], accounts[0], 'test8'],
+      [this.artworkID, editionNumber1, accounts[0], accounts[0], 'test8'],
+    ]);
+    await this.exhibition.batchMint([
+      [this.artworkID, editionNumber2, accounts[0], accounts[0], 'test9'],
+    ]);
+    await this.exhibition.batchMint([
+      [this.artworkID, editionNumber3, accounts[0], accounts[0], 'test10'],
     ]);
 
-    let editionID = BigInt(this.artworkID) + BigInt(editionNumber);
+    let editionID1 = BigInt(this.artworkID) + BigInt(editionNumber1);
+    let editionID2 = BigInt(this.artworkID) + BigInt(editionNumber2);
+    let editionID3 = BigInt(this.artworkID) + BigInt(editionNumber3);
 
     let editionCountBeforeBurn = await this.exhibition.totalEditionOfArtwork(
       this.artworkID
     );
-    assert.equal(editionCountBeforeBurn.toNumber(), 7);
+    assert.equal(editionCountBeforeBurn.toNumber(), 9);
 
-    await this.exhibition.burnEditions([editionID]);
+    await this.exhibition.burnEditions([editionID1]);
+    await this.exhibition.burnEditions([editionID2]);
+    await this.exhibition.burnEditions([editionID3]);
     let editionCountAfterBurn = await this.exhibition.totalEditionOfArtwork(
       this.artworkID
     );
@@ -375,7 +387,7 @@ contract('FeralfileExhibitionV3', async (accounts) => {
   });
 
   it('test burn edition failed', async function () {
-    let editionNumber = 9;
+    let editionNumber = 11;
 
     await this.exhibition.batchMint([
       [
