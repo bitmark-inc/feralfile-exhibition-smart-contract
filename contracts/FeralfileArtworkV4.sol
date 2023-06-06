@@ -47,7 +47,7 @@ contract FeralfileExhibitionV4 is
     struct Artwork {
         uint256 seriesIndex;
         uint256 artworkIndex;
-        string  ipfsCID;
+        string ipfsCID;
     }
 
     struct Royalty {
@@ -57,7 +57,7 @@ contract FeralfileExhibitionV4 is
 
     struct SaleData {
         uint price; // in wei
-        uint cost;  // in wei
+        uint cost; // in wei
         uint expiryTime;
         Royalty[] royalties; // address: royalty bps (500 means 5%)
     }
@@ -114,8 +114,7 @@ contract FeralfileExhibitionV4 is
             baseURI = "ipfs://";
         }
 
-        return
-            string(abi.encodePacked(baseURI, artworks[tokenId_].ipfsCID));
+        return string(abi.encodePacked(baseURI, artworks[tokenId_].ipfsCID));
     }
 
     /// @notice Update the base URI for all tokens
@@ -128,7 +127,7 @@ contract FeralfileExhibitionV4 is
         return _contractURI;
     }
 
-    /// @notice the signer would sign the data of 
+    /// @notice the signer would sign the data of
     /// @param signer_ - the address of signer
     function setSigner(address signer_) external onlyOwner {
         signer = signer_;
@@ -170,11 +169,9 @@ contract FeralfileExhibitionV4 is
 
     /// @notice batchMint is function mint array of tokens
     /// @param mintParams_ - the array of transfer parameters
-    function mintArtworks(Artwork[] memory mintParams_)
-        external
-        virtual
-        onlyAuthorized
-    {
+    function mintArtworks(
+        Artwork[] memory mintParams_
+    ) external virtual onlyAuthorized {
         for (uint256 i = 0; i < mintParams_.length; i++) {
             _mintArtwork(
                 mintParams_[i].seriesIndex,
@@ -194,14 +191,19 @@ contract FeralfileExhibitionV4 is
         string memory ipfsCID_
     ) internal {
         require(canMint, "FeralfileExhibitionV4: not in minting stage");
-        require(seriesIndex_ >= 0, "FeralfileExhibitionV4: invalid series index");
+        require(
+            seriesIndex_ >= 0,
+            "FeralfileExhibitionV4: invalid series index"
+        );
 
         require(
             !registeredIPFSCIDs[ipfsCID_],
             "FeralfileExhibitionV4: IPFS cid already registered"
         );
 
-        uint256 artworkID = (seriesIndex_ + 1) * ARTWORK_ID_MULTIPLE + artworkIndex_;
+        uint256 artworkID = (seriesIndex_ + 1) *
+            ARTWORK_ID_MULTIPLE +
+            artworkIndex_;
         _mint(address(this), artworkID);
         artworks[artworkID] = Artwork(seriesIndex_, artworkIndex_, ipfsCID_);
         registeredIPFSCIDs[ipfsCID_] = true;
@@ -225,9 +227,12 @@ contract FeralfileExhibitionV4 is
         SaleData calldata saleData_
     ) external payable {
         require(isSelling, "FeralfileExhibitionV4: sale is not started");
-        require(tokenIds_.length > 0, "FeralfileExhibitionV4: tokenIds is empty");
         require(
-            saleData_.expiryTime > block.timestamp, 
+            tokenIds_.length > 0,
+            "FeralfileExhibitionV4: tokenIds is empty"
+        );
+        require(
+            saleData_.expiryTime > block.timestamp,
             "FeralfileExhibitionV4: sale is expired"
         );
         require(
@@ -246,7 +251,8 @@ contract FeralfileExhibitionV4 is
         );
 
         require(
-            isValidRequest(requestHash, signer, r_, s_, v_), "FeralfileExhibitionV4: invalid signature"
+            isValidRequest(requestHash, signer, r_, s_, v_),
+            "FeralfileExhibitionV4: invalid signature"
         );
 
         // send NFT
@@ -268,7 +274,7 @@ contract FeralfileExhibitionV4 is
     function burnArtworks(uint256[] memory artworkIDs_) public {
         require(isBurnable, "FeralfileExhibitionV4: not burnable");
         for (uint256 i = 0; i < artworkIDs_.length; i++) {
-             require(
+            require(
                 _exists(artworkIDs_[i]),
                 "FeralfileExhibitionV4: artwork not found"
             );
@@ -280,12 +286,16 @@ contract FeralfileExhibitionV4 is
             delete artworks[artworkIDs_[i]];
 
             _burn(artworkIDs_[i]);
-            
+
             emit BurnArtwork(artworkIDs_[i]);
         }
     }
 
-    event NewArtwork(address indexed owner, uint256 indexed artworkIndex, uint256 indexed artworkID);
+    event NewArtwork(
+        address indexed owner,
+        uint256 indexed artworkIndex,
+        uint256 indexed artworkID
+    );
     event BuyArtwork(address indexed buyer, uint256 indexed tokenId);
     event BurnArtwork(uint256 indexed artworkID);
 }
