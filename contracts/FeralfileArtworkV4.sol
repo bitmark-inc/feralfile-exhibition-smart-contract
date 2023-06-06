@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./Authorizable.sol";
 import "./UpdateableOperatorFilterer.sol";
+import "./FeralfileVault.sol";
 
 contract FeralfileExhibitionV4 is
     IERC165,
@@ -38,11 +39,14 @@ contract FeralfileExhibitionV4 is
     // contract URI
     string private _contractURI;
 
+    // vault contract address
+    address private _vaultAddress;
+
     // default true and set to false when the sale starts
-    bool private canMint = true;
+    bool private _canMint = true;
 
     // default false and set to true when the sale starts
-    bool private isSelling = false;
+    bool private _isSelling = false;
 
     struct Artwork {
         uint256 seriesIndex;
@@ -56,13 +60,15 @@ contract FeralfileExhibitionV4 is
     }
 
     struct SaleData {
-        uint price; // in wei
-        uint cost; // in wei
-        uint expiryTime;
-        Royalty[] royalties; // address: royalty bps (500 means 5%)
+        uint256 price; // in wei
+        uint256 cost; // in wei
+        uint256 expiryTime;
+        address destination;
+        uint256[] tokenIds;
+        Royalty[][] royalties; // address and royalty bps (500 means 5%)
+        bool payByVaultContract; // get eth from vault contract, used by credit card pay that proxy by ITX
     }
 
-    mapping(string => bool) internal registeredIPFSCIDs; // ipfsCID => bool
     mapping(uint256 => Artwork) public artworks; //  => tokenID => Artwork
 
     constructor(
@@ -71,6 +77,7 @@ contract FeralfileExhibitionV4 is
         string memory contractURI_,
         string memory tokenBaseURI_,
         address signer_,
+        address vaultAddress_,
         bool isBurnable_,
         bool isBridgeable_
     ) ERC721(name_, symbol_) {
@@ -79,6 +86,7 @@ contract FeralfileExhibitionV4 is
         _contractURI = contractURI_;
         _tokenBaseURI = tokenBaseURI_;
         signer = signer_;
+        _vaultAddress = vaultAddress_;
     }
 
     function supportsInterface(
@@ -133,15 +141,21 @@ contract FeralfileExhibitionV4 is
         signer = signer_;
     }
 
+    /// @notice the vault contract address
+    /// @param vaultAddress_ - the address of vault contract
+    function setVaultContract(address vaultAddress_) external onlyOwner {
+        _vaultAddress = vaultAddress_;
+    }
+
     // @notice to start the sale
     function startSale() external onlyOwner {
-        canMint = false;
-        isSelling = true;
+        _canMint = false;
+        _isSelling = true;
     }
 
     // @notice to end the sale
     function endSale() external onlyOwner {
-        isSelling = false;
+        _isSelling = false;
     }
 
     /// @notice isValidRequest validates a message by ecrecover to ensure
@@ -190,23 +204,15 @@ contract FeralfileExhibitionV4 is
         uint256 artworkIndex_,
         string memory ipfsCID_
     ) internal {
-        require(canMint, "FeralfileExhibitionV4: not in minting stage");
+        require(_canMint, "FeralfileExhibitionV4: not in minting stage");
         require(
-            seriesIndex_ >= 0,
+            seriesIndex_ > 0,
             "FeralfileExhibitionV4: invalid series index"
         );
 
-        require(
-            !registeredIPFSCIDs[ipfsCID_],
-            "FeralfileExhibitionV4: IPFS cid already registered"
-        );
-
-        uint256 artworkID = (seriesIndex_ + 1) *
-            ARTWORK_ID_MULTIPLE +
-            artworkIndex_;
+        uint256 artworkID = seriesIndex_ * ARTWORK_ID_MULTIPLE + artworkIndex_;
         _mint(address(this), artworkID);
         artworks[artworkID] = Artwork(seriesIndex_, artworkIndex_, ipfsCID_);
-        registeredIPFSCIDs[ipfsCID_] = true;
 
         emit NewArtwork(address(this), artworkIndex_, artworkID);
     }
@@ -215,57 +221,62 @@ contract FeralfileExhibitionV4 is
     /// @param r_ - part of signature for validating parameters integrity
     /// @param s_ - part of signature for validating parameters integrity
     /// @param v_ - part of signature for validating parameters integrity
-    /// @param destination_ - the address of receiver
-    /// @param tokenIds_ - the array of token id
     /// @param saleData_ - the sale data
     function buyArtworks(
         bytes32 r_,
         bytes32 s_,
         uint8 v_,
-        address destination_,
-        uint256[] memory tokenIds_,
         SaleData calldata saleData_
     ) external payable {
-        require(isSelling, "FeralfileExhibitionV4: sale is not started");
+        require(_isSelling, "FeralfileExhibitionV4: sale is not started");
         require(
-            tokenIds_.length > 0,
+            saleData_.tokenIds.length > 0,
             "FeralfileExhibitionV4: tokenIds is empty"
+        );
+        require(
+            saleData_.tokenIds.length == saleData_.royalties.length,
+            "FeralfileExhibitionV4: tokenIds and royalties length mismatch"
         );
         require(
             saleData_.expiryTime > block.timestamp,
             "FeralfileExhibitionV4: sale is expired"
         );
         require(
-            saleData_.cost == msg.value,
-            "FeralfileExhibitionV4: invalid payment amount"
+            saleData_.price == msg.value,
+            "FeralfileExhibitionV4: invalid payable amount and price"
         );
 
-        bytes32 requestHash = keccak256(
-            abi.encode(
-                destination_,
-                tokenIds_,
-                saleData_.price,
-                saleData_.cost,
-                saleData_.expiryTime
-            )
-        );
+        if (saleData_.payByVaultContract) {
+            // pay eth by vault contract
+            FeralfileVault(payable(_vaultAddress)).pay(saleData_.cost);
+        }
+
+        bytes32 requestHash = keccak256(abi.encode(saleData_));
 
         require(
             isValidRequest(requestHash, signer, r_, s_, v_),
             "FeralfileExhibitionV4: invalid signature"
         );
 
-        // send NFT
-        for (uint256 i = 0; i < tokenIds_.length; i++) {
-            _safeTransfer(address(this), destination_, tokenIds_[i], "");
+        uint256 itemCost = saleData_.cost / saleData_.tokenIds.length;
 
-            emit BuyArtwork(destination_, tokenIds_[i]);
-        }
-        // distribute royalty
-        for (uint256 i = 0; i < saleData_.royalties.length; i++) {
-            payable(saleData_.royalties[i].recipient).transfer(
-                (msg.value * saleData_.royalties[i].bps) / 10000
+        for (uint256 i = 0; i < saleData_.tokenIds.length; i++) {
+            // send NFT
+            _safeTransfer(
+                address(this),
+                saleData_.destination,
+                saleData_.tokenIds[i],
+                ""
             );
+
+            // distribute royalty
+            for (uint256 j = 0; j < saleData_.royalties[i].length; j++) {
+                payable(saleData_.royalties[i][j].recipient).transfer(
+                    (itemCost * saleData_.royalties[i][j].bps) / 10000
+                );
+            }
+
+            emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i]);
         }
     }
 
@@ -282,13 +293,20 @@ contract FeralfileExhibitionV4 is
                 _isApprovedOrOwner(_msgSender(), artworkIDs_[i]),
                 "FeralfileExhibitionV4: caller is not owner nor approved"
             );
-            delete registeredIPFSCIDs[artworks[artworkIDs_[i]].ipfsCID];
             delete artworks[artworkIDs_[i]];
 
             _burn(artworkIDs_[i]);
 
             emit BurnArtwork(artworkIDs_[i]);
         }
+    }
+
+    // @notice able to recieve funds from vault contract
+    receive() external payable {
+        require(
+            msg.sender == _vaultAddress,
+            "only accept fund from vault contract."
+        );
     }
 
     event NewArtwork(

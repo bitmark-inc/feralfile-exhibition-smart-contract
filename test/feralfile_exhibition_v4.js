@@ -1,4 +1,5 @@
 const FeralfileExhibitionV4 = artifacts.require("FeralfileExhibitionV4");
+const FeralfileVault = artifacts.require("FeralfileVault");
 
 const CONTRACT_URI =
     "https://ipfs.bitmark.com/ipfs/QmaptARVxNSP36PQai5oiCPqbrATvpydcJ8SPx6T6Yp1CZ";
@@ -11,15 +12,20 @@ const originArtworkCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
 contract("FeralfileExhibitionV4", async (accounts) => {
     before(async function () {
+        this.vault = await FeralfileVault.new();
+
         this.exhibition = await FeralfileExhibitionV4.new(
             "Feral File V4 Test 001",
             "FFV4",
             CONTRACT_URI,
             IPFS_GATEWAY_PREFIX,
             accounts[1],
+            this.vault.address,
             true,
             true
         );
+
+        await this.vault.setExhibitionContract(this.exhibition.address);
     });
 
     it("check contract is burnable", async function () {
@@ -39,6 +45,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             CONTRACT_URI,
             IPFS_GATEWAY_PREFIX,
             accounts[1],
+            this.vault.address,
             false,
             true
         );
@@ -53,6 +60,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             CONTRACT_URI,
             IPFS_GATEWAY_PREFIX,
             accounts[1],
+            this.vault.address,
             true,
             false
         );
@@ -62,15 +70,23 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
     it("mint artworks successfully", async function () {
         try {
+            // Mint for buy by crypto
             await this.exhibition.mintArtworks([
-                [0, 0, "CID_1"],
-                [0, 1, "CID_2"],
-                [1, 0, "CID_3"],
-                [1, 1, "CID_4"],
-                [1, 2, "CID_5"],
+                [1, 0, "CID_1"],
+                [1, 1, "CID_2"],
+                [2, 0, "CID_3"],
+                [2, 1, "CID_4"],
+                [2, 2, "CID_5"],
+            ]);
+            // Mint for credit card
+            await this.exhibition.mintArtworks([
+                [1, 2, "CID_1"],
+                [1, 3, "CID_2"],
+                [2, 3, "CID_3"],
+                [2, 4, "CID_4"],
             ]);
             const totalSupply = await this.exhibition.totalSupply();
-            assert.equal(totalSupply, 5);
+            assert.equal(totalSupply, 9);
 
             const ownerOfToken0 = await this.exhibition.ownerOf(1000000);
             const ownerOfToken1 = await this.exhibition.ownerOf(1000001);
@@ -78,22 +94,43 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             const ownerOfToken3 = await this.exhibition.ownerOf(2000001);
             const ownerOfToken4 = await this.exhibition.ownerOf(2000002);
 
+            const ownerOfToken5 = await this.exhibition.ownerOf(1000002);
+            const ownerOfToken6 = await this.exhibition.ownerOf(1000003);
+            const ownerOfToken7 = await this.exhibition.ownerOf(2000003);
+            const ownerOfToken8 = await this.exhibition.ownerOf(2000004);
+
             assert.equal(ownerOfToken0, this.exhibition.address);
             assert.equal(ownerOfToken1, this.exhibition.address);
             assert.equal(ownerOfToken2, this.exhibition.address);
             assert.equal(ownerOfToken3, this.exhibition.address);
             assert.equal(ownerOfToken4, this.exhibition.address);
 
+            assert.equal(ownerOfToken5, this.exhibition.address);
+            assert.equal(ownerOfToken6, this.exhibition.address);
+            assert.equal(ownerOfToken7, this.exhibition.address);
+            assert.equal(ownerOfToken8, this.exhibition.address);
+
             const tokenURIOfToken0 = await this.exhibition.tokenURI(1000000);
             const tokenURIOfToken1 = await this.exhibition.tokenURI(1000001);
             const tokenURIOfToken2 = await this.exhibition.tokenURI(2000000);
             const tokenURIOfToken3 = await this.exhibition.tokenURI(2000001);
             const tokenURIOfToken4 = await this.exhibition.tokenURI(2000002);
+
+            const tokenURIOfToken5 = await this.exhibition.tokenURI(1000002);
+            const tokenURIOfToken6 = await this.exhibition.tokenURI(1000003);
+            const tokenURIOfToken7 = await this.exhibition.tokenURI(2000003);
+            const tokenURIOfToken8 = await this.exhibition.tokenURI(2000004);
+
             assert.equal(tokenURIOfToken0, "ipfs://CID_1");
             assert.equal(tokenURIOfToken1, "ipfs://CID_2");
             assert.equal(tokenURIOfToken2, "ipfs://CID_3");
             assert.equal(tokenURIOfToken3, "ipfs://CID_4");
             assert.equal(tokenURIOfToken4, "ipfs://CID_5");
+
+            assert.equal(tokenURIOfToken5, "ipfs://CID_1");
+            assert.equal(tokenURIOfToken6, "ipfs://CID_2");
+            assert.equal(tokenURIOfToken7, "ipfs://CID_3");
+            assert.equal(tokenURIOfToken8, "ipfs://CID_4");
         } catch (err) {
             console.log(err);
             assert.fail();
@@ -104,13 +141,40 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         // Generate signature
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
         const signParams = web3.eth.abi.encodeParameters(
-            ["address", "uint256[]", "uint", "uint", "uint"],
             [
-                accounts[2],
-                [1000000, 1000001, 2000000, 2000001, 2000002],
-                BigInt(0.25 * 1e18).toString(),
-                BigInt(0.23 * 1e18).toString(),
-                expiryTime,
+                "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
+            ],
+            [
+                [
+                    BigInt(0.25 * 1e18).toString(),
+                    BigInt(0.25 * 1e18).toString(),
+                    expiryTime,
+                    accounts[2],
+                    [1000000, 1000001, 2000000, 2000001, 2000002],
+                    [
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                    ],
+                    false,
+                ],
             ]
         );
         const hash = web3.utils.keccak256(signParams);
@@ -130,18 +194,37 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 r,
                 s,
                 web3.utils.toDecimal(v) + 27, // magic 27
-                accounts[2],
-                [1000000, 1000001, 2000000, 2000001, 2000002],
                 [
                     BigInt(0.25 * 1e18).toString(),
-                    BigInt(0.23 * 1e18).toString(),
+                    BigInt(0.25 * 1e18).toString(),
                     expiryTime,
+                    accounts[2],
+                    [1000000, 1000001, 2000000, 2000001, 2000002],
                     [
-                        [accounts[3], 8000],
-                        [accounts[4], 2000],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
                     ],
+                    false,
                 ],
-                { from: accounts[5], value: 0.23 * 1e18 }
+                { from: accounts[5], value: 0.25 * 1e18 }
             );
             const ownerOfToken0 = await this.exhibition.ownerOf(1000000);
             const ownerOfToken1 = await this.exhibition.ownerOf(1000001);
@@ -161,13 +244,128 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 (
                     BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)
                 ).toString(),
-                BigInt((0.23 * 1e18 * 80) / 100).toString()
+                BigInt((0.25 * 1e18 * 80) / 100).toString()
             );
             assert.equal(
                 (
                     BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
                 ).toString(),
-                BigInt((0.23 * 1e18 * 20) / 100).toString()
+                BigInt((0.25 * 1e18 * 20) / 100).toString()
+            );
+        } catch (err) {
+            console.log(err);
+            assert.fail();
+        }
+    });
+
+    it("test buy artworks successfully with vault contract", async function () {
+        await web3.eth.sendTransaction({
+            to: this.vault.address,
+            from: accounts[8],
+            value: BigInt(0.2 * 1e18).toString(),
+        });
+        // Generate signature
+        const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
+        const signParams = web3.eth.abi.encodeParameters(
+            [
+                "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
+            ],
+            [
+                [
+                    "0",
+                    BigInt(0.2 * 1e18).toString(),
+                    expiryTime,
+                    accounts[2],
+                    [1000002, 1000003, 2000003, 2000004],
+                    [
+                        [
+                            [accounts[3], 5000],
+                            [accounts[4], 5000],
+                        ],
+                        [
+                            [accounts[3], 5000],
+                            [accounts[4], 5000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                    ],
+                    true,
+                ],
+            ]
+        );
+        const hash = web3.utils.keccak256(signParams);
+        var sig = await web3.eth.sign(hash, accounts[1]);
+        sig = sig.substr(2);
+        const r = "0x" + sig.slice(0, 64);
+        const s = "0x" + sig.slice(64, 128);
+        const v = "0x" + sig.slice(128, 130);
+        // Generate signature
+        try {
+            const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
+            const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
+
+            await this.exhibition.startSale();
+            await this.exhibition.buyArtworks(
+                r,
+                s,
+                web3.utils.toDecimal(v) + 27, // magic 27
+                [
+                    "0",
+                    BigInt(0.2 * 1e18).toString(),
+                    expiryTime,
+                    accounts[2],
+                    [1000002, 1000003, 2000003, 2000004],
+                    [
+                        [
+                            [accounts[3], 5000],
+                            [accounts[4], 5000],
+                        ],
+                        [
+                            [accounts[3], 5000],
+                            [accounts[4], 5000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8000],
+                            [accounts[4], 2000],
+                        ],
+                    ],
+                    true,
+                ],
+                { from: accounts[5], value: "0" }
+            );
+            const ownerOfToken0 = await this.exhibition.ownerOf(1000002);
+            const ownerOfToken1 = await this.exhibition.ownerOf(1000003);
+            const ownerOfToken2 = await this.exhibition.ownerOf(2000003);
+            const ownerOfToken3 = await this.exhibition.ownerOf(2000004);
+            assert.equal(ownerOfToken0, accounts[2]);
+            assert.equal(ownerOfToken1, accounts[2]);
+            assert.equal(ownerOfToken2, accounts[2]);
+            assert.equal(ownerOfToken3, accounts[2]);
+
+            const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
+            const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
+
+            assert.equal(
+                (
+                    BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)
+                ).toString(),
+                BigInt(((0.2 / 4) * 2 * 1e18 * 130) / 100).toString()
+            );
+            assert.equal(
+                (
+                    BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
+                ).toString(),
+                BigInt(((0.2 / 4) * 2 * 1e18 * 70) / 100).toString()
             );
         } catch (err) {
             console.log(err);
