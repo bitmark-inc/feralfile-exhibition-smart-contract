@@ -1,144 +1,207 @@
 const FeralfileExhibitionV4 = artifacts.require("FeralfileExhibitionV4");
-const FeralfileVault = artifacts.require("FeralfileVault");
-
-const CONTRACT_URI =
-    "https://ipfs.bitmark.com/ipfs/QmaptARVxNSP36PQai5oiCPqbrATvpydcJ8SPx6T6Yp1CZ";
-
-const IPFS_GATEWAY_PREFIX =
-    "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
 
-const originArtworkCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
-
-contract("FeralfileExhibitionV4", async (accounts) => {
+contract("FeralfileExhibitionV4_0", async (accounts) => {
     before(async function () {
-        this.vault = await FeralfileVault.new();
-
         this.exhibition = await FeralfileExhibitionV4.new(
-            "Feral File V4 Test 001",
-            "FFV4",
-            CONTRACT_URI,
-            IPFS_GATEWAY_PREFIX,
-            accounts[1],
-            this.vault.address,
-            COST_RECEIVER,
+            "Feral File V4 Test",
+            "FFv4",
+            accounts[0],
             true,
-            true
-        );
-
-        await this.vault.setExhibitionContract(this.exhibition.address);
-    });
-
-    it("check contract is burnable", async function () {
-        const isBurnable = await this.exhibition.isBurnable();
-        assert.equal(isBurnable, true);
-    });
-
-    it("check contract is bridgeable", async function () {
-        const isBridgeable = await this.exhibition.isBridgeable();
-        assert.equal(isBridgeable, true);
-    });
-
-    it("check contract is NOT burnable", async function () {
-        const exh = await FeralfileExhibitionV4.new(
-            "Feral File V4 Test 002",
-            "FFV4",
-            CONTRACT_URI,
-            IPFS_GATEWAY_PREFIX,
-            accounts[1],
-            this.vault.address,
-            COST_RECEIVER,
-            false,
-            true
-        );
-        const isBurnable = await exh.isBurnable();
-        assert.equal(isBurnable, false);
-    });
-
-    it("check contract is NOT bridgeable", async function () {
-        const exh = await FeralfileExhibitionV4.new(
-            "Feral File V4 Test 002",
-            "FFV4",
-            CONTRACT_URI,
-            IPFS_GATEWAY_PREFIX,
-            accounts[1],
-            this.vault.address,
-            COST_RECEIVER,
             true,
-            false
+            [0, 1, 2, 3],
+            [1, 1, 100, 1000]
         );
-        const isBridgeable = await exh.isBridgeable();
-        assert.equal(isBridgeable, false);
     });
 
-    it("mint artworks successfully", async function () {
+    it("test contract constructor", async function () {
+        let burnable = await this.exhibition.burnable();
+        assert.ok(burnable);
+
+        let bridgeable = await this.exhibition.bridgeable();
+        assert.ok(bridgeable);
+
+        let signer = await this.exhibition.signer();
+        assert.equal(signer, accounts[0]);
+
+        let seriesMaxSupply1 = await this.exhibition.seriesMaxSupply(0);
+        assert.equal(seriesMaxSupply1, 1);
+
+        let seriesMaxSupply2 = await this.exhibition.seriesMaxSupply(1);
+        assert.equal(seriesMaxSupply2, 1);
+
+        let seriesTotalSupply1 = await this.exhibition.seriesTotalSupply(0);
+        assert.equal(seriesTotalSupply1, 0);
+    });
+
+    it("test mint artwork", async function () {
+        // 1. mint successful
+        const owner = accounts[1];
+        const seriesId1 = 0;
+        const seriesId2 = 1;
+        const tokenId1 = seriesId1 * 1000000 + 0;
+        const tokenId2 = seriesId2 * 1000000 + 0;
+        let data = [
+            [seriesId1, tokenId1, owner],
+            [seriesId2, tokenId2, owner],
+        ];
+        let tx = await this.exhibition.mintArtworks(data);
+
+        // total supply
+        let totalSupply = await this.exhibition.totalSupply();
+        assert.equal(totalSupply, 2);
+
+        // series total supply
+        let totalSupply1 = await this.exhibition.seriesTotalSupply(seriesId1);
+        let totalSupply2 = await this.exhibition.seriesTotalSupply(seriesId2);
+        assert.equal(totalSupply1, 1);
+        assert.equal(totalSupply2, 1);
+
+        // owner
+        let tokenOwner = await this.exhibition.ownerOf(tokenId1);
+        assert.equal(tokenOwner, owner);
+
+        // balance
+        let balance = await this.exhibition.balanceOf(owner);
+        assert.equal(balance, 2);
+
+        // get artwork
+        let artwork = await this.exhibition.getArtwork(tokenId1);
+        assert.equal(artwork.tokenId, tokenId1);
+        assert.equal(artwork.seriesId, seriesId1);
+
+        // event emitted
+        let { logs } = tx;
+        assert.ok(Array.isArray(logs));
+        assert.equal(logs.length, 4);
+
+        let log0 = logs[0];
+        let log1 = logs[1];
+        assert.equal(log0.event, "Transfer");
+        assert.equal(log1.event, "NewArtwork");
+
+        // 2. mint failed
+
+        // series doesn't exist
+        data = [[999999, 0, owner]];
         try {
-            // Mint for buy by crypto
-            await this.exhibition.mintArtworks([
-                [1, 0],
-                [1, 1],
-                [2, 0],
-                [2, 1],
-                [2, 2],
-            ]);
-            // Mint for credit card
-            await this.exhibition.mintArtworks([
-                [1, 2],
-                [1, 3],
-                [2, 3],
-                [2, 4],
-            ]);
-            const totalSupply = await this.exhibition.totalSupply();
-            assert.equal(totalSupply, 9);
+            await this.exhibition.mintArtworks(data);
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: seriesId doesn't exist: 999999"
+                )
+            );
+        }
 
-            const ownerOfToken0 = await this.exhibition.ownerOf(1000000);
-            const ownerOfToken1 = await this.exhibition.ownerOf(1000001);
-            const ownerOfToken2 = await this.exhibition.ownerOf(2000000);
-            const ownerOfToken3 = await this.exhibition.ownerOf(2000001);
-            const ownerOfToken4 = await this.exhibition.ownerOf(2000002);
+        // mint to zero address
+        data = [[seriesId1, 999999, ZERO_ADDRESS]];
+        try {
+            await this.exhibition.mintArtworks(data);
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: mint to zero address"
+                )
+            );
+        }
 
-            const ownerOfToken5 = await this.exhibition.ownerOf(1000002);
-            const ownerOfToken6 = await this.exhibition.ownerOf(1000003);
-            const ownerOfToken7 = await this.exhibition.ownerOf(2000003);
-            const ownerOfToken8 = await this.exhibition.ownerOf(2000004);
+        // token already minted
+        data = [[seriesId1, tokenId1, accounts[2]]];
+        try {
+            await this.exhibition.mintArtworks(data);
+        } catch (error) {
+            assert.ok(error.message.includes("ERC721: token already minted"));
+        }
 
-            assert.equal(ownerOfToken0, this.exhibition.address);
-            assert.equal(ownerOfToken1, this.exhibition.address);
-            assert.equal(ownerOfToken2, this.exhibition.address);
-            assert.equal(ownerOfToken3, this.exhibition.address);
-            assert.equal(ownerOfToken4, this.exhibition.address);
+        // no more slots
+        data = [[seriesId1, 999999, accounts[2]]];
+        try {
+            await this.exhibition.mintArtworks(data);
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: no slots available"
+                )
+            );
+        }
 
-            assert.equal(ownerOfToken5, this.exhibition.address);
-            assert.equal(ownerOfToken6, this.exhibition.address);
-            assert.equal(ownerOfToken7, this.exhibition.address);
-            assert.equal(ownerOfToken8, this.exhibition.address);
+        // not mintable
+        await this.exhibition.setMintable(false);
+        try {
+            await this.exhibition.mintArtworks(data);
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: contract doesn't allow to mint"
+                )
+            );
+        }
+    });
 
-            const tokenURIOfToken0 = await this.exhibition.tokenURI(1000000);
-            const tokenURIOfToken1 = await this.exhibition.tokenURI(1000001);
-            const tokenURIOfToken2 = await this.exhibition.tokenURI(2000000);
-            const tokenURIOfToken3 = await this.exhibition.tokenURI(2000001);
-            const tokenURIOfToken4 = await this.exhibition.tokenURI(2000002);
+    it("test burn artwork", async function () {
+        // 1. Burn successfully
+        const owner = accounts[0];
+        const seriesId1 = 0;
+        const seriesId2 = 1;
+        const tokenId1 = seriesId1 * 1000000 + 0;
+        const tokenId2 = seriesId2 * 1000000 + 0;
+        let data = [tokenId1, tokenId2];
+        let tx = await this.exhibition.burnArtworks(data);
 
-            const tokenURIOfToken5 = await this.exhibition.tokenURI(1000002);
-            const tokenURIOfToken6 = await this.exhibition.tokenURI(1000003);
-            const tokenURIOfToken7 = await this.exhibition.tokenURI(2000003);
-            const tokenURIOfToken8 = await this.exhibition.tokenURI(2000004);
+        // total supply
+        let totalSupply = await this.exhibition.totalSupply();
+        assert.equal(totalSupply, 0);
 
-            assert.equal(tokenURIOfToken0, IPFS_GATEWAY_PREFIX + "/1000000");
-            assert.equal(tokenURIOfToken1, IPFS_GATEWAY_PREFIX + "/1000001");
-            assert.equal(tokenURIOfToken2, IPFS_GATEWAY_PREFIX + "/2000000");
-            assert.equal(tokenURIOfToken3, IPFS_GATEWAY_PREFIX + "/2000001");
-            assert.equal(tokenURIOfToken4, IPFS_GATEWAY_PREFIX + "/2000002");
+        // series total supply
+        let totalSupply1 = await this.exhibition.seriesTotalSupply(seriesId1);
+        let totalSupply2 = await this.exhibition.seriesTotalSupply(seriesId2);
+        assert.equal(totalSupply1, 0);
+        assert.equal(totalSupply2, 0);
 
-            assert.equal(tokenURIOfToken5, IPFS_GATEWAY_PREFIX + "/1000002");
-            assert.equal(tokenURIOfToken6, IPFS_GATEWAY_PREFIX + "/1000003");
-            assert.equal(tokenURIOfToken7, IPFS_GATEWAY_PREFIX + "/2000003");
-            assert.equal(tokenURIOfToken8, IPFS_GATEWAY_PREFIX + "/2000004");
-        } catch (err) {
-            console.log(err);
-            assert.fail();
+        // balance
+        let balance = await this.exhibition.balanceOf(owner);
+        assert.equal(balance, 0);
+
+        // get artwork
+        try {
+            await this.exhibition.getArtwork(tokenId1);
+        } catch (error) {
+            assert.ok(error.message.includes("ERC721: token doesn't exist"));
+        }
+
+        // event emitted
+        let { logs } = tx;
+        assert.ok(Array.isArray(logs));
+        assert.equal(logs.length, 4);
+
+        let log0 = logs[0];
+        let log1 = logs[1];
+        assert.equal(log0.event, "Transfer");
+        assert.equal(log1.event, "BurnArtwork");
+
+        // 2. Burn failed
+
+        // token doesn't exist
+        data = [111111, 222222];
+        try {
+            await this.exhibition.burnArtworks(data);
+        } catch (error) {
+            assert.ok(error.message.includes("ERC721: token doesn't exist"));
+        }
+
+        // not burnable
+        await this.exhibition.setBurnable(false);
+        try {
+            await this.exhibition.burnArtworks(data);
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: token is not burnable"
+                )
+            );
         }
     });
 
@@ -197,7 +260,9 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
+            const accCostReceiverBalanceBefore = await web3.eth.getBalance(
+                COST_RECEIVER
+            );
 
             await this.exhibition.startSale();
             await this.exhibition.buyArtworks(
@@ -249,7 +314,9 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
+            const accCostReceiverBalanceAfter = await web3.eth.getBalance(
+                COST_RECEIVER
+            );
 
             assert.equal(
                 (
@@ -265,7 +332,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             );
             assert.equal(
                 (
-                    BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)
+                    BigInt(accCostReceiverBalanceAfter) -
+                    BigInt(accCostReceiverBalanceBefore)
                 ).toString(),
                 BigInt(0.02 * 1e18).toString()
             );
@@ -330,8 +398,12 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
-            const vaultBalanceBefore = await web3.eth.getBalance(this.vault.address);
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
+            const vaultBalanceBefore = await web3.eth.getBalance(
+                this.vault.address
+            );
+            const accCostReceiverBalanceBefore = await web3.eth.getBalance(
+                COST_RECEIVER
+            );
 
             await this.exhibition.startSale();
             await this.exhibition.buyArtworks(
@@ -377,8 +449,12 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
-            const vaultBalanceAfter = await web3.eth.getBalance(this.vault.address);
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
+            const vaultBalanceAfter = await web3.eth.getBalance(
+                this.vault.address
+            );
+            const accCostReceiverBalanceAfter = await web3.eth.getBalance(
+                COST_RECEIVER
+            );
 
             assert.equal(
                 (
@@ -396,11 +472,12 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 (
                     BigInt(vaultBalanceBefore) - BigInt(vaultBalanceAfter)
                 ).toString(),
-                BigInt(0.22 * 1e18).toString(),
+                BigInt(0.22 * 1e18).toString()
             );
             assert.equal(
                 (
-                    BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)
+                    BigInt(accCostReceiverBalanceAfter) -
+                    BigInt(accCostReceiverBalanceBefore)
                 ).toString(),
                 BigInt(0.02 * 1e18).toString()
             );
