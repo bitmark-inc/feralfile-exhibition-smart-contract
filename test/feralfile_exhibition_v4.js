@@ -351,7 +351,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                     ],
                     true,
                 ],
-                { from: accounts[5], value: "0" }
+                { from: accounts[5], value: 0 } // itx relay
             );
             const ownerOfToken0 = await this.exhibition.ownerOf(1000002);
             const ownerOfToken1 = await this.exhibition.ownerOf(1000003);
@@ -381,7 +381,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             // Check vault contract balance
             assert.equal(
                 BigInt(vaultBalanceAfter).toString(),
-                BigInt(0.25 * 1e18).toString()
+                BigInt((0.5 - 0.25) * 1e18).toString()
             );
         } catch (err) {
             console.log(err);
