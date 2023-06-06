@@ -231,13 +231,9 @@ contract FeralfileExhibitionV4 is
             saleData_.expiryTime > block.timestamp,
             "FeralfileExhibitionV4: sale is expired"
         );
-        require(
-            saleData_.price == msg.value,
-            "FeralfileExhibitionV4: invalid payable amount and price"
-        );
 
         saleData_.payByVaultContract
-            ? Vault(payable(vault)).pay(saleData_.cost)
+            ? Vault(payable(vault)).pay(saleData_.price)
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
@@ -252,7 +248,7 @@ contract FeralfileExhibitionV4 is
             "FeralfileExhibitionV4: invalid signature"
         );
 
-        uint256 itemCost = saleData_.cost / saleData_.tokenIds.length;
+        uint256 itemRevenue = (saleData_.price - saleData_.cost) / saleData_.tokenIds.length;
 
         for (uint256 i = 0; i < saleData_.tokenIds.length; i++) {
             // send NFT
@@ -266,7 +262,7 @@ contract FeralfileExhibitionV4 is
             // distribute royalty
             for (uint256 j = 0; j < saleData_.royalties[i].length; j++) {
                 payable(saleData_.royalties[i][j].recipient).transfer(
-                    (itemCost * saleData_.royalties[i][j].bps) / 10000
+                    (itemRevenue * saleData_.royalties[i][j].bps) / 10000
                 );
             }
 

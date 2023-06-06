@@ -153,7 +153,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 this.exhibition.address,
                 [
                     BigInt(0.25 * 1e18).toString(),
-                    BigInt(0.25 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
                     [1000000, 1000001, 2000000, 2000001, 2000002],
@@ -202,7 +202,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 web3.utils.toDecimal(v) + 27, // magic 27
                 [
                     BigInt(0.25 * 1e18).toString(),
-                    BigInt(0.25 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
                     [1000000, 1000001, 2000000, 2000001, 2000002],
@@ -250,13 +250,13 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 (
                     BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)
                 ).toString(),
-                BigInt((0.25 * 1e18 * 80) / 100).toString()
+                BigInt((0.23 * 1e18 * 80) / 100).toString()
             );
             assert.equal(
                 (
                     BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
                 ).toString(),
-                BigInt((0.25 * 1e18 * 20) / 100).toString()
+                BigInt((0.23 * 1e18 * 20) / 100).toString()
             );
         } catch (err) {
             console.log(err);
@@ -282,8 +282,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 "1",
                 this.exhibition.address,
                 [
-                    "0",
-                    BigInt(0.2 * 1e18).toString(),
+                    BigInt(0.22 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
                     [1000002, 1000003, 2000003, 2000004],
@@ -326,8 +326,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 s,
                 web3.utils.toDecimal(v) + 27, // magic 27
                 [
-                    "0",
-                    BigInt(0.2 * 1e18).toString(),
+                    BigInt(0.22 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
                     [1000002, 1000003, 2000003, 2000004],
@@ -383,8 +383,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
             // Check vault contract balance
             assert.equal(
-                BigInt(vaultBalanceAfter).toString(),
-                BigInt((0.5 - 0.2) * 1e18).toString()
+                BigInt(0.5 * 1e18 - 0.22 * 1e18).toString(),
+                BigInt(vaultBalanceAfter).toString()
             );
         } catch (err) {
             console.log(err);
