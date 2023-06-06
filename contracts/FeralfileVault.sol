@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract FeralfileVault is Ownable {
@@ -15,20 +14,23 @@ contract FeralfileVault is Ownable {
         _;
     }
 
-    function setExhibitionContract(address ec_) external onlyOwner {
-        exhibitionContract[ec_] = true;
+    function setExhibitionContract(address ec) external onlyOwner {
+        exhibitionContract[ec] = true;
     }
 
-    function unsetExhibitionContract(address ec_) external onlyOwner {
-        exhibitionContract[ec_] = false;
+    function unsetExhibitionContract(address ec) external onlyOwner {
+        exhibitionContract[ec] = false;
     }
 
-    function pay(uint256 amount_) external onlyExhibitionContract {
-        require(address(this).balance >= amount_, "insufficient balance");
-        payable(msg.sender).transfer(amount_);
+    function pay(uint256 amount) external onlyExhibitionContract {
+        require(address(this).balance >= amount, "insufficient balance");
+        payable(msg.sender).transfer(amount);
     }
 
-    fallback() external payable {}
+    function withdrawFunds() external onlyOwner {
+        payable(msg.sender).transfer(address(this).balance);
+    }
 
+    // @notice able to recieve funds
     receive() external payable {}
 }

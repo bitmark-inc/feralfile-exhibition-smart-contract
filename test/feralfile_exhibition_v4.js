@@ -4,9 +4,11 @@ const FeralfileVault = artifacts.require("FeralfileVault");
 const CONTRACT_URI =
     "https://ipfs.bitmark.com/ipfs/QmaptARVxNSP36PQai5oiCPqbrATvpydcJ8SPx6T6Yp1CZ";
 
-const IPFS_GATEWAY_PREFIX = "";
+const IPFS_GATEWAY_PREFIX =
+    "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const VAULT_CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const originArtworkCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
@@ -45,7 +47,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             CONTRACT_URI,
             IPFS_GATEWAY_PREFIX,
             accounts[1],
-            this.vault.address,
+            VAULT_CONTRACT_ADDRESS,
             false,
             true
         );
@@ -60,7 +62,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             CONTRACT_URI,
             IPFS_GATEWAY_PREFIX,
             accounts[1],
-            this.vault.address,
+            VAULT_CONTRACT_ADDRESS,
             true,
             false
         );
@@ -72,18 +74,18 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         try {
             // Mint for buy by crypto
             await this.exhibition.mintArtworks([
-                [1, 0, "CID_1"],
-                [1, 1, "CID_2"],
-                [2, 0, "CID_3"],
-                [2, 1, "CID_4"],
-                [2, 2, "CID_5"],
+                [1, 0],
+                [1, 1],
+                [2, 0],
+                [2, 1],
+                [2, 2],
             ]);
             // Mint for credit card
             await this.exhibition.mintArtworks([
-                [1, 2, "CID_1"],
-                [1, 3, "CID_2"],
-                [2, 3, "CID_3"],
-                [2, 4, "CID_4"],
+                [1, 2],
+                [1, 3],
+                [2, 3],
+                [2, 4],
             ]);
             const totalSupply = await this.exhibition.totalSupply();
             assert.equal(totalSupply, 9);
@@ -121,16 +123,16 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             const tokenURIOfToken7 = await this.exhibition.tokenURI(2000003);
             const tokenURIOfToken8 = await this.exhibition.tokenURI(2000004);
 
-            assert.equal(tokenURIOfToken0, "ipfs://CID_1");
-            assert.equal(tokenURIOfToken1, "ipfs://CID_2");
-            assert.equal(tokenURIOfToken2, "ipfs://CID_3");
-            assert.equal(tokenURIOfToken3, "ipfs://CID_4");
-            assert.equal(tokenURIOfToken4, "ipfs://CID_5");
+            assert.equal(tokenURIOfToken0, IPFS_GATEWAY_PREFIX + "/1000000");
+            assert.equal(tokenURIOfToken1, IPFS_GATEWAY_PREFIX + "/1000001");
+            assert.equal(tokenURIOfToken2, IPFS_GATEWAY_PREFIX + "/2000000");
+            assert.equal(tokenURIOfToken3, IPFS_GATEWAY_PREFIX + "/2000001");
+            assert.equal(tokenURIOfToken4, IPFS_GATEWAY_PREFIX + "/2000002");
 
-            assert.equal(tokenURIOfToken5, "ipfs://CID_1");
-            assert.equal(tokenURIOfToken6, "ipfs://CID_2");
-            assert.equal(tokenURIOfToken7, "ipfs://CID_3");
-            assert.equal(tokenURIOfToken8, "ipfs://CID_4");
+            assert.equal(tokenURIOfToken5, IPFS_GATEWAY_PREFIX + "/1000002");
+            assert.equal(tokenURIOfToken6, IPFS_GATEWAY_PREFIX + "/1000003");
+            assert.equal(tokenURIOfToken7, IPFS_GATEWAY_PREFIX + "/2000003");
+            assert.equal(tokenURIOfToken8, IPFS_GATEWAY_PREFIX + "/2000004");
         } catch (err) {
             console.log(err);
             assert.fail();
@@ -142,9 +144,13 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
         const signParams = web3.eth.abi.encodeParameters(
             [
+                "uint",
+                "address",
                 "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
             ],
             [
+                BigInt(await web3.eth.getChainId()).toString(),
+                this.exhibition.address,
                 [
                     BigInt(0.25 * 1e18).toString(),
                     BigInt(0.25 * 1e18).toString(),
@@ -268,9 +274,13 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
         const signParams = web3.eth.abi.encodeParameters(
             [
+                "uint",
+                "address",
                 "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
             ],
             [
+                BigInt(await web3.eth.getChainId()).toString(),
+                this.exhibition.address,
                 [
                     "0",
                     BigInt(0.2 * 1e18).toString(),
@@ -366,6 +376,12 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                     BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
                 ).toString(),
                 BigInt(((0.2 / 4) * 2 * 1e18 * 70) / 100).toString()
+            );
+
+            // Check vault contract balance
+            assert.equal(
+                BigInt(vaultBalanceAfter).toString(),
+                BigInt(0.25 * 1e18).toString()
             );
         } catch (err) {
             console.log(err);
