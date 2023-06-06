@@ -236,26 +236,16 @@ contract FeralfileExhibitionV4 is
             "FeralfileExhibitionV4: invalid payable amount and price"
         );
 
-        if (saleData_.payByVaultContract) {
-            // pay eth by vault contract
-            Vault(payable(vault)).pay(saleData_.price);
-        } else {
-            require(
-                saleData_.price == msg.value,
-                "FeralfileExhibitionV4: invalid payment amount"
-            );
-        }
-
-        bytes32 requestHash = keccak256(
-            abi.encode(block.chainid, address(this), saleData_)
-        );
-
         saleData_.payByVaultContract
-            ? Vault(vault).pay(saleData_.price)
+            ? Vault(payable(vault)).pay(saleData_.cost)
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
             );
+
+        bytes32 requestHash = keccak256(
+            abi.encode(block.chainid, address(this), saleData_)
+        );
 
         require(
             isValidRequest(requestHash, signer, r_, s_, v_),
@@ -274,7 +264,6 @@ contract FeralfileExhibitionV4 is
             );
 
             // distribute royalty
-            // saleData_.price - saleData_.cost
             for (uint256 j = 0; j < saleData_.royalties[i].length; j++) {
                 payable(saleData_.royalties[i][j].recipient).transfer(
                     (itemCost * saleData_.royalties[i][j].bps) / 10000

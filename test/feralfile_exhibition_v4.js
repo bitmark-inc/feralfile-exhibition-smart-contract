@@ -149,7 +149,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
             ],
             [
-                BigInt(await web3.eth.getChainId()).toString(),
+                "1",
                 this.exhibition.address,
                 [
                     BigInt(0.25 * 1e18).toString(),
@@ -268,7 +268,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         await web3.eth.sendTransaction({
             to: this.vault.address,
             from: accounts[8],
-            value: BigInt(0.2 * 1e18).toString(),
+            value: BigInt(0.5 * 1e18).toString(),
         });
         // Generate signature
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
@@ -279,7 +279,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
             ],
             [
-                BigInt(await web3.eth.getChainId()).toString(),
+                "1",
                 this.exhibition.address,
                 [
                     "0",
@@ -364,6 +364,9 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
+            const vaultBalanceAfter = await web3.eth.getBalance(
+                this.vault.address
+            );
 
             assert.equal(
                 (
@@ -381,7 +384,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             // Check vault contract balance
             assert.equal(
                 BigInt(vaultBalanceAfter).toString(),
-                BigInt((0.5 - 0.25) * 1e18).toString()
+                BigInt((0.5 - 0.2) * 1e18).toString()
             );
         } catch (err) {
             console.log(err);
