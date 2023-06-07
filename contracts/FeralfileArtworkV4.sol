@@ -266,6 +266,7 @@ contract FeralfileExhibitionV4 is
                 saleData_.tokenIds.length;
         }
 
+        uint256 distributedRevenue;
         for (uint256 i = 0; i < saleData_.tokenIds.length; i++) {
             // send NFT
             _safeTransfer(
@@ -277,18 +278,20 @@ contract FeralfileExhibitionV4 is
             if (itemRevenue > 0) {
                 // distribute royalty
                 for (uint256 j = 0; j < saleData_.royalties[i].length; j++) {
-                    payable(saleData_.royalties[i][j].recipient).transfer(
-                        (itemRevenue * saleData_.royalties[i][j].bps) / 10000
-                    );
+                    uint256 rev = (itemRevenue *
+                        saleData_.royalties[i][j].bps) / 10000;
+                    distributedRevenue += rev;
+                    payable(saleData_.royalties[i][j].recipient).transfer(rev);
                 }
             }
 
             emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i]);
         }
 
-        // Transfer cost
-        if (saleData_.cost > 0) {
-            payable(costReceiver).transfer(saleData_.cost);
+        // Transfer cost and remaining funds
+        uint256 cost = saleData_.price - distributedRevenue;
+        if (cost > 0) {
+            payable(costReceiver).transfer(cost);
         }
     }
 
