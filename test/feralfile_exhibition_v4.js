@@ -8,7 +8,7 @@ const IPFS_GATEWAY_PREFIX =
     "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const VAULT_CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
 
 const originArtworkCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
@@ -23,6 +23,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             IPFS_GATEWAY_PREFIX,
             accounts[1],
             this.vault.address,
+            COST_RECEIVER,
             true,
             true
         );
@@ -47,7 +48,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             CONTRACT_URI,
             IPFS_GATEWAY_PREFIX,
             accounts[1],
-            VAULT_CONTRACT_ADDRESS,
+            this.vault.address,
+            COST_RECEIVER,
             false,
             true
         );
@@ -62,7 +64,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             CONTRACT_URI,
             IPFS_GATEWAY_PREFIX,
             accounts[1],
-            VAULT_CONTRACT_ADDRESS,
+            this.vault.address,
+            COST_RECEIVER,
             true,
             false
         );
@@ -149,7 +152,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
             ],
             [
-                "1",
+                BigInt(await web3.eth.getChainId()).toString(),
                 this.exhibition.address,
                 [
                     BigInt(0.25 * 1e18).toString(),
@@ -194,6 +197,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
+            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
 
             await this.exhibition.startSale();
             await this.exhibition.buyArtworks(
@@ -245,6 +249,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
+            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
                 (
@@ -257,6 +262,12 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                     BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
                 ).toString(),
                 BigInt((0.23 * 1e18 * 20) / 100).toString()
+            );
+            assert.equal(
+                (
+                    BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)
+                ).toString(),
+                BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
             console.log(err);
@@ -279,7 +290,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
             ],
             [
-                "1",
+                BigInt(await web3.eth.getChainId()).toString(),
                 this.exhibition.address,
                 [
                     BigInt(0.22 * 1e18).toString(),
@@ -319,6 +330,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
+            const vaultBalanceBefore = await web3.eth.getBalance(this.vault.address);
+            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
 
             await this.exhibition.startSale();
             await this.exhibition.buyArtworks(
@@ -364,9 +377,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
-            const vaultBalanceAfter = await web3.eth.getBalance(
-                this.vault.address
-            );
+            const vaultBalanceAfter = await web3.eth.getBalance(this.vault.address);
+            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
                 (
@@ -380,11 +392,17 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 ).toString(),
                 BigInt(((0.2 / 4) * 2 * 1e18 * 70) / 100).toString()
             );
-
-            // Check vault contract balance
             assert.equal(
-                BigInt(0.5 * 1e18 - 0.22 * 1e18).toString(),
-                BigInt(vaultBalanceAfter).toString()
+                (
+                    BigInt(vaultBalanceBefore) - BigInt(vaultBalanceAfter)
+                ).toString(),
+                BigInt(0.22 * 1e18).toString(),
+            );
+            assert.equal(
+                (
+                    BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)
+                ).toString(),
+                BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
             console.log(err);

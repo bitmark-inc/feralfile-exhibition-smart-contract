@@ -28,10 +28,13 @@ contract FeralfileExhibitionV4 is
     string public constant codeVersion = "FeralfileExhibitionV4";
 
     // signer of buy artwork
-    address public signer = 0x0000000000000000000000000000000000000000;
+    address public signer = address(0);
+
+    // cost receiver
+    address public costReceiver = address(0);
 
     // vault contract
-    address public vault = 0x0000000000000000000000000000000000000000;
+    address public vault = address(0);
 
     // burnable
     bool public isBurnable;
@@ -80,6 +83,7 @@ contract FeralfileExhibitionV4 is
         string memory tokenBaseURI_,
         address signer_,
         address vault_,
+        address costReceiver_,
         bool isBurnable_,
         bool isBridgeable_
     ) ERC721(name_, symbol_) {
@@ -89,6 +93,7 @@ contract FeralfileExhibitionV4 is
         _tokenBaseURI = tokenBaseURI_;
         signer = signer_;
         vault = vault_;
+        costReceiver = costReceiver_;
     }
 
     function supportsInterface(
@@ -138,6 +143,12 @@ contract FeralfileExhibitionV4 is
     /// @param vault_ - the address of vault contract
     function setVaultContract(address vault_) external onlyOwner {
         vault = vault_;
+    }
+
+    /// @notice the cost receiver address
+    /// @param costReceiver_ - the address of cost receiver
+    function setCostReceiver(address costReceiver_) external onlyOwner {
+        costReceiver = costReceiver_;
     }
 
     // @notice to start the sale
@@ -248,7 +259,12 @@ contract FeralfileExhibitionV4 is
             "FeralfileExhibitionV4: invalid signature"
         );
 
-        uint256 itemRevenue = (saleData_.price - saleData_.cost) / saleData_.tokenIds.length;
+        uint256 itemRevenue;
+        if (saleData_.price > saleData_.cost) {
+            itemRevenue =
+                (saleData_.price - saleData_.cost) /
+                saleData_.tokenIds.length;
+        }
 
         for (uint256 i = 0; i < saleData_.tokenIds.length; i++) {
             // send NFT
@@ -258,16 +274,20 @@ contract FeralfileExhibitionV4 is
                 saleData_.tokenIds[i],
                 ""
             );
-
-            // distribute royalty
-            for (uint256 j = 0; j < saleData_.royalties[i].length; j++) {
-                payable(saleData_.royalties[i][j].recipient).transfer(
-                    (itemRevenue * saleData_.royalties[i][j].bps) / 10000
-                );
+            if (itemRevenue > 0) {
+                // distribute royalty
+                for (uint256 j = 0; j < saleData_.royalties[i].length; j++) {
+                    payable(saleData_.royalties[i][j].recipient).transfer(
+                        (itemRevenue * saleData_.royalties[i][j].bps) / 10000
+                    );
+                }
             }
 
             emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i]);
         }
+
+        // Transfer cost
+        payable(costReceiver).transfer(saleData_.cost);
     }
 
     /// @notice burn artworks
