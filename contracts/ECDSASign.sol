@@ -5,13 +5,13 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ECDSASign is Ownable {
-    address public signer;
+    address private signer;
 
     constructor(address signer_) {
         signer = signer_;
     }
 
-    /// @notice isValidRequest validates a message by ecrecover to ensure
+    /// @notice isValidSignature validates a message by ecrecover to ensure
     //          it is signed by owner of token.
     /// @param message_ - the raw message for signing
     /// @param signer_ - owner address of token
