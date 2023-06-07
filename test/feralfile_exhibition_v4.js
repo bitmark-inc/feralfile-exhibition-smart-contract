@@ -4,9 +4,11 @@ const FeralfileVault = artifacts.require("FeralfileVault");
 const CONTRACT_URI =
     "https://ipfs.bitmark.com/ipfs/QmaptARVxNSP36PQai5oiCPqbrATvpydcJ8SPx6T6Yp1CZ";
 
-const IPFS_GATEWAY_PREFIX = "";
+const IPFS_GATEWAY_PREFIX =
+    "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
 
 const originArtworkCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
@@ -21,6 +23,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             IPFS_GATEWAY_PREFIX,
             accounts[1],
             this.vault.address,
+            COST_RECEIVER,
             true,
             true
         );
@@ -46,6 +49,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             IPFS_GATEWAY_PREFIX,
             accounts[1],
             this.vault.address,
+            COST_RECEIVER,
             false,
             true
         );
@@ -61,6 +65,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             IPFS_GATEWAY_PREFIX,
             accounts[1],
             this.vault.address,
+            COST_RECEIVER,
             true,
             false
         );
@@ -72,18 +77,18 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         try {
             // Mint for buy by crypto
             await this.exhibition.mintArtworks([
-                [1, 0, "CID_1"],
-                [1, 1, "CID_2"],
-                [2, 0, "CID_3"],
-                [2, 1, "CID_4"],
-                [2, 2, "CID_5"],
+                [1, 0],
+                [1, 1],
+                [2, 0],
+                [2, 1],
+                [2, 2],
             ]);
             // Mint for credit card
             await this.exhibition.mintArtworks([
-                [1, 2, "CID_1"],
-                [1, 3, "CID_2"],
-                [2, 3, "CID_3"],
-                [2, 4, "CID_4"],
+                [1, 2],
+                [1, 3],
+                [2, 3],
+                [2, 4],
             ]);
             const totalSupply = await this.exhibition.totalSupply();
             assert.equal(totalSupply, 9);
@@ -121,16 +126,16 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             const tokenURIOfToken7 = await this.exhibition.tokenURI(2000003);
             const tokenURIOfToken8 = await this.exhibition.tokenURI(2000004);
 
-            assert.equal(tokenURIOfToken0, "ipfs://CID_1");
-            assert.equal(tokenURIOfToken1, "ipfs://CID_2");
-            assert.equal(tokenURIOfToken2, "ipfs://CID_3");
-            assert.equal(tokenURIOfToken3, "ipfs://CID_4");
-            assert.equal(tokenURIOfToken4, "ipfs://CID_5");
+            assert.equal(tokenURIOfToken0, IPFS_GATEWAY_PREFIX + "/1000000");
+            assert.equal(tokenURIOfToken1, IPFS_GATEWAY_PREFIX + "/1000001");
+            assert.equal(tokenURIOfToken2, IPFS_GATEWAY_PREFIX + "/2000000");
+            assert.equal(tokenURIOfToken3, IPFS_GATEWAY_PREFIX + "/2000001");
+            assert.equal(tokenURIOfToken4, IPFS_GATEWAY_PREFIX + "/2000002");
 
-            assert.equal(tokenURIOfToken5, "ipfs://CID_1");
-            assert.equal(tokenURIOfToken6, "ipfs://CID_2");
-            assert.equal(tokenURIOfToken7, "ipfs://CID_3");
-            assert.equal(tokenURIOfToken8, "ipfs://CID_4");
+            assert.equal(tokenURIOfToken5, IPFS_GATEWAY_PREFIX + "/1000002");
+            assert.equal(tokenURIOfToken6, IPFS_GATEWAY_PREFIX + "/1000003");
+            assert.equal(tokenURIOfToken7, IPFS_GATEWAY_PREFIX + "/2000003");
+            assert.equal(tokenURIOfToken8, IPFS_GATEWAY_PREFIX + "/2000004");
         } catch (err) {
             console.log(err);
             assert.fail();
@@ -142,12 +147,16 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
         const signParams = web3.eth.abi.encodeParameters(
             [
+                "uint",
+                "address",
                 "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
             ],
             [
+                BigInt(await web3.eth.getChainId()).toString(),
+                this.exhibition.address,
                 [
                     BigInt(0.25 * 1e18).toString(),
-                    BigInt(0.25 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
                     [1000000, 1000001, 2000000, 2000001, 2000002],
@@ -188,6 +197,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
+            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
 
             await this.exhibition.startSale();
             await this.exhibition.buyArtworks(
@@ -196,7 +206,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 web3.utils.toDecimal(v) + 27, // magic 27
                 [
                     BigInt(0.25 * 1e18).toString(),
-                    BigInt(0.25 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
                     [1000000, 1000001, 2000000, 2000001, 2000002],
@@ -239,18 +249,25 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
+            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
                 (
                     BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)
                 ).toString(),
-                BigInt((0.25 * 1e18 * 80) / 100).toString()
+                BigInt((0.23 * 1e18 * 80) / 100).toString()
             );
             assert.equal(
                 (
                     BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
                 ).toString(),
-                BigInt((0.25 * 1e18 * 20) / 100).toString()
+                BigInt((0.23 * 1e18 * 20) / 100).toString()
+            );
+            assert.equal(
+                (
+                    BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)
+                ).toString(),
+                BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
             console.log(err);
@@ -262,18 +279,22 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         await web3.eth.sendTransaction({
             to: this.vault.address,
             from: accounts[8],
-            value: BigInt(0.2 * 1e18).toString(),
+            value: BigInt(0.5 * 1e18).toString(),
         });
         // Generate signature
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
         const signParams = web3.eth.abi.encodeParameters(
             [
+                "uint",
+                "address",
                 "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
             ],
             [
+                BigInt(await web3.eth.getChainId()).toString(),
+                this.exhibition.address,
                 [
-                    "0",
-                    BigInt(0.2 * 1e18).toString(),
+                    BigInt(0.22 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
                     [1000002, 1000003, 2000003, 2000004],
@@ -309,6 +330,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
+            const vaultBalanceBefore = await web3.eth.getBalance(this.vault.address);
+            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
 
             await this.exhibition.startSale();
             await this.exhibition.buyArtworks(
@@ -316,8 +339,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                 s,
                 web3.utils.toDecimal(v) + 27, // magic 27
                 [
-                    "0",
-                    BigInt(0.2 * 1e18).toString(),
+                    BigInt(0.22 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
                     [1000002, 1000003, 2000003, 2000004],
@@ -341,7 +364,7 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                     ],
                     true,
                 ],
-                { from: accounts[5], value: "0" }
+                { from: accounts[5], value: 0 } // itx relay
             );
             const ownerOfToken0 = await this.exhibition.ownerOf(1000002);
             const ownerOfToken1 = await this.exhibition.ownerOf(1000003);
@@ -354,6 +377,8 @@ contract("FeralfileExhibitionV4", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
+            const vaultBalanceAfter = await web3.eth.getBalance(this.vault.address);
+            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
                 (
@@ -366,6 +391,18 @@ contract("FeralfileExhibitionV4", async (accounts) => {
                     BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
                 ).toString(),
                 BigInt(((0.2 / 4) * 2 * 1e18 * 70) / 100).toString()
+            );
+            assert.equal(
+                (
+                    BigInt(vaultBalanceBefore) - BigInt(vaultBalanceAfter)
+                ).toString(),
+                BigInt(0.22 * 1e18).toString(),
+            );
+            assert.equal(
+                (
+                    BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)
+                ).toString(),
+                BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
             console.log(err);
