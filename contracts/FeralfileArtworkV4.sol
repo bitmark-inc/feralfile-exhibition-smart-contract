@@ -287,7 +287,9 @@ contract FeralfileExhibitionV4 is
         }
 
         // Transfer cost
-        payable(costReceiver).transfer(saleData_.cost);
+        if (saleData_.cost > 0) {
+            payable(costReceiver).transfer(saleData_.cost);
+        }
     }
 
     /// @notice burn artworks
