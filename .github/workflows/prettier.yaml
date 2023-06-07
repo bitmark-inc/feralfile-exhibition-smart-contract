@@ -14,4 +14,10 @@ jobs:
         uses: creyD/prettier_action@v4.3
         with:
           # This part is also where you can pass other options, for example:
+<<<<<<< HEAD
           prettier_options: --check contracts/FeralfileArtworkV4.sol
+=======
+          dry: true
+          file_pattern: FeralfileArtworkV4.sol
+          working_directory: contracts/
+>>>>>>> ac4b47c (Add prettier github action)
