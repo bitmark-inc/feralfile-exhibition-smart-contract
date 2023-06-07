@@ -2,51 +2,48 @@
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./Authorizable.sol";
 import "./UpdateableOperatorFilterer.sol";
-
-contract Vault {
-    function pay(uint256 weiAmount) external {}
-}
+import "./FeralfileSaleStruct.sol";
+import "./FeralfileVault.sol";
+import "./ECDSASign.sol";
 
 contract FeralfileExhibitionV4 is
     IERC165,
     ERC721Enumerable,
     Authorizable,
-    UpdateableOperatorFilterer
+    UpdateableOperatorFilterer,
+    FeralfileSaleStruct,
+    ECDSASign
 {
     using Strings for uint256;
 
-    // artwork id multiple for each series
-    uint256 public constant ARTWORK_ID_MULTIPLE = 1000000;
-
     // version code of contract
     string public constant codeVersion = "FeralfileExhibitionV4";
-
-    // signer of buy artwork
-    address public signer = address(0);
-
-    // cost receiver
-    address public costReceiver = address(0);
-
-    // vault contract
-    address public vault = address(0);
-
-    // burnable
-    bool public isBurnable;
-
-    // bridgeable
-    bool public isBridgeable;
 
     // token base URI
     string internal _tokenBaseURI;
 
     // contract URI
     string private _contractURI;
+
+    // artwork id multiple for each series
+    uint256 public constant ARTWORK_ID_MULTIPLE = 1000000;
+
+    // cost receiver
+    address public costReceiver;
+
+    // vault contract
+    address public vault;
+
+    // burnable
+    bool public isBurnable;
+
+    // bridgeable
+    bool public isBridgeable;
 
     // default true and set to false when the sale starts
     bool private _canMint = true;
@@ -57,21 +54,6 @@ contract FeralfileExhibitionV4 is
     struct Artwork {
         uint256 seriesIndex;
         uint256 artworkIndex;
-    }
-
-    struct Royalty {
-        address recipient;
-        uint256 bps;
-    }
-
-    struct SaleData {
-        uint256 price; // in wei
-        uint256 cost; // in wei
-        uint256 expiryTime;
-        address destination;
-        uint256[] tokenIds;
-        Royalty[][] royalties; // address and royalty bps (500 means 5%)
-        bool payByVaultContract; // get eth from vault contract, used by credit card pay that proxy by ITX
     }
 
     mapping(uint256 => Artwork) public artworks; //  => tokenID => Artwork
@@ -86,7 +68,7 @@ contract FeralfileExhibitionV4 is
         address costReceiver_,
         bool isBurnable_,
         bool isBridgeable_
-    ) ERC721(name_, symbol_) {
+    ) ERC721(name_, symbol_) ECDSASign(signer_) {
         isBurnable = isBurnable_;
         isBridgeable = isBridgeable_;
         _contractURI = contractURI_;
@@ -133,12 +115,6 @@ contract FeralfileExhibitionV4 is
         return _contractURI;
     }
 
-    /// @notice the signer would sign the data of
-    /// @param signer_ - the address of signer
-    function setSigner(address signer_) external onlyOwner {
-        signer = signer_;
-    }
-
     /// @notice the vault contract address
     /// @param vault_ - the address of vault contract
     function setVaultContract(address vault_) external onlyOwner {
@@ -160,29 +136,6 @@ contract FeralfileExhibitionV4 is
     // @notice to end the sale
     function endSale() external onlyOwner {
         _isSelling = false;
-    }
-
-    /// @notice isValidRequest validates a message by ecrecover to ensure
-    //          it is signed by owner of token.
-    /// @param message_ - the raw message for signing
-    /// @param owner_ - owner address of token
-    /// @param r_ - part of signature for validating parameters integrity
-    /// @param s_ - part of signature for validating parameters integrity
-    /// @param v_ - part of signature for validating parameters integrity
-    function isValidRequest(
-        bytes32 message_,
-        address owner_,
-        bytes32 r_,
-        bytes32 s_,
-        uint8 v_
-    ) internal pure returns (bool) {
-        address reqSigner = ECDSA.recover(
-            ECDSA.toEthSignedMessageHash(message_),
-            v_,
-            r_,
-            s_
-        );
-        return reqSigner == owner_;
     }
 
     /// @notice batchMint is function mint array of tokens
@@ -230,21 +183,16 @@ contract FeralfileExhibitionV4 is
         SaleData calldata saleData_
     ) external payable {
         require(_isSelling, "FeralfileExhibitionV4: sale is not started");
-        require(
-            saleData_.tokenIds.length > 0,
-            "FeralfileExhibitionV4: tokenIds is empty"
-        );
-        require(
-            saleData_.tokenIds.length == saleData_.royalties.length,
-            "FeralfileExhibitionV4: tokenIds and royalties length mismatch"
-        );
-        require(
-            saleData_.expiryTime > block.timestamp,
-            "FeralfileExhibitionV4: sale is expired"
-        );
+        isValidSaleData(saleData_);
 
         saleData_.payByVaultContract
-            ? Vault(payable(vault)).pay(saleData_.price)
+            ? FeralfileVault(payable(vault)).payForSale(
+                address(this),
+                r_,
+                s_,
+                v_,
+                saleData_
+            )
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
@@ -255,7 +203,7 @@ contract FeralfileExhibitionV4 is
         );
 
         require(
-            isValidRequest(requestHash, signer, r_, s_, v_),
+            isValidSignature(requestHash, signer, r_, s_, v_),
             "FeralfileExhibitionV4: invalid signature"
         );
 
@@ -277,11 +225,17 @@ contract FeralfileExhibitionV4 is
             );
             if (itemRevenue > 0) {
                 // distribute royalty
-                for (uint256 j = 0; j < saleData_.royalties[i].length; j++) {
+                for (
+                    uint256 j = 0;
+                    j < saleData_.revenueShares[i].length;
+                    j++
+                ) {
                     uint256 rev = (itemRevenue *
-                        saleData_.royalties[i][j].bps) / 10000;
+                        saleData_.revenueShares[i][j].bps) / 10000;
                     distributedRevenue += rev;
-                    payable(saleData_.royalties[i][j].recipient).transfer(rev);
+                    payable(saleData_.revenueShares[i][j].recipient).transfer(
+                        rev
+                    );
                 }
             }
 

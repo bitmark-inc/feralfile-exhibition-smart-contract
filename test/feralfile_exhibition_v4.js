@@ -14,8 +14,7 @@ const originArtworkCID = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
 contract("FeralfileExhibitionV4", async (accounts) => {
     before(async function () {
-        this.vault = await FeralfileVault.new();
-
+        this.vault = await FeralfileVault.new(accounts[1]);
         this.exhibition = await FeralfileExhibitionV4.new(
             "Feral File V4 Test 001",
             "FFV4",
@@ -27,8 +26,6 @@ contract("FeralfileExhibitionV4", async (accounts) => {
             true,
             true
         );
-
-        await this.vault.setExhibitionContract(this.exhibition.address);
     });
 
     it("check contract is burnable", async function () {

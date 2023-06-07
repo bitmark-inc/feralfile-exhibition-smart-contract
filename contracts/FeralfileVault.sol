@@ -3,28 +3,36 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract FeralfileVault is Ownable {
-    mapping(address => bool) public exhibitionContract;
+import "./FeralfileSaleStruct.sol";
+import "./ECDSASign.sol";
 
-    modifier onlyExhibitionContract() {
+contract FeralfileVault is Ownable, FeralfileSaleStruct, ECDSASign {
+    constructor(address signer_) ECDSASign(signer_) {}
+
+    function payForSale(
+        address from,
+        bytes32 r_,
+        bytes32 s_,
+        uint8 v_,
+        SaleData calldata saleData_
+    ) external {
         require(
-            exhibitionContract[msg.sender],
-            "Only exhibition contract can call this function."
+            saleData_.payByVaultContract,
+            "FeralfileVault: not pay by vault"
         );
-        _;
-    }
-
-    function setExhibitionContract(address ec) external onlyOwner {
-        exhibitionContract[ec] = true;
-    }
-
-    function unsetExhibitionContract(address ec) external onlyOwner {
-        exhibitionContract[ec] = false;
-    }
-
-    function pay(uint256 amount) external onlyExhibitionContract {
-        require(address(this).balance >= amount, "insufficient balance");
-        payable(msg.sender).transfer(amount);
+        isValidSaleData(saleData_);
+        bytes32 requestHash = keccak256(
+            abi.encode(block.chainid, from, saleData_)
+        );
+        require(
+            isValidSignature(requestHash, signer, r_, s_, v_),
+            "FeralfileVault: invalid signature"
+        );
+        require(
+            address(this).balance >= saleData_.price,
+            "FeralfileVault: insufficient balance"
+        );
+        payable(msg.sender).transfer(saleData_.price);
     }
 
     function withdrawFunds() external onlyOwner {
