@@ -25,7 +25,7 @@ contract FeralfileVault is Ownable, FeralfileSaleStruct, ECDSASign {
             abi.encode(block.chainid, from, saleData_)
         );
         require(
-            isValidSignature(requestHash, signer, r_, s_, v_),
+            isValidSignature(requestHash, r_, s_, v_),
             "FeralfileVault: invalid signature"
         );
         require(

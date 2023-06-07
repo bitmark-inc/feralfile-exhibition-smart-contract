@@ -73,7 +73,6 @@ contract FeralfileExhibitionV4 is
         isBridgeable = isBridgeable_;
         _contractURI = contractURI_;
         _tokenBaseURI = tokenBaseURI_;
-        signer = signer_;
         vault = vault_;
         costReceiver = costReceiver_;
     }
@@ -203,7 +202,7 @@ contract FeralfileExhibitionV4 is
         );
 
         require(
-            isValidSignature(requestHash, signer, r_, s_, v_),
+            isValidSignature(requestHash, r_, s_, v_),
             "FeralfileExhibitionV4: invalid signature"
         );
 
