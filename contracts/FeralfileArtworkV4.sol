@@ -269,6 +269,11 @@ contract FeralfileExhibitionV4 is
         }
     }
 
+    // @notice withdraw all funds
+    function withdrawFunds() external onlyOwner {
+        payable(msg.sender).transfer(address(this).balance);
+    }
+
     // @notice able to recieve funds from vault contract
     receive() external payable {
         require(msg.sender == vault, "only accept fund from vault contract.");
