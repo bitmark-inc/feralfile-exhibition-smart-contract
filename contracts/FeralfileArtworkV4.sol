@@ -259,6 +259,10 @@ contract FeralfileExhibitionV4 is
         uint256 tokenId
     ) public view virtual override returns (string memory) {
         require(
+            bytes(_tokenBaseURI).length > 0,
+            "ERC721Metadata: _tokenBaseURI is empty"
+        );
+        require(
             _exists(tokenId),
             "ERC721Metadata: URI query for nonexistent token"
         );
@@ -456,7 +460,7 @@ contract FeralfileExhibitionV4 is
         _totalSupply += 1;
         _seriesTotalSupplies[seriesId] += 1;
         _allArtworks[tokenId] = Artwork(seriesId, tokenId);
-        _safeMint(owner, tokenId);
+        _mint(owner, tokenId);
 
         // emit event
         emit NewArtwork(owner, seriesId, tokenId);
@@ -476,6 +480,7 @@ contract FeralfileExhibitionV4 is
         Artwork memory artwork = _allArtworks[tokenId];
         _seriesTotalSupplies[artwork.seriesId] -= 1;
         _totalSupply -= 1;
+        delete _allArtworks[tokenId];
         _burn(tokenId);
 
         // emit event
