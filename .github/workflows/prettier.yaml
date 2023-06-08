@@ -14,6 +14,4 @@ jobs:
               uses: creyD/prettier_action@v4.3
               with:
                   # This part is also where you can pass other options, for example:
-                  dry: true
-                  file_pattern: FeralfileArtworkV4.sol
-                  working_directory: contracts/
+                  prettier_options: --check contracts/FeralfileArtworkV4.sol
