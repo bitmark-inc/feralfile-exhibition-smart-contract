@@ -7,8 +7,9 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "./Authorizable.sol";
 import "./UpdateableOperatorFilterer.sol";
 import "./FeralfileSaleData.sol";
-import "./FeralfileVault.sol";
 import "./ECDSASigner.sol";
+
+import "./IFeralfileVault.sol";
 
 contract FeralfileExhibitionV4 is
     ERC721,
@@ -61,7 +62,7 @@ contract FeralfileExhibitionV4 is
     address public vault;
 
     // vault contract instance
-    FeralfileVault private _vault;
+    IFeralfileVault private _vault;
 
     // series max supplies
     mapping(uint256 => uint256) internal _seriesMaxSupplies;
@@ -122,7 +123,7 @@ contract FeralfileExhibitionV4 is
         bridgeable = bridgeable_;
         costReceiver = costReceiver_;
         vault = vault_;
-        _vault = FeralfileVault(payable(vault_));
+        _vault = IFeralfileVault(payable(vault_));
         tokenBaseURI = tokenBaseURI_;
 
         // initialize max supply map
@@ -170,7 +171,7 @@ contract FeralfileExhibitionV4 is
             vault_ != address(0),
             "FeralfileExhibitionV4: vault_ is zero address"
         );
-        _vault = FeralfileVault(payable(vault_));
+        _vault = IFeralfileVault(payable(vault_));
         vault = vault_;
     }
 
