@@ -28,7 +28,7 @@ contract FeralfileVault is Ownable, FeralfileSaleStruct, ECDSASign {
         );
         require(!paidSale[requestHash], "FeralfileVault: paid sale");
         require(
-            isValidSignature(requestHash, r_, s_, v_),
+            verifySignature(requestHash, r_, s_, v_),
             "FeralfileVault: invalid signature"
         );
         require(

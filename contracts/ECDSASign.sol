@@ -5,19 +5,20 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ECDSASign is Ownable {
-    address private signer;
+    address private _signer;
 
     constructor(address signer_) {
-        signer = signer_;
+        require(signer_ != address(0), "ECDSASign: signer_ is zero address");
+        _signer = signer_;
     }
 
-    /// @notice isValidSignature validates a message by ecrecover to ensure
-    //          it is signed by owner of token.
+    /// @notice verifySignature validates a message by ecrecover to ensure
+    //          it is signed by signer.
     /// @param message_ - the raw message for signing
     /// @param r_ - part of signature for validating parameters integrity
     /// @param s_ - part of signature for validating parameters integrity
     /// @param v_ - part of signature for validating parameters integrity
-    function isValidSignature(
+    function verifySignature(
         bytes32 message_,
         bytes32 r_,
         bytes32 s_,
@@ -29,12 +30,17 @@ contract ECDSASign is Ownable {
             r_,
             s_
         );
-        return reqSigner == signer;
+        return reqSigner == _signer;
     }
 
     /// @notice set the signer
     /// @param signer_ - the address of signer
     function setSigner(address signer_) external onlyOwner {
-        signer = signer_;
+        require(signer_ != address(0), "ECDSASign: signer_ is zero address");
+        _signer = signer_;
+    }
+
+    function signer() external view returns (address) {
+        return _signer;
     }
 }
