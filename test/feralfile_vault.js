@@ -62,7 +62,7 @@ contract('FeralfileVault', async (accounts) => {
                 ],
                 [
                     BigInt(await web3.eth.getChainId()).toString(),
-                    EXHIBITION_CONTRACT_ADDRESS,
+                    accounts[0],
                     saleData,
                 ]
             );
@@ -72,7 +72,7 @@ contract('FeralfileVault', async (accounts) => {
             const r = "0x" + sig.slice(0, 64);
             const s = "0x" + sig.slice(64, 128);
             const v = web3.utils.toDecimal("0x" + sig.slice(128, 130)) + 27;
-            await this.vault.payForSale(EXHIBITION_CONTRACT_ADDRESS, r, s, v, saleData);
+            await this.vault.payForSale(r, s, v, saleData);
             const vaultBalanceAfter = await web3.eth.getBalance(this.vault.address);
             assert.equal(vaultBalanceAfter, 0.4 * 1e18);
         } catch (error) {
@@ -81,14 +81,30 @@ contract('FeralfileVault', async (accounts) => {
         }
     });
 
-    it("check withdraw all funds by owner", async function () {
+    it("check withdraw fund by owner", async function () {
         try {
-            await this.vault.withdrawFunds();
+            const vaultBalanceBefore = await web3.eth.getBalance(this.vault.address);
+            // withdraw 0.1 ether
+            await this.vault.withdrawFund(BigInt(0.1 * 1e18));
             const vaultBalanceAfter = await web3.eth.getBalance(this.vault.address);
-            assert.equal(vaultBalanceAfter, 0);
+            assert.equal(
+                (
+                    BigInt(vaultBalanceBefore) - BigInt(vaultBalanceAfter)
+                ).toString(),
+                BigInt((0.1 * 1e18).toString()
+                )
+            );
         } catch (error) {
             console.log(error)
             assert.fail();
+        }
+    });
+
+    it("check withdraw more fund than balance", async function () {
+        try {
+            await this.vault.withdrawFund(BigInt(1 * 1e18));
+        } catch (error) {
+            assert.ok(error.message.includes("FeralfileVault: insufficient balance"));
         }
     });
 });

@@ -6,16 +6,16 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./Authorizable.sol";
 import "./UpdateableOperatorFilterer.sol";
-import "./FeralfileSaleStruct.sol";
+import "./FeralfileSaleData.sol";
 import "./FeralfileVault.sol";
-import "./ECDSASign.sol";
+import "./ECDSASigner.sol";
 
 contract FeralfileExhibitionV4 is
     ERC721,
     Authorizable,
     UpdateableOperatorFilterer,
-    FeralfileSaleStruct,
-    ECDSASign
+    FeralfileSaleData,
+    ECDSASigner
 {
     using Strings for uint256;
 
@@ -80,7 +80,7 @@ contract FeralfileExhibitionV4 is
         string memory tokenBaseURI_,
         uint256[] memory seriesIds_,
         uint256[] memory seriesMaxSupplies_
-    ) ERC721(name_, symbol_) ECDSASign(signer_) {
+    ) ERC721(name_, symbol_) ECDSASigner(signer_) {
         // validations
         require(
             bytes(name_).length > 0,
@@ -259,21 +259,21 @@ contract FeralfileExhibitionV4 is
         SaleData calldata saleData_
     ) external payable {
         require(_selling, "FeralfileExhibitionV4: sale is not started");
-        isValidSaleData(saleData_);
+        validateSaleData(saleData_);
 
         saleData_.payByVaultContract
-            ? vault.payForSale(address(this), r_, s_, v_, saleData_)
+            ? vault.payForSale(r_, s_, v_, saleData_)
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
             );
 
-        bytes32 requestHash = keccak256(
+        bytes32 message = keccak256(
             abi.encode(block.chainid, address(this), saleData_)
         );
 
         require(
-            verifySignature(requestHash, r_, s_, v_),
+            isValidSignature(message, r_, s_, v_),
             "FeralfileExhibitionV4: invalid signature"
         );
 
@@ -393,7 +393,7 @@ contract FeralfileExhibitionV4 is
         emit BurnArtwork(tokenId);
     }
 
-    /// @notice able to recieve funds from vault contract
+    /// @notice able to receive fund from vault contract
     receive() external payable {
         require(
             msg.sender == address(vault),
@@ -401,7 +401,7 @@ contract FeralfileExhibitionV4 is
         );
     }
 
-    /// @notice withdraw all funds
+    /// @notice withdraw all fund
     function withdrawFunds() external onlyOwner {
         payable(msg.sender).transfer(address(this).balance);
     }

@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract ECDSASign is Ownable {
+contract ECDSASigner is Ownable {
     address private _signer;
 
     constructor(address signer_) {
@@ -12,13 +12,13 @@ contract ECDSASign is Ownable {
         _signer = signer_;
     }
 
-    /// @notice verifySignature validates a message by ecrecover to ensure
+    /// @notice isValidSignature validates a message by ecrecover to ensure
     //          it is signed by signer.
     /// @param message_ - the raw message for signing
     /// @param r_ - part of signature for validating parameters integrity
     /// @param s_ - part of signature for validating parameters integrity
     /// @param v_ - part of signature for validating parameters integrity
-    function verifySignature(
+    function isValidSignature(
         bytes32 message_,
         bytes32 r_,
         bytes32 s_,

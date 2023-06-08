@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-contract FeralfileSaleStruct {
+contract FeralfileSaleData {
     struct RevenueShare {
         address recipient;
         uint256 bps;
@@ -17,7 +17,7 @@ contract FeralfileSaleStruct {
         bool payByVaultContract; // get eth from vault contract, used by credit card pay that proxy by ITX
     }
 
-    function isValidSaleData(SaleData calldata saleData_) internal view {
+    function validateSaleData(SaleData calldata saleData_) internal view {
         require(
             saleData_.tokenIds.length > 0,
             "FeralfileSaleData: tokenIds is empty"
