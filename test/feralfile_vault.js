@@ -6,7 +6,8 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 contract('FeralfileVault', async (accounts) => {
     before(async function () {
-        this.vault = await FeralfileVault.new(accounts[1]);
+        this.signer = accounts[1];
+        this.vault = await FeralfileVault.new(this.signer);
     });
 
     it("check adding funds", async function () {
@@ -66,7 +67,7 @@ contract('FeralfileVault', async (accounts) => {
                 ]
             );
             const hash = web3.utils.keccak256(signParams);
-            var sig = await web3.eth.sign(hash, accounts[1]);
+            var sig = await web3.eth.sign(hash, this.signer);
             sig = sig.substr(2);
             const r = "0x" + sig.slice(0, 64);
             const s = "0x" + sig.slice(64, 128);
