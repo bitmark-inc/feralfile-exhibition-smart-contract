@@ -58,7 +58,10 @@ contract FeralfileExhibitionV4 is
     address public costReceiver;
 
     // vault contract address
-    FeralfileVault public vault;
+    address public vault;
+
+    // vault contract instance
+    FeralfileVault private _vault;
 
     // series max supplies
     mapping(uint256 => uint256) internal _seriesMaxSupplies;
@@ -118,7 +121,8 @@ contract FeralfileExhibitionV4 is
         burnable = burnable_;
         bridgeable = bridgeable_;
         costReceiver = costReceiver_;
-        vault = FeralfileVault(payable(vault_));
+        vault = vault_;
+        _vault = FeralfileVault(payable(vault_));
         tokenBaseURI = tokenBaseURI_;
 
         // initialize max supply map
@@ -162,7 +166,12 @@ contract FeralfileExhibitionV4 is
     /// @notice Set vault contract
     /// @dev don't allow to set signer as zero address
     function setVault(address vault_) external onlyOwner {
-        vault = FeralfileVault(payable(vault_));
+        require(
+            vault_ != address(0),
+            "FeralfileExhibitionV4: vault_ is zero address"
+        );
+        _vault = FeralfileVault(payable(vault_));
+        vault = vault_;
     }
 
     /// @notice Turn on token sale
@@ -262,7 +271,7 @@ contract FeralfileExhibitionV4 is
         validateSaleData(saleData_);
 
         saleData_.payByVaultContract
-            ? vault.payForSale(r_, s_, v_, saleData_)
+            ? _vault.payForSale(r_, s_, v_, saleData_)
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
