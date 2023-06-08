@@ -18,14 +18,17 @@ contract FeralfileSaleStruct {
     }
 
     function isValidSaleData(SaleData calldata saleData_) internal view {
-        require(saleData_.tokenIds.length > 0, "SaleData: tokenIds is empty");
+        require(
+            saleData_.tokenIds.length > 0,
+            "FeralfileSaleData: tokenIds is empty"
+        );
         require(
             saleData_.tokenIds.length == saleData_.revenueShares.length,
-            "SaleData: tokenIds and revenueShares length mismatch"
+            "FeralfileSaleData: tokenIds and revenueShares length mismatch"
         );
         require(
             saleData_.expiryTime > block.timestamp,
-            "SaleData: sale is expired"
+            "FeralfileSaleData: sale is expired"
         );
     }
 }

@@ -11,6 +11,12 @@ contract FeralfileVault is Ownable, FeralfileSaleStruct, ECDSASign {
 
     constructor(address signer_) ECDSASign(signer_) {}
 
+    /// @notice pay for buyArtwork to a FFV4 contract destination.
+    /// @param from - a FFV4 exhibition contract address
+    /// @param r_ - part of signature for validating parameters integrity
+    /// @param s_ - part of signature for validating parameters integrity
+    /// @param v_ - part of signature for validating parameters integrity
+    /// @param saleData_ - the sale data
     function payForSale(
         address from,
         bytes32 r_,
@@ -43,6 +49,5 @@ contract FeralfileVault is Ownable, FeralfileSaleStruct, ECDSASign {
         payable(msg.sender).transfer(address(this).balance);
     }
 
-    // @notice able to recieve funds
     receive() external payable {}
 }
