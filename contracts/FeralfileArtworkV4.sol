@@ -28,7 +28,7 @@ contract FeralfileExhibitionV4 is
     struct MintData {
         uint256 seriesId;
         uint256 tokenId;
-        address minter;
+        address owner;
     }
 
     struct Royalty {
@@ -53,28 +53,28 @@ contract FeralfileExhibitionV4 is
     address public costReceiver;
 
     // burnable
-    bool private _burnable;
+    bool public burnable;
 
     // bridgeable
-    bool private _bridgeable;
+    bool public bridgeable;
+
+    // total supply
+    uint256 public totalSupply;
 
     // mintable
-    bool private _mintable = true;
+    bool public mintable = true;
 
     // token base URI
     string internal _tokenBaseURI;
 
     // contract URI
-    string private _contractURI;
+    string internal _contractURI;
 
     // vault contract address
-    address private _vaultAddress;
-
-    // default false and set to true when the sale starts
-    bool private _isSelling = false;
+    address internal _vault;
 
     // signer
-    address private _signer;
+    address internal _signer;
 
     // series max supplies
     mapping(uint256 => uint256) internal _seriesMaxSupplies;
@@ -82,11 +82,11 @@ contract FeralfileExhibitionV4 is
     // series total supplies
     mapping(uint256 => uint256) internal _seriesTotalSupplies;
 
-    // total supply
-    uint256 private _totalSupply;
-
     // all artworks
     mapping(uint256 => Artwork) internal _allArtworks;
+
+    // selling
+    bool private _selling;
 
     constructor(
         string memory name_,
@@ -94,7 +94,7 @@ contract FeralfileExhibitionV4 is
         address signer_,
         bool burnable_,
         bool bridgeable_,
-        address vaultAddress_,
+        address vault_,
         address costReceiver_,
         string memory tokenBaseURI_,
         uint256[] memory seriesIds_,
@@ -110,8 +110,12 @@ contract FeralfileExhibitionV4 is
             "FeralfileExhibitionV4: symbol_ is empty"
         );
         require(
-            vaultAddress_ != address(0),
+            vault_ != address(0),
             "FeralfileExhibitionV4: vaultAddress_ is zero address"
+        );
+        require(
+            costReceiver_ != address(0),
+            "FeralfileExhibitionV4: costReceiver_ is zero address"
         );
         require(
             bytes(tokenBaseURI_).length > 0,
@@ -134,10 +138,10 @@ contract FeralfileExhibitionV4 is
             "FeralfileExhibitionV4: seriesMaxSupplies_ and seriesIds_ lengths are not the same"
         );
 
+        burnable = burnable_;
+        bridgeable = bridgeable_;
         _signer = signer_;
-        _burnable = burnable_;
-        _bridgeable = bridgeable_;
-        _vaultAddress = vaultAddress_;
+        _vault = vault_;
         _tokenBaseURI = tokenBaseURI_;
         costReceiver = costReceiver_;
 
@@ -151,50 +155,55 @@ contract FeralfileExhibitionV4 is
         }
     }
 
-    function mintable() public view virtual returns (bool) {
-        return _mintable;
+    /// @notice Turn on/off contract mintable flag
+    function setMintable(bool mintable_) external onlyOwner {
+        mintable = mintable_;
     }
 
-    function setMintable(bool mintable_) external onlyAuthorized {
-        _mintable = mintable_;
+    /// @notice Turn on/off contract burnable flag
+    function setBurnable(bool burnable_) external onlyOwner {
+        burnable = burnable_;
     }
 
-    function burnable() public view virtual returns (bool) {
-        return _burnable;
+    /// @notice Turn on/off contract bridgeable flag
+    function setBridgeable(bool bridgeable_) external onlyOwner {
+        bridgeable = bridgeable_;
     }
 
-    function setBurnable(bool burnable_) external onlyAuthorized {
-        _burnable = burnable_;
+    /// @notice Set signer
+    function setSigner(address signer_) external onlyOwner {
+        require(
+            signer_ != address(0),
+            "FeralfileExhibitionV4: signer_ is zero address"
+        );
+        _signer = signer_;
     }
 
-    function bridgeable() public view virtual returns (bool) {
-        return _bridgeable;
-    }
-
-    function setBridgeable(bool bridgeable_) external onlyAuthorized {
-        _bridgeable = bridgeable_;
-    }
-
-    function signer() public view virtual returns (address) {
+    function signer() external view returns (address) {
         return _signer;
     }
 
-    function totalSupply() public view virtual returns (uint256) {
-        return _totalSupply;
-    }
-
+    /// @notice Get series max supply
+    /// @param seriesId a series ID
+    /// @return uint256 the max supply
     function seriesMaxSupply(
         uint256 seriesId
     ) public view virtual returns (uint256) {
         return _seriesMaxSupplies[seriesId];
     }
 
+    /// @notice Get series total supply
+    /// @param seriesId a series ID
+    /// @return uint256 the total supply
     function seriesTotalSupply(
         uint256 seriesId
     ) public view virtual returns (uint256) {
         return _seriesTotalSupplies[seriesId];
     }
 
+    /// @notice Get artwork data
+    /// @param tokenId a token ID representing the artwork
+    /// @return Artwork the Artwork object
     function getArtwork(
         uint256 tokenId
     ) public view virtual returns (Artwork memory) {
@@ -202,19 +211,24 @@ contract FeralfileExhibitionV4 is
         return _allArtworks[tokenId];
     }
 
-    function setVaultContract(address vaultAddress_) external onlyOwner {
-        _vaultAddress = vaultAddress_;
+    /// @notice Set vault contract
+    /// @dev don't allow to set signer as zero address
+    function setVault(address vault_) external onlyOwner {
+        _vault = vault_;
     }
 
+    /// @notice Turn on token sale
     function startSale() external onlyOwner {
-        _mintable = false;
-        _isSelling = true;
+        mintable = false;
+        _selling = true;
     }
 
-    function endSale() external onlyOwner {
-        _isSelling = false;
+    /// @notice Turn off token sale
+    function stopSale() external onlyOwner {
+        _selling = false;
     }
 
+    /// @dev override for OperatorFilterRegistry
     function setApprovalForAll(
         address operator,
         bool approved
@@ -222,6 +236,7 @@ contract FeralfileExhibitionV4 is
         super.setApprovalForAll(operator, approved);
     }
 
+    /// @dev override for OperatorFilterRegistry
     function approve(
         address operator,
         uint256 tokenId
@@ -229,6 +244,7 @@ contract FeralfileExhibitionV4 is
         super.approve(operator, tokenId);
     }
 
+    /// @dev override for OperatorFilterRegistry
     function transferFrom(
         address from,
         address to,
@@ -237,6 +253,7 @@ contract FeralfileExhibitionV4 is
         super.transferFrom(from, to, tokenId);
     }
 
+    /// @dev override for OperatorFilterRegistry
     function safeTransferFrom(
         address from,
         address to,
@@ -245,6 +262,7 @@ contract FeralfileExhibitionV4 is
         super.safeTransferFrom(from, to, tokenId);
     }
 
+    /// @dev override for OperatorFilterRegistry
     function safeTransferFrom(
         address from,
         address to,
@@ -267,16 +285,11 @@ contract FeralfileExhibitionV4 is
             "ERC721Metadata: URI query for nonexistent token"
         );
 
-        string memory baseURI = _tokenBaseURI;
-        if (bytes(baseURI).length == 0) {
-            baseURI = "ipfs://";
-        }
-
-        return string(abi.encodePacked(baseURI, "/", tokenId.toString()));
+        return string(abi.encodePacked(_tokenBaseURI, "/", tokenId.toString()));
     }
 
     /// @notice Update the base URI for all tokens
-    function setTokenBaseURI(string memory baseURI_) external onlyAuthorized {
+    function setTokenBaseURI(string memory baseURI_) external onlyOwner {
         _tokenBaseURI = baseURI_;
     }
 
@@ -285,33 +298,10 @@ contract FeralfileExhibitionV4 is
         return _contractURI;
     }
 
-    /// @notice the signer would sign the data of
-    /// @param signer_ - the address of signer
-    function setSigner(address signer_) external onlyOwner {
-        signer = signer_;
-    }
-
-    /// @notice the vault contract address
-    /// @param vault_ - the address of vault contract
-    function setVaultContract(address vault_) external onlyOwner {
-        vault = vault_;
-    }
-
     /// @notice the cost receiver address
     /// @param costReceiver_ - the address of cost receiver
     function setCostReceiver(address costReceiver_) external onlyOwner {
         costReceiver = costReceiver_;
-    }
-
-    // @notice to start the sale
-    function startSale() external onlyOwner {
-        _canMint = false;
-        _isSelling = true;
-    }
-
-    // @notice to end the sale
-    function endSale() external onlyOwner {
-        _isSelling = false;
     }
 
     /// @notice isValidRequest validates a message by ecrecover to ensure
@@ -344,7 +334,7 @@ contract FeralfileExhibitionV4 is
         uint8 v_,
         SaleData calldata saleData_
     ) external payable {
-        require(_isSelling, "FeralfileExhibitionV4: sale is not started");
+        require(_selling, "FeralfileExhibitionV4: sale is not started");
         require(
             saleData_.tokenIds.length > 0,
             "FeralfileExhibitionV4: tokenIds is empty"
@@ -359,7 +349,7 @@ contract FeralfileExhibitionV4 is
         );
 
         saleData_.payByVaultContract
-            ? Vault(payable(vault)).pay(saleData_.price)
+            ? Vault(payable(_vault)).pay(saleData_.price)
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
@@ -370,7 +360,7 @@ contract FeralfileExhibitionV4 is
         );
 
         require(
-            verifySignature(requestHash, signer, r_, s_, v_),
+            verifySignature(requestHash, _signer, r_, s_, v_),
             "FeralfileExhibitionV4: invalid signature"
         );
 
@@ -410,20 +400,27 @@ contract FeralfileExhibitionV4 is
         }
     }
 
-    // @notice able to recieve funds from vault contract
+    /// @notice able to recieve funds from vault contract
     receive() external payable {
-        require(msg.sender == vault, "only accept fund from vault contract.");
+        require(
+            msg.sender == _vault,
+            "FeralfileExhibitionV4: only accept fund from vault contract."
+        );
     }
 
+    /// @notice utility function for checking the series exists
     function _seriesExists(uint256 seriesId) internal view returns (bool) {
         return _seriesMaxSupplies[seriesId] > 0;
     }
 
+    /// @notice Mint new collection of Artwork
+    /// @dev the function iterates over the array of MintData to call the internal function _mintArtwork
+    /// @param data an array of MintData
     function mintArtworks(
-        MintData[] memory data
+        MintData[] calldata data
     ) external virtual onlyAuthorized {
         for (uint256 i = 0; i < data.length; i++) {
-            _mintArtwork(data[i].seriesId, data[i].tokenId, data[i].minter);
+            _mintArtwork(data[i].seriesId, data[i].tokenId, data[i].owner);
         }
     }
 
@@ -434,12 +431,8 @@ contract FeralfileExhibitionV4 is
     ) internal {
         // pre-condition checks
         require(
-            _mintable,
+            mintable,
             "FeralfileExhibitionV4: contract doesn't allow to mint"
-        );
-        require(
-            owner != address(0),
-            "FeralfileExhibitionV4: mint to zero address"
         );
         require(
             _seriesExists(seriesId),
@@ -450,22 +443,24 @@ contract FeralfileExhibitionV4 is
                 )
             )
         );
-        require(!_exists(tokenId), "ERC721: token already minted");
-        require(
-            _seriesTotalSupplies[seriesId] < _seriesMaxSupplies[seriesId],
-            "FeralfileExhibitionV4: no slots available"
-        );
 
         // mint
-        _totalSupply += 1;
+        totalSupply += 1;
         _seriesTotalSupplies[seriesId] += 1;
         _allArtworks[tokenId] = Artwork(seriesId, tokenId);
         _mint(owner, tokenId);
+        require(
+            _seriesTotalSupplies[seriesId] <= _seriesMaxSupplies[seriesId],
+            "FeralfileExhibitionV4: no slots available"
+        );
 
         // emit event
         emit NewArtwork(owner, seriesId, tokenId);
     }
 
+    /// @notice Burn a collection of artworks
+    /// @dev the function iterates over the array of token ID to call the internal function _burnArtwork
+    /// @param tokenIds an array of token ID
     function burnArtworks(uint256[] memory tokenIds) external {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             _burnArtwork(tokenIds[i]);
@@ -473,13 +468,13 @@ contract FeralfileExhibitionV4 is
     }
 
     function _burnArtwork(uint256 tokenId) internal {
-        require(burnable(), "FeralfileExhibitionV4: token is not burnable");
+        require(burnable, "FeralfileExhibitionV4: token is not burnable");
         require(_exists(tokenId), "ERC721: token doesn't exist");
 
         // burn artwork
         Artwork memory artwork = _allArtworks[tokenId];
         _seriesTotalSupplies[artwork.seriesId] -= 1;
-        _totalSupply -= 1;
+        totalSupply -= 1;
         delete _allArtworks[tokenId];
         _burn(tokenId);
 
@@ -497,5 +492,6 @@ contract FeralfileExhibitionV4 is
     /// @notice Event emitted when Artwork has been burned
     event BurnArtwork(uint256 indexed tokenId);
 
+    /// @notice Event emitted when Artwork has been sold
     event BuyArtwork(address indexed buyer, uint256 indexed tokenId);
 }

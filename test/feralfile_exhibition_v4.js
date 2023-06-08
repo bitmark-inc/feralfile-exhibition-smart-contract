@@ -1,19 +1,28 @@
 const FeralfileExhibitionV4 = artifacts.require("FeralfileExhibitionV4");
+const FeralfileVault = artifacts.require("FeralfileVault");
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
+const VAULT_ADDRESS = "0x7a15b36cb834aea88553de69077d3777460d73ac";
+const TOKEN_BASE_URI = "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
 contract("FeralfileExhibitionV4_0", async (accounts) => {
     before(async function () {
+        this.signer = accounts[0];
+        this.vault = await FeralfileVault.new();
         this.exhibition = await FeralfileExhibitionV4.new(
             "Feral File V4 Test",
             "FFv4",
-            accounts[0],
+            this.signer,
             true,
             true,
-            [0, 1, 2, 3],
-            [1, 1, 100, 1000]
+            this.vault.address,
+            COST_RECEIVER,
+            TOKEN_BASE_URI,
+            [0, 1, 2, 3, 4],
+            [1, 1, 100, 1000, 10000]
         );
+        await this.vault.setExhibitionContract(this.exhibition.address);
     });
 
     it("test contract constructor", async function () {
@@ -24,7 +33,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         assert.ok(bridgeable);
 
         let signer = await this.exhibition.signer();
-        assert.equal(signer, accounts[0]);
+        assert.equal(signer, this.signer);
 
         let seriesMaxSupply1 = await this.exhibition.seriesMaxSupply(0);
         assert.equal(seriesMaxSupply1, 1);
@@ -83,7 +92,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         assert.equal(log1.event, "NewArtwork");
 
         // 2. mint failed
-
         // series doesn't exist
         data = [[999999, 0, owner]];
         try {
@@ -102,9 +110,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             await this.exhibition.mintArtworks(data);
         } catch (error) {
             assert.ok(
-                error.message.includes(
-                    "FeralfileExhibitionV4: mint to zero address"
-                )
+                error.message.includes("ERC721: mint to the zero address")
             );
         }
 
@@ -206,6 +212,24 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
     });
 
     it("test buy artworks successfully", async function () {
+        await this.exhibition.setMintable(true);
+        // Mint for buy by crypto
+        let owner = this.exhibition.address;
+        await this.exhibition.mintArtworks([
+            [3, 3000000, owner],
+            [3, 3000001, owner],
+            [4, 4000000, owner],
+            [4, 4000001, owner],
+            [4, 4000002, owner],
+        ]);
+        // Mint for credit card
+        await this.exhibition.mintArtworks([
+            [3, 3000002, owner],
+            [3, 3000003, owner],
+            [4, 4000003, owner],
+            [4, 4000004, owner],
+        ]);
+
         // Generate signature
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
         const signParams = web3.eth.abi.encodeParameters(
@@ -222,7 +246,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                     BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
-                    [1000000, 1000001, 2000000, 2000001, 2000002],
+                    [3000000, 3000001, 4000000, 4000001, 4000002],
                     [
                         [
                             [accounts[3], 8000],
@@ -250,7 +274,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             ]
         );
         const hash = web3.utils.keccak256(signParams);
-        var sig = await web3.eth.sign(hash, accounts[1]);
+        var sig = await web3.eth.sign(hash, this.signer);
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
@@ -274,7 +298,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                     BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
-                    [1000000, 1000001, 2000000, 2000001, 2000002],
+                    [3000000, 3000001, 4000000, 4000001, 4000002],
                     [
                         [
                             [accounts[3], 8000],
@@ -301,11 +325,11 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                 ],
                 { from: accounts[5], value: 0.25 * 1e18 }
             );
-            const ownerOfToken0 = await this.exhibition.ownerOf(1000000);
-            const ownerOfToken1 = await this.exhibition.ownerOf(1000001);
-            const ownerOfToken2 = await this.exhibition.ownerOf(2000000);
-            const ownerOfToken3 = await this.exhibition.ownerOf(2000001);
-            const ownerOfToken4 = await this.exhibition.ownerOf(2000002);
+            const ownerOfToken0 = await this.exhibition.ownerOf(3000000);
+            const ownerOfToken1 = await this.exhibition.ownerOf(3000001);
+            const ownerOfToken2 = await this.exhibition.ownerOf(4000000);
+            const ownerOfToken3 = await this.exhibition.ownerOf(4000001);
+            const ownerOfToken4 = await this.exhibition.ownerOf(4000002);
             assert.equal(ownerOfToken0, accounts[2]);
             assert.equal(ownerOfToken1, accounts[2]);
             assert.equal(ownerOfToken2, accounts[2]);
@@ -365,7 +389,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                     BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
-                    [1000002, 1000003, 2000003, 2000004],
+                    [3000002, 3000003, 4000003, 4000004],
                     [
                         [
                             [accounts[3], 5000],
@@ -389,7 +413,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             ]
         );
         const hash = web3.utils.keccak256(signParams);
-        var sig = await web3.eth.sign(hash, accounts[1]);
+        var sig = await web3.eth.sign(hash, this.signer);
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
@@ -415,7 +439,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                     BigInt(0.02 * 1e18).toString(),
                     expiryTime,
                     accounts[2],
-                    [1000002, 1000003, 2000003, 2000004],
+                    [3000002, 3000003, 4000003, 4000004],
                     [
                         [
                             [accounts[3], 5000],
@@ -438,10 +462,10 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                 ],
                 { from: accounts[5], value: 0 } // itx relay
             );
-            const ownerOfToken0 = await this.exhibition.ownerOf(1000002);
-            const ownerOfToken1 = await this.exhibition.ownerOf(1000003);
-            const ownerOfToken2 = await this.exhibition.ownerOf(2000003);
-            const ownerOfToken3 = await this.exhibition.ownerOf(2000004);
+            const ownerOfToken0 = await this.exhibition.ownerOf(3000002);
+            const ownerOfToken1 = await this.exhibition.ownerOf(3000003);
+            const ownerOfToken2 = await this.exhibition.ownerOf(4000003);
+            const ownerOfToken3 = await this.exhibition.ownerOf(4000004);
             assert.equal(ownerOfToken0, accounts[2]);
             assert.equal(ownerOfToken1, accounts[2]);
             assert.equal(ownerOfToken2, accounts[2]);
