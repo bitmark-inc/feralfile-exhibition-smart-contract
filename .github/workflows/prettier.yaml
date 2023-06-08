@@ -1,23 +1,19 @@
 name: prettier
 on:
-  push:
-  pull_request:
+    push:
+    pull_request:
 
 jobs:
-  prettier:
-    name: prettier
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-      - name: Prettify code
-        uses: creyD/prettier_action@v4.3
-        with:
-          # This part is also where you can pass other options, for example:
-<<<<<<< HEAD
-          prettier_options: --check contracts/FeralfileArtworkV4.sol
-=======
-          dry: true
-          file_pattern: FeralfileArtworkV4.sol
-          working_directory: contracts/
->>>>>>> ac4b47c (Add prettier github action)
+    prettier:
+        name: prettier
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v3
+            - name: Prettify code
+              uses: creyD/prettier_action@v4.3
+              with:
+                  # This part is also where you can pass other options, for example:
+                  dry: true
+                  file_pattern: FeralfileArtworkV4.sol
+                  working_directory: contracts/
