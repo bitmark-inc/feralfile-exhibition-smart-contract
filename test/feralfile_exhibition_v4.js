@@ -32,6 +32,15 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         let bridgeable = await this.exhibition.bridgeable();
         assert.ok(bridgeable);
 
+        let mintable = await this.exhibition.mintable();
+        assert.ok(mintable);
+
+        let tokenBaseURI = await this.exhibition.tokenBaseURI();
+        assert.equal(tokenBaseURI, TOKEN_BASE_URI);
+
+        let vaultAddress = await this.exhibition.vault();
+        assert.equal(vaultAddress, this.vault.address);
+
         let signer = await this.exhibition.signer();
         assert.equal(signer, this.signer);
 
@@ -133,18 +142,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                 )
             );
         }
-
-        // not mintable
-        await this.exhibition.setMintable(false);
-        try {
-            await this.exhibition.mintArtworks(data);
-        } catch (error) {
-            assert.ok(
-                error.message.includes(
-                    "FeralfileExhibitionV4: contract doesn't allow to mint"
-                )
-            );
-        }
     });
 
     it("test burn artwork", async function () {
@@ -197,22 +194,9 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         } catch (error) {
             assert.ok(error.message.includes("ERC721: token doesn't exist"));
         }
-
-        // not burnable
-        await this.exhibition.setBurnable(false);
-        try {
-            await this.exhibition.burnArtworks(data);
-        } catch (error) {
-            assert.ok(
-                error.message.includes(
-                    "FeralfileExhibitionV4: token is not burnable"
-                )
-            );
-        }
     });
 
     it("test buy artworks successfully", async function () {
-        await this.exhibition.setMintable(true);
         // Mint for buy by crypto
         let owner = this.exhibition.address;
         await this.exhibition.mintArtworks([

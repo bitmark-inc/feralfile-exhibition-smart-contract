@@ -65,13 +65,13 @@ contract FeralfileExhibitionV4 is
     bool public mintable = true;
 
     // token base URI
-    string internal _tokenBaseURI;
+    string public tokenBaseURI;
 
     // contract URI
-    string internal _contractURI;
+    string public contractURI;
 
     // vault contract address
-    address internal _vault;
+    address public vault;
 
     // signer
     address internal _signer;
@@ -140,10 +140,10 @@ contract FeralfileExhibitionV4 is
 
         burnable = burnable_;
         bridgeable = bridgeable_;
-        _signer = signer_;
-        _vault = vault_;
-        _tokenBaseURI = tokenBaseURI_;
         costReceiver = costReceiver_;
+        vault = vault_;
+        tokenBaseURI = tokenBaseURI_;
+        _signer = signer_;
 
         // initialize max supply map
         for (uint256 i = 0; i < seriesIds_.length; i++) {
@@ -153,21 +153,6 @@ contract FeralfileExhibitionV4 is
                 "FeralfileExhibitionV4: zero max supply"
             );
         }
-    }
-
-    /// @notice Turn on/off contract mintable flag
-    function setMintable(bool mintable_) external onlyOwner {
-        mintable = mintable_;
-    }
-
-    /// @notice Turn on/off contract burnable flag
-    function setBurnable(bool burnable_) external onlyOwner {
-        burnable = burnable_;
-    }
-
-    /// @notice Turn on/off contract bridgeable flag
-    function setBridgeable(bool bridgeable_) external onlyOwner {
-        bridgeable = bridgeable_;
     }
 
     /// @notice Set signer
@@ -214,7 +199,7 @@ contract FeralfileExhibitionV4 is
     /// @notice Set vault contract
     /// @dev don't allow to set signer as zero address
     function setVault(address vault_) external onlyOwner {
-        _vault = vault_;
+        vault = vault_;
     }
 
     /// @notice Turn on token sale
@@ -277,7 +262,7 @@ contract FeralfileExhibitionV4 is
         uint256 tokenId
     ) public view virtual override returns (string memory) {
         require(
-            bytes(_tokenBaseURI).length > 0,
+            bytes(tokenBaseURI).length > 0,
             "ERC721Metadata: _tokenBaseURI is empty"
         );
         require(
@@ -285,17 +270,12 @@ contract FeralfileExhibitionV4 is
             "ERC721Metadata: URI query for nonexistent token"
         );
 
-        return string(abi.encodePacked(_tokenBaseURI, "/", tokenId.toString()));
+        return string(abi.encodePacked(tokenBaseURI, "/", tokenId.toString()));
     }
 
     /// @notice Update the base URI for all tokens
     function setTokenBaseURI(string memory baseURI_) external onlyOwner {
-        _tokenBaseURI = baseURI_;
-    }
-
-    /// @notice A URL for the opensea storefront-level metadata
-    function contractURI() public view returns (string memory) {
-        return _contractURI;
+        tokenBaseURI = baseURI_;
     }
 
     /// @notice the cost receiver address
@@ -349,7 +329,7 @@ contract FeralfileExhibitionV4 is
         );
 
         saleData_.payByVaultContract
-            ? Vault(payable(_vault)).pay(saleData_.price)
+            ? Vault(payable(vault)).pay(saleData_.price)
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
@@ -403,7 +383,7 @@ contract FeralfileExhibitionV4 is
     /// @notice able to recieve funds from vault contract
     receive() external payable {
         require(
-            msg.sender == _vault,
+            msg.sender == vault,
             "FeralfileExhibitionV4: only accept fund from vault contract."
         );
     }
