@@ -7,7 +7,7 @@ import "./FeralfileSaleStruct.sol";
 import "./ECDSASign.sol";
 
 contract FeralfileVault is Ownable, FeralfileSaleStruct, ECDSASign {
-    mapping(bytes32 => bool) private paidSale;
+    mapping(bytes32 => bool) private _paidSale;
 
     constructor(address signer_) ECDSASign(signer_) {}
 
@@ -32,7 +32,7 @@ contract FeralfileVault is Ownable, FeralfileSaleStruct, ECDSASign {
         bytes32 requestHash = keccak256(
             abi.encode(block.chainid, from, saleData_)
         );
-        require(!paidSale[requestHash], "FeralfileVault: paid sale");
+        require(!_paidSale[requestHash], "FeralfileVault: paid sale");
         require(
             verifySignature(requestHash, r_, s_, v_),
             "FeralfileVault: invalid signature"
@@ -41,7 +41,7 @@ contract FeralfileVault is Ownable, FeralfileSaleStruct, ECDSASign {
             address(this).balance >= saleData_.price,
             "FeralfileVault: insufficient balance"
         );
-        paidSale[requestHash] = true;
+        _paidSale[requestHash] = true;
         payable(from).transfer(saleData_.price);
     }
 
