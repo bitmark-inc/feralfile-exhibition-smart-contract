@@ -79,6 +79,7 @@ contract FeralfileExhibitionV4 is
         address vault_,
         address costReceiver_,
         string memory tokenBaseURI_,
+        string memory contractURI_,
         uint256[] memory seriesIds_,
         uint256[] memory seriesMaxSupplies_
     ) ERC721(name_, symbol_) ECDSASigner(signer_) {
@@ -104,6 +105,10 @@ contract FeralfileExhibitionV4 is
             "FeralfileExhibitionV4: tokenBaseURI_ is empty"
         );
         require(
+            bytes(contractURI_).length > 0,
+            "FeralfileExhibitionV4: contractURI_ is empty"
+        );
+        require(
             seriesIds_.length > 0,
             "FeralfileExhibitionV4: seriesIds_ is empty"
         );
@@ -121,6 +126,7 @@ contract FeralfileExhibitionV4 is
         costReceiver = costReceiver_;
         vault = IFeralfileVault(payable(vault_));
         tokenBaseURI = tokenBaseURI_;
+        contractURI = contractURI_;
 
         // initialize max supply map
         for (uint256 i = 0; i < seriesIds_.length; i++) {
