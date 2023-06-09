@@ -10,7 +10,7 @@ const CONTRACT_URI = "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 contract("FeralfileExhibitionV4_0", async (accounts) => {
     before(async function () {
         this.signer = accounts[0];
-        this.vault = await FeralfileVault.new();
+        this.vault = await FeralfileVault.new(this.signer);
         this.exhibition = await FeralfileExhibitionV4.new(
             "Feral File V4 Test",
             "FFv4",
@@ -24,7 +24,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             [0, 1, 2, 3, 4],
             [1, 1, 100, 1000, 10000]
         );
-        await this.vault.setExhibitionContract(this.exhibition.address);
     });
 
     it("test contract constructor", async function () {
@@ -180,12 +179,14 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         // event emitted
         let { logs } = tx;
         assert.ok(Array.isArray(logs));
-        assert.equal(logs.length, 4);
+        assert.equal(logs.length, 6);
 
         let log0 = logs[0];
         let log1 = logs[1];
-        assert.equal(log0.event, "Transfer");
-        assert.equal(log1.event, "BurnArtwork");
+        let log2 = logs[2];
+        assert.equal(log0.event, "Approval");
+        assert.equal(log1.event, "Transfer");
+        assert.equal(log2.event, "BurnArtwork");
 
         // 2. Burn failed
 

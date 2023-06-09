@@ -2,21 +2,21 @@
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./Authorizable.sol";
 import "./UpdateableOperatorFilterer.sol";
+import "./FeralfileSaleData.sol";
+import "./ECDSASigner.sol";
 
-contract Vault {
-    function pay(uint256 weiAmount) external {}
-}
+import "./IFeralfileVault.sol";
 
 contract FeralfileExhibitionV4 is
     ERC721,
     Authorizable,
-    UpdateableOperatorFilterer
+    UpdateableOperatorFilterer,
+    FeralfileSaleData,
+    ECDSASigner
 {
     using Strings for uint256;
 
@@ -31,38 +31,8 @@ contract FeralfileExhibitionV4 is
         address owner;
     }
 
-    struct Royalty {
-        address recipient;
-        uint256 bps;
-    }
-
-    struct SaleData {
-        uint256 price; // in wei
-        uint256 cost; // in wei
-        uint256 expiryTime;
-        address destination;
-        uint256[] tokenIds;
-        Royalty[][] royalties; // address and royalty bps (500 means 5%)
-        bool payByVaultContract; // get eth from vault contract, used by credit card pay that proxy by ITX
-    }
-
     // version code of contract
     string public constant codeVersion = "FeralfileExhibitionV4";
-
-    // cost receiver
-    address public costReceiver;
-
-    // burnable
-    bool public burnable;
-
-    // bridgeable
-    bool public bridgeable;
-
-    // total supply
-    uint256 public totalSupply;
-
-    // mintable
-    bool public mintable = true;
 
     // token base URI
     string public tokenBaseURI;
@@ -70,11 +40,26 @@ contract FeralfileExhibitionV4 is
     // contract URI
     string public contractURI;
 
-    // vault contract address
-    address public vault;
+    // total supply
+    uint256 public totalSupply;
 
-    // signer
-    address internal _signer;
+    // burnable
+    bool public burnable;
+
+    // bridgeable
+    bool public bridgeable;
+
+    // selling
+    bool private _selling;
+
+    // mintable
+    bool public mintable = true;
+
+    // cost receiver
+    address public costReceiver;
+
+    // vault contract instance
+    IFeralfileVault public vault;
 
     // series max supplies
     mapping(uint256 => uint256) internal _seriesMaxSupplies;
@@ -84,9 +69,6 @@ contract FeralfileExhibitionV4 is
 
     // all artworks
     mapping(uint256 => Artwork) internal _allArtworks;
-
-    // selling
-    bool private _selling;
 
     constructor(
         string memory name_,
@@ -100,7 +82,7 @@ contract FeralfileExhibitionV4 is
         string memory contractURI_,
         uint256[] memory seriesIds_,
         uint256[] memory seriesMaxSupplies_
-    ) ERC721(name_, symbol_) {
+    ) ERC721(name_, symbol_) ECDSASigner(signer_) {
         // validations
         require(
             bytes(name_).length > 0,
@@ -127,10 +109,6 @@ contract FeralfileExhibitionV4 is
             "FeralfileExhibitionV4: contractURI_ is empty"
         );
         require(
-            signer_ != address(0),
-            "FeralfileExhibitionV4: signer_ is zero address"
-        );
-        require(
             seriesIds_.length > 0,
             "FeralfileExhibitionV4: seriesIds_ is empty"
         );
@@ -146,10 +124,9 @@ contract FeralfileExhibitionV4 is
         burnable = burnable_;
         bridgeable = bridgeable_;
         costReceiver = costReceiver_;
-        vault = vault_;
+        vault = IFeralfileVault(payable(vault_));
         tokenBaseURI = tokenBaseURI_;
         contractURI = contractURI_;
-        _signer = signer_;
 
         // initialize max supply map
         for (uint256 i = 0; i < seriesIds_.length; i++) {
@@ -159,19 +136,6 @@ contract FeralfileExhibitionV4 is
                 "FeralfileExhibitionV4: zero max supply"
             );
         }
-    }
-
-    /// @notice Set signer
-    function setSigner(address signer_) external onlyOwner {
-        require(
-            signer_ != address(0),
-            "FeralfileExhibitionV4: signer_ is zero address"
-        );
-        _signer = signer_;
-    }
-
-    function signer() external view returns (address) {
-        return _signer;
     }
 
     /// @notice Get series max supply
@@ -205,7 +169,11 @@ contract FeralfileExhibitionV4 is
     /// @notice Set vault contract
     /// @dev don't allow to set signer as zero address
     function setVault(address vault_) external onlyOwner {
-        vault = vault_;
+        require(
+            vault_ != address(0),
+            "FeralfileExhibitionV4: vault_ is zero address"
+        );
+        vault = IFeralfileVault(payable(vault_));
     }
 
     /// @notice Turn on token sale
@@ -290,25 +258,6 @@ contract FeralfileExhibitionV4 is
         costReceiver = costReceiver_;
     }
 
-    /// @notice isValidRequest validates a message by ecrecover to ensure
-    //          it is signed by owner of token.
-    /// @param message_ - the raw message for signing
-    /// @param owner_ - owner address of token
-    /// @param r_ - part of signature for validating parameters integrity
-    /// @param s_ - part of signature for validating parameters integrity
-    /// @param v_ - part of signature for validating parameters integrity
-    function verifySignature(
-        bytes32 message_,
-        address owner_,
-        bytes32 r_,
-        bytes32 s_,
-        uint8 v_
-    ) internal pure returns (bool) {
-        return
-            ECDSA.recover(ECDSA.toEthSignedMessageHash(message_), v_, r_, s_) ==
-            owner_;
-    }
-
     /// @notice pay to get artworks to a destination address. The pricing, costs and other details is included in the saleData
     /// @param r_ - part of signature for validating parameters integrity
     /// @param s_ - part of signature for validating parameters integrity
@@ -321,32 +270,21 @@ contract FeralfileExhibitionV4 is
         SaleData calldata saleData_
     ) external payable {
         require(_selling, "FeralfileExhibitionV4: sale is not started");
-        require(
-            saleData_.tokenIds.length > 0,
-            "FeralfileExhibitionV4: tokenIds is empty"
-        );
-        require(
-            saleData_.tokenIds.length == saleData_.royalties.length,
-            "FeralfileExhibitionV4: tokenIds and royalties length mismatch"
-        );
-        require(
-            saleData_.expiryTime > block.timestamp,
-            "FeralfileExhibitionV4: sale is expired"
-        );
+        validateSaleData(saleData_);
 
         saleData_.payByVaultContract
-            ? Vault(payable(vault)).pay(saleData_.price)
+            ? vault.payForSale(r_, s_, v_, saleData_)
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
             );
 
-        bytes32 requestHash = keccak256(
+        bytes32 message = keccak256(
             abi.encode(block.chainid, address(this), saleData_)
         );
 
         require(
-            verifySignature(requestHash, _signer, r_, s_, v_),
+            isValidSignature(message, r_, s_, v_),
             "FeralfileExhibitionV4: invalid signature"
         );
 
@@ -368,11 +306,17 @@ contract FeralfileExhibitionV4 is
             );
             if (itemRevenue > 0) {
                 // distribute royalty
-                for (uint256 j = 0; j < saleData_.royalties[i].length; j++) {
+                for (
+                    uint256 j = 0;
+                    j < saleData_.revenueShares[i].length;
+                    j++
+                ) {
                     uint256 rev = (itemRevenue *
-                        saleData_.royalties[i][j].bps) / 10000;
+                        saleData_.revenueShares[i][j].bps) / 10000;
                     distributedRevenue += rev;
-                    payable(saleData_.royalties[i][j].recipient).transfer(rev);
+                    payable(saleData_.revenueShares[i][j].recipient).transfer(
+                        rev
+                    );
                 }
             }
 
@@ -384,14 +328,6 @@ contract FeralfileExhibitionV4 is
         if (cost > 0) {
             payable(costReceiver).transfer(cost);
         }
-    }
-
-    /// @notice able to recieve funds from vault contract
-    receive() external payable {
-        require(
-            msg.sender == vault,
-            "FeralfileExhibitionV4: only accept fund from vault contract."
-        );
     }
 
     /// @notice utility function for checking the series exists
@@ -466,6 +402,19 @@ contract FeralfileExhibitionV4 is
 
         // emit event
         emit BurnArtwork(tokenId);
+    }
+
+    /// @notice able to receive fund from vault contract
+    receive() external payable {
+        require(
+            msg.sender == address(vault),
+            "FeralfileExhibitionV4: only accept fund from vault contract."
+        );
+    }
+
+    /// @notice withdraw all fund
+    function withdrawFunds() external onlyOwner {
+        payable(msg.sender).transfer(address(this).balance);
     }
 
     /// @notice Event emitted when new Artwork has been minted
