@@ -170,7 +170,7 @@ contract FeralfileExhibitionV4 is
     /// @return uint256 the max supply
     function seriesMaxSupply(
         uint256 seriesId
-    ) public view virtual returns (uint256) {
+    ) external view virtual returns (uint256) {
         return _seriesMaxSupplies[seriesId];
     }
 
@@ -179,7 +179,7 @@ contract FeralfileExhibitionV4 is
     /// @return uint256 the total supply
     function seriesTotalSupply(
         uint256 seriesId
-    ) public view virtual returns (uint256) {
+    ) external view virtual returns (uint256) {
         return _seriesTotalSupplies[seriesId];
     }
 
@@ -188,7 +188,7 @@ contract FeralfileExhibitionV4 is
     /// @return Artwork the Artwork object
     function getArtwork(
         uint256 tokenId
-    ) public view virtual returns (Artwork memory) {
+    ) external view virtual returns (Artwork memory) {
         require(_exists(tokenId), "ERC721: token doesn't exist");
         return _allArtworks[tokenId];
     }
@@ -436,7 +436,7 @@ contract FeralfileExhibitionV4 is
     }
 
     /// @notice utility function for checking the series exists
-    function _seriesExists(uint256 seriesId) internal view returns (bool) {
+    function _seriesExists(uint256 seriesId) private view returns (bool) {
         return _seriesMaxSupplies[seriesId] > 0;
     }
 
