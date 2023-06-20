@@ -70,6 +70,12 @@ contract FeralfileExhibitionV4 is
     // all artworks
     mapping(uint256 => Artwork) internal _allArtworks;
 
+    // Mapping from owner to list of owned token IDs
+    mapping(address => uint256[]) private _ownedTokens;
+
+    // Mapping from token ID to index of the owner tokens list
+    mapping(uint256 => uint256) private _ownedTokensIndex;
+
     constructor(
         string memory name_,
         string memory symbol_,
@@ -138,6 +144,27 @@ contract FeralfileExhibitionV4 is
         }
     }
 
+    /**
+     * @dev See {IERC721Enumerable-tokenOfOwnerByIndex}.
+     */
+    function tokenOfOwnerByIndex(
+        address owner,
+        uint256 index
+    ) external view returns (uint256) {
+        require(
+            index < ERC721.balanceOf(owner),
+            "ERC721Enumerable: owner index out of bounds"
+        );
+        return _ownedTokens[owner][index];
+    }
+
+    /// @notice Get token ID from owner
+    function tokensOfOwner(
+        address owner
+    ) external view returns (uint256[] memory) {
+        return _ownedTokens[owner];
+    }
+
     /// @notice Get series max supply
     /// @param seriesId a series ID
     /// @return uint256 the max supply
@@ -176,15 +203,92 @@ contract FeralfileExhibitionV4 is
         vault = IFeralfileVault(payable(vault_));
     }
 
-    /// @notice Turn on token sale
+    /// @notice Return flag _selling;
+    function selling() external view returns (bool) {
+        return _selling;
+    }
+
+    function _checkContractOwnedToken() private view {
+        uint256 balance = balanceOf(address(this));
+        require(
+            balance > 0,
+            "FeralfileExhibitionV4: No token owned by the contract"
+        );
+    }
+
+    /// @notice Start token selling
     function startSale() external onlyOwner {
         mintable = false;
+        resumeSale();
+    }
+
+    /// @notice Resume token selling
+    function resumeSale() public onlyOwner {
+        require(
+            !mintable,
+            "FeralfileExhibitionV4: mintable required to be false"
+        );
+        require(
+            !_selling,
+            "FeralfileExhibitionV4: _selling required to be false"
+        );
+        _checkContractOwnedToken();
+
         _selling = true;
     }
 
-    /// @notice Turn off token sale
-    function stopSale() external onlyOwner {
+    /// @notice Pause token sale
+    function pauseSale() public onlyOwner {
+        require(
+            !mintable,
+            "FeralfileExhibitionV4: mintable required to be false"
+        );
+        require(
+            _selling,
+            "FeralfileExhibitionV4: _selling required to be true"
+        );
         _selling = false;
+    }
+
+    /// @notice Stop token selling and burn remaining tokens
+    function stopSaleAndBurn() external onlyOwner {
+        pauseSale();
+
+        // burn remaining tokens
+        uint256[] memory tokenIds = _ownedTokens[address(this)];
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            _burnArtwork(tokenIds[i]);
+        }
+    }
+
+    /// @notice Stop token selling and transfer remaining tokens back to the underlying addresses
+    function stopSaleAndTransfer(
+        uint256[] memory seriesIds,
+        address[] memory recipientAddresses
+    ) external onlyOwner {
+        require(
+            seriesIds.length > 0 &&
+                recipientAddresses.length > 0 &&
+                seriesIds.length == recipientAddresses.length,
+            "FeralfileExhibitionV4: Wrong params"
+        );
+        pauseSale();
+
+        // transfer tokens back to the addresses
+        address from = address(this);
+        uint256[] memory tokenIds = _ownedTokens[from];
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 tokenId = tokenIds[i];
+            Artwork memory artwork = _allArtworks[tokenId];
+
+            for (uint16 j = 0; j < seriesIds.length; j++) {
+                if (artwork.seriesId != seriesIds[j]) {
+                    address to = recipientAddresses[j];
+                    _transfer(from, to, tokenId);
+                    break;
+                }
+            }
+        }
     }
 
     /// @dev override for OperatorFilterRegistry
@@ -270,6 +374,7 @@ contract FeralfileExhibitionV4 is
         SaleData calldata saleData_
     ) external payable {
         require(_selling, "FeralfileExhibitionV4: sale is not started");
+        _checkContractOwnedToken();
         validateSaleData(saleData_);
 
         saleData_.payByVaultContract
@@ -333,6 +438,59 @@ contract FeralfileExhibitionV4 is
     /// @notice utility function for checking the series exists
     function _seriesExists(uint256 seriesId) internal view returns (bool) {
         return _seriesMaxSupplies[seriesId] > 0;
+    }
+
+    /// @dev Modify from ERC721Enumerable
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 firstTokenId,
+        uint256 batchSize
+    ) internal virtual override {
+        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
+
+        if (batchSize > 1) {
+            // Will only trigger during construction. Batch transferring (minting) is not available afterwards.
+            revert("ERC721Enumerable: consecutive transfers not supported");
+        }
+
+        uint256 tokenId = firstTokenId;
+        if (from != address(0) && from != to) {
+            _removeTokenFromOwnerEnumeration(from, tokenId);
+        }
+        if (to != address(0) && to != from) {
+            _addTokenToOwnerEnumeration(to, tokenId);
+        }
+    }
+
+    /// @dev Modify from ERC721Enumerable
+    function _removeTokenFromOwnerEnumeration(
+        address from,
+        uint256 tokenId
+    ) private {
+        // To prevent a gap in from's tokens array, we store the last token in the index of the token to delete, and
+        // then delete the last slot (swap and pop).
+        uint256 lastTokenIndex = ERC721.balanceOf(from) - 1;
+        uint256 tokenIndex = _ownedTokensIndex[tokenId];
+
+        // When the token to delete is the last token, the swap operation is unnecessary
+        if (tokenIndex != lastTokenIndex) {
+            uint256 lastTokenId = _ownedTokens[from][lastTokenIndex];
+
+            _ownedTokens[from][tokenIndex] = lastTokenId; // Move the last token to the slot of the to-delete token
+            _ownedTokensIndex[lastTokenId] = tokenIndex; // Update the moved token's index
+        }
+
+        delete _ownedTokensIndex[tokenId];
+        _ownedTokens[from].pop();
+    }
+
+    /// @dev Modify from ERC721Enumerable
+    function _addTokenToOwnerEnumeration(address to, uint256 tokenId) private {
+        uint256[] storage tokens = _ownedTokens[to];
+        uint256 length = tokens.length;
+        tokens.push(tokenId);
+        _ownedTokensIndex[tokenId] = length;
     }
 
     /// @notice Mint new collection of Artwork
