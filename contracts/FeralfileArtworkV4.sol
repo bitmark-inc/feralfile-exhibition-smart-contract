@@ -282,7 +282,7 @@ contract FeralfileExhibitionV4 is
             Artwork memory artwork = _allArtworks[tokenId];
 
             for (uint16 j = 0; j < seriesIds.length; j++) {
-                if (artwork.seriesId != seriesIds[j]) {
+                if (artwork.seriesId == seriesIds[j]) {
                     address to = recipientAddresses[j];
                     _transfer(from, to, tokenId);
                     break;
