@@ -14,7 +14,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
 
         // Deploy multiple contracts
         this.contracts = [];
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 7; i++) {
             let contract = await FeralfileExhibitionV4.new(
                 "Feral File V4 Test",
                 "FFv4",
@@ -683,5 +683,66 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
 
         const owner2Bal = await contract.balanceOf(owner2);
         assert.equal(owner2Bal, 2);
+    });
+
+    it("test transfer token", async function () {
+        const contract = this.contracts[6];
+
+        // mint tokens
+        const owner1 = accounts[1];
+        const owner2 = accounts[2];
+        const seriesId1 = 3;
+        const seriesId2 = 4;
+        const tokenId1 = seriesId1 * 1000000 + 555;
+        const tokenId2 = seriesId1 * 1000000 + 556;
+        const tokenId3 = seriesId2 * 1000000 + 555;
+        const tokenId4 = seriesId2 * 1000000 + 556;
+        let data = [
+            [seriesId1, tokenId1, owner1],
+            [seriesId1, tokenId2, owner1],
+            [seriesId2, tokenId3, owner2],
+            [seriesId2, tokenId4, owner2],
+        ];
+
+        try {
+            await contract.mintArtworks(data);
+        } catch (error) {
+            console.log(error);
+            assert.fail();
+        }
+
+        // transfer tokens
+        // 1. Transfer to other address rather than contract
+        try {
+            await contract.transferFrom(owner1, owner2, tokenId1, {
+                from: owner1,
+            });
+        } catch (error) {
+            console.log(error);
+            assert.fail();
+        }
+
+        // Validate new owner of token
+        let owner = await contract.ownerOf(tokenId1);
+        assert.equal(owner, owner2);
+
+        // 2. Transfer to contract address
+        try {
+            await contract.transferFrom(owner2, owner1, tokenId1, {
+                from: owner2,
+            });
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: Contract isn't allowed to receive token"
+                )
+            );
+        }
+
+        // 3. Transfer as operator
+        // TODO add later
+
+        // 4. Transfer as approval
+        // TODO add later
     });
 });
