@@ -313,6 +313,10 @@ contract FeralfileExhibitionV4 is
         address to,
         uint256 tokenId
     ) public override(ERC721) onlyAllowedOperator(from) {
+        require(
+            to != address(this),
+            "FeralfileExhibitionV4: Contract isn't allowed to receive token"
+        );
         super.transferFrom(from, to, tokenId);
     }
 
@@ -322,6 +326,10 @@ contract FeralfileExhibitionV4 is
         address to,
         uint256 tokenId
     ) public override(ERC721) onlyAllowedOperator(from) {
+        require(
+            to != address(this),
+            "FeralfileExhibitionV4: Contract isn't allowed to receive token"
+        );
         super.safeTransferFrom(from, to, tokenId);
     }
 
@@ -332,6 +340,10 @@ contract FeralfileExhibitionV4 is
         uint256 tokenId,
         bytes memory data
     ) public override(ERC721) onlyAllowedOperator(from) {
+        require(
+            to != address(this),
+            "FeralfileExhibitionV4: Contract isn't allowed to receive token"
+        );
         super.safeTransferFrom(from, to, tokenId, data);
     }
 
