@@ -206,7 +206,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         try {
             await contract.getArtwork(tokenId1);
         } catch (error) {
-            assert.ok(error.message.includes("ERC721: token doesn't exist"));
+            assert.ok(error.message.includes("ERC721: invalid token ID"));
         }
 
         // event emitted
@@ -226,7 +226,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         try {
             await contract.burnArtworks(burnData);
         } catch (error) {
-            assert.ok(error.message.includes("ERC721: token doesn't exist"));
+            assert.ok(error.message.includes("ERC721: invalid token ID"));
         }
     });
 
@@ -615,9 +615,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             try {
                 await contract.getArtwork(tokenIDs[i]);
             } catch (error) {
-                assert.ok(
-                    error.message.includes("ERC721: token doesn't exist")
-                );
+                assert.ok(error.message.includes("ERC721: invalid token ID"));
             }
         }
 

@@ -189,7 +189,7 @@ contract FeralfileExhibitionV4 is
     function getArtwork(
         uint256 tokenId
     ) external view virtual returns (Artwork memory) {
-        require(_exists(tokenId), "ERC721: token doesn't exist");
+        require(_exists(tokenId), "ERC721: invalid token ID");
         return _allArtworks[tokenId];
     }
 
@@ -561,7 +561,7 @@ contract FeralfileExhibitionV4 is
 
     function _burnArtwork(uint256 tokenId) internal {
         require(burnable, "FeralfileExhibitionV4: token is not burnable");
-        require(_exists(tokenId), "ERC721: token doesn't exist");
+        require(_exists(tokenId), "ERC721: invalid token ID");
 
         // burn artwork
         Artwork memory artwork = _allArtworks[tokenId];
