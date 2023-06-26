@@ -136,11 +136,12 @@ contract FeralfileExhibitionV4 is
 
         // initialize max supply map
         for (uint256 i = 0; i < seriesIds_.length; i++) {
-            _seriesMaxSupplies[seriesIds_[i]] = seriesMaxSupplies_[i];
             require(
                 seriesMaxSupplies_[i] > 0,
                 "FeralfileExhibitionV4: zero max supply"
             );
+
+            _seriesMaxSupplies[seriesIds_[i]] = seriesMaxSupplies_[i];
         }
     }
 
@@ -267,11 +268,14 @@ contract FeralfileExhibitionV4 is
         address[] memory recipientAddresses
     ) external onlyOwner {
         require(
-            seriesIds.length > 0 &&
-                recipientAddresses.length > 0 &&
-                seriesIds.length == recipientAddresses.length,
-            "FeralfileExhibitionV4: Wrong params"
+            seriesIds.length > 0 && recipientAddresses.length > 0,
+            "FeralfileExhibitionV4: seriesIds or recipientAddresses length is zero"
         );
+        require(
+            seriesIds.length == recipientAddresses.length,
+            "FeralfileExhibitionV4: seriesIds length is different from recipientAddresses"
+        );
+
         pauseSale();
 
         // transfer tokens back to the addresses
@@ -289,6 +293,10 @@ contract FeralfileExhibitionV4 is
                 }
             }
         }
+        require(
+            balanceOf(from) == 0,
+            "FeralfileExhibitionV4: Token for sale balance has to be zero"
+        );
     }
 
     /// @dev override for OperatorFilterRegistry
@@ -511,6 +519,10 @@ contract FeralfileExhibitionV4 is
     function mintArtworks(
         MintData[] calldata data
     ) external virtual onlyAuthorized {
+        require(
+            mintable,
+            "FeralfileExhibitionV4: contract doesn't allow to mint"
+        );
         for (uint256 i = 0; i < data.length; i++) {
             _mintArtwork(data[i].seriesId, data[i].tokenId, data[i].owner);
         }
@@ -523,10 +535,6 @@ contract FeralfileExhibitionV4 is
     ) internal {
         // pre-condition checks
         require(
-            mintable,
-            "FeralfileExhibitionV4: contract doesn't allow to mint"
-        );
-        require(
             _seriesExists(seriesId),
             string(
                 abi.encodePacked(
@@ -535,16 +543,16 @@ contract FeralfileExhibitionV4 is
                 )
             )
         );
+        require(
+            _seriesTotalSupplies[seriesId] < _seriesMaxSupplies[seriesId],
+            "FeralfileExhibitionV4: no slots available"
+        );
 
         // mint
         totalSupply += 1;
         _seriesTotalSupplies[seriesId] += 1;
         _allArtworks[tokenId] = Artwork(seriesId, tokenId);
         _mint(owner, tokenId);
-        require(
-            _seriesTotalSupplies[seriesId] <= _seriesMaxSupplies[seriesId],
-            "FeralfileExhibitionV4: no slots available"
-        );
 
         // emit event
         emit NewArtwork(owner, seriesId, tokenId);
@@ -554,13 +562,17 @@ contract FeralfileExhibitionV4 is
     /// @dev the function iterates over the array of token ID to call the internal function _burnArtwork
     /// @param tokenIds an array of token ID
     function burnArtworks(uint256[] memory tokenIds) external {
+        require(burnable, "FeralfileExhibitionV4: token is not burnable");
         for (uint256 i = 0; i < tokenIds.length; i++) {
+            require(
+                _isApprovedOrOwner(_msgSender(), tokenIds[i]),
+                "ERC721: caller is not token owner or approved"
+            );
             _burnArtwork(tokenIds[i]);
         }
     }
 
     function _burnArtwork(uint256 tokenId) internal {
-        require(burnable, "FeralfileExhibitionV4: token is not burnable");
         require(_exists(tokenId), "ERC721: invalid token ID");
 
         // burn artwork

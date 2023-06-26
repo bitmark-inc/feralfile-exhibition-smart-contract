@@ -11,6 +11,8 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
     before(async function () {
         this.signer = accounts[0];
         this.vault = await FeralfileVault.new(this.signer);
+        this.seriesIds = [0, 1, 2, 3, 4];
+        this.seriesMaxSupply = [1, 1, 100, 1000, 10000];
 
         // Deploy multiple contracts
         this.contracts = [];
@@ -25,8 +27,8 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                 COST_RECEIVER,
                 TOKEN_BASE_URI,
                 CONTRACT_URI,
-                [0, 1, 2, 3, 4],
-                [1, 1, 100, 1000, 10000]
+                this.seriesIds,
+                this.seriesMaxSupply
             );
             this.contracts.push(contract);
         }
@@ -53,13 +55,19 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         const signer = await contract.signer();
         assert.equal(signer, signer);
 
-        const seriesMaxSupply1 = await contract.seriesMaxSupply(0);
-        assert.equal(seriesMaxSupply1, 1);
+        const seriesMaxSupply1 = await contract.seriesMaxSupply(
+            this.seriesIds[0]
+        );
+        assert.equal(seriesMaxSupply1, this.seriesMaxSupply[0]);
 
-        const seriesMaxSupply2 = await contract.seriesMaxSupply(1);
-        assert.equal(seriesMaxSupply2, 1);
+        const seriesMaxSupply2 = await contract.seriesMaxSupply(
+            this.seriesIds[1]
+        );
+        assert.equal(seriesMaxSupply2, this.seriesMaxSupply[1]);
 
-        const seriesTotalSupply1 = await contract.seriesTotalSupply(0);
+        const seriesTotalSupply1 = await contract.seriesTotalSupply(
+            this.seriesIds[0]
+        );
         assert.equal(seriesTotalSupply1, 0);
     });
 
@@ -68,13 +76,11 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
 
         // 1. mint successful
         const owner = accounts[1];
-        const seriesId1 = 0;
-        const seriesId2 = 1;
-        const tokenId1 = seriesId1 * 1000000 + 0;
-        const tokenId2 = seriesId2 * 1000000 + 0;
+        const tokenId1 = this.seriesIds[3] * 1000000 + 0;
+        const tokenId2 = this.seriesIds[4] * 1000000 + 0;
         let data = [
-            [seriesId1, tokenId1, owner],
-            [seriesId2, tokenId2, owner],
+            [this.seriesIds[2], tokenId1, owner],
+            [this.seriesIds[3], tokenId2, owner],
         ];
         const tx = await contract.mintArtworks(data);
 
@@ -83,8 +89,12 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         assert.equal(totalSupply, 2);
 
         // series total supply
-        const totalSupply1 = await contract.seriesTotalSupply(seriesId1);
-        const totalSupply2 = await contract.seriesTotalSupply(seriesId2);
+        const totalSupply1 = await contract.seriesTotalSupply(
+            this.seriesIds[2]
+        );
+        const totalSupply2 = await contract.seriesTotalSupply(
+            this.seriesIds[3]
+        );
         assert.equal(totalSupply1, 1);
         assert.equal(totalSupply2, 1);
 
@@ -99,7 +109,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         // get artwork
         const artwork = await contract.getArtwork(tokenId1);
         assert.equal(artwork.tokenId, tokenId1);
-        assert.equal(artwork.seriesId, seriesId1);
+        assert.equal(artwork.seriesId, this.seriesIds[2]);
 
         // get token ID from owner
         const tokenIds = await contract.tokensOfOwner(owner);
@@ -135,17 +145,18 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         }
 
         // mint to zero address
-        data = [[seriesId1, 999999, ZERO_ADDRESS]];
+        data = [[this.seriesIds[3], 999999, ZERO_ADDRESS]];
         try {
             await contract.mintArtworks(data);
         } catch (error) {
+            console.log(error);
             assert.ok(
                 error.message.includes("ERC721: mint to the zero address")
             );
         }
 
         // token already minted
-        data = [[seriesId1, tokenId1, accounts[2]]];
+        data = [[this.seriesIds[3], tokenId1, accounts[2]]];
         try {
             await contract.mintArtworks(data);
         } catch (error) {
@@ -153,7 +164,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         }
 
         // no more slots
-        data = [[seriesId1, 999999, accounts[2]]];
+        data = [[this.seriesIds[2], 999999, accounts[2]]];
         try {
             await contract.mintArtworks(data);
         } catch (error) {
@@ -170,37 +181,41 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
 
         // 1. Prepare data
         const owner = accounts[1];
-        const seriesId1 = 0;
-        const seriesId2 = 1;
-        const tokenId1 = seriesId1 * 1000000 + 0;
-        const tokenId2 = seriesId2 * 1000000 + 0;
+        const tokenId1 = this.seriesIds[0] * 1000000 + 0;
+        const tokenId2 = this.seriesIds[1] * 1000000 + 0;
+        const tokenId3 = this.seriesIds[2] * 1000000 + 0;
         let mintData = [
-            [seriesId1, tokenId1, owner],
-            [seriesId2, tokenId2, owner],
+            [this.seriesIds[0], tokenId1, owner],
+            [this.seriesIds[1], tokenId2, owner],
+            [this.seriesIds[2], tokenId3, owner],
         ];
         let tx = await contract.mintArtworks(mintData);
 
         // 2. Burn successfully
         let burnData = [tokenId1, tokenId2];
-        tx = await contract.burnArtworks(burnData);
+        tx = await contract.burnArtworks(burnData, { from: owner });
 
         // total supply
         const totalSupply = await contract.totalSupply();
-        assert.equal(totalSupply, 0);
+        assert.equal(totalSupply, 1);
 
         // series total supply
-        const totalSupply1 = await contract.seriesTotalSupply(seriesId1);
-        const totalSupply2 = await contract.seriesTotalSupply(seriesId2);
+        const totalSupply1 = await contract.seriesTotalSupply(
+            this.seriesIds[0]
+        );
+        const totalSupply2 = await contract.seriesTotalSupply(
+            this.seriesIds[1]
+        );
         assert.equal(totalSupply1, 0);
         assert.equal(totalSupply2, 0);
 
         // balance
         const balance = await contract.balanceOf(owner);
-        assert.equal(balance, 0);
+        assert.equal(balance, 1);
 
         // token of owner
         const tokenIds = await contract.tokensOfOwner(owner);
-        assert.equal(tokenIds.length, 0);
+        assert.equal(tokenIds.length, 1);
 
         // get artwork
         try {
@@ -222,11 +237,24 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         // 3. Burn failed
 
         // token doesn't exist
-        burnData = [111111, 222222];
         try {
-            await contract.burnArtworks(burnData);
+            await contract.burnArtworks([111111, 222222]);
         } catch (error) {
             assert.ok(error.message.includes("ERC721: invalid token ID"));
+        }
+
+        // Wrong owner or approval
+        const wrongOwner = accounts[5];
+        try {
+            await contract.burnArtworks([tokenId3], {
+                from: wrongOwner,
+            });
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "ERC721: caller is not token owner or approved"
+                )
+            );
         }
     });
 
@@ -236,11 +264,11 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         // Mint for buy by crypto
         let owner = contract.address;
         await contract.mintArtworks([
-            [3, 3000000, owner],
-            [3, 3000001, owner],
-            [4, 4000000, owner],
-            [4, 4000001, owner],
-            [4, 4000002, owner],
+            [this.seriesIds[3], 3000000, owner],
+            [this.seriesIds[3], 3000001, owner],
+            [this.seriesIds[4], 4000000, owner],
+            [this.seriesIds[4], 4000001, owner],
+            [this.seriesIds[4], 4000002, owner],
         ]);
 
         // Generate signature
@@ -386,10 +414,10 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         // Mint for credit card
         let owner = contract.address;
         await contract.mintArtworks([
-            [3, 3000002, owner],
-            [3, 3000003, owner],
-            [4, 4000003, owner],
-            [4, 4000004, owner],
+            [this.seriesIds[3], 3000002, owner],
+            [this.seriesIds[3], 3000003, owner],
+            [this.seriesIds[4], 4000003, owner],
+            [this.seriesIds[4], 4000004, owner],
         ]);
 
         await web3.eth.sendTransaction({
@@ -564,9 +592,9 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         const owner = contract.address;
         const tokenIDs = [4000997, 4000998, 4000999];
         await contract.mintArtworks([
-            [4, tokenIDs[0], owner],
-            [4, tokenIDs[1], owner],
-            [4, tokenIDs[2], owner],
+            [this.seriesIds[4], tokenIDs[0], owner],
+            [this.seriesIds[4], tokenIDs[1], owner],
+            [this.seriesIds[4], tokenIDs[2], owner],
         ]);
 
         // Start the sale
@@ -635,15 +663,12 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         const contract = this.contracts[5];
 
         // Mint new tokens
-        const owner = contract.address;
-        const seriesId1 = 3;
-        const seriesId2 = 4;
         const tokenIDs = [3000997, 3000998, 4000998, 4000999];
         await contract.mintArtworks([
-            [seriesId1, tokenIDs[0], owner],
-            [seriesId1, tokenIDs[1], owner],
-            [seriesId2, tokenIDs[2], owner],
-            [seriesId2, tokenIDs[3], owner],
+            [this.seriesIds[3], tokenIDs[0], contract.address],
+            [this.seriesIds[3], tokenIDs[1], contract.address],
+            [this.seriesIds[4], tokenIDs[2], contract.address],
+            [this.seriesIds[4], tokenIDs[3], contract.address],
         ]);
 
         // Start the sale
@@ -654,21 +679,51 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
 
         // 1. Stop the sale and transfer remaining tokens failed
         try {
-            await contract.stopSaleAndTransfer([1, 2], [owner]);
+            await contract.stopSaleAndTransfer(
+                [this.seriesIds[3], this.seriesIds[4]],
+                [owner1]
+            );
         } catch (error) {
             assert.ok(
-                error.message.includes("FeralfileExhibitionV4: Wrong params")
+                error.message.includes(
+                    "FeralfileExhibitionV4: seriesIds length is different from recipientAddresses"
+                )
+            );
+        }
+
+        try {
+            await contract.stopSaleAndTransfer(
+                [this.seriesIds[1], this.seriesIds[2]],
+                []
+            );
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: seriesIds or recipientAddresses length is zero"
+                )
+            );
+        }
+
+        try {
+            await contract.stopSaleAndTransfer(
+                [this.seriesIds[1], this.seriesIds[2]],
+                [owner1, owner2]
+            );
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: Token for sale balance has to be zero"
+                )
             );
         }
 
         // 2. Stop the sale and transfer remaining token successful
         try {
             await contract.stopSaleAndTransfer(
-                [seriesId1, seriesId2],
+                [this.seriesIds[3], this.seriesIds[4]],
                 [owner1, owner2]
             );
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -689,17 +744,15 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         // mint tokens
         const owner1 = accounts[1];
         const owner2 = accounts[2];
-        const seriesId1 = 3;
-        const seriesId2 = 4;
-        const tokenId1 = seriesId1 * 1000000 + 555;
-        const tokenId2 = seriesId1 * 1000000 + 556;
-        const tokenId3 = seriesId2 * 1000000 + 555;
-        const tokenId4 = seriesId2 * 1000000 + 556;
+        const tokenId1 = this.seriesIds[3] * 1000000 + 555;
+        const tokenId2 = this.seriesIds[3] * 1000000 + 556;
+        const tokenId3 = this.seriesIds[4] * 1000000 + 555;
+        const tokenId4 = this.seriesIds[4] * 1000000 + 556;
         let data = [
-            [seriesId1, tokenId1, owner1],
-            [seriesId1, tokenId2, owner1],
-            [seriesId2, tokenId3, owner2],
-            [seriesId2, tokenId4, owner2],
+            [this.seriesIds[3], tokenId1, owner1],
+            [this.seriesIds[3], tokenId2, owner1],
+            [this.seriesIds[4], tokenId3, owner2],
+            [this.seriesIds[4], tokenId4, owner2],
         ];
 
         try {
