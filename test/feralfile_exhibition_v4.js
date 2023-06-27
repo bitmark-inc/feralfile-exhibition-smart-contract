@@ -20,9 +20,9 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             let contract = await FeralfileExhibitionV4.new(
                 "Feral File V4 Test",
                 "FFv4",
+                true,
+                true,
                 this.signer,
-                true,
-                true,
                 this.vault.address,
                 COST_RECEIVER,
                 TOKEN_BASE_URI,

@@ -79,9 +79,9 @@ contract FeralfileExhibitionV4 is
     constructor(
         string memory name_,
         string memory symbol_,
-        address signer_,
         bool burnable_,
         bool bridgeable_,
+        address signer_,
         address vault_,
         address costReceiver_,
         string memory tokenBaseURI_,
@@ -195,7 +195,7 @@ contract FeralfileExhibitionV4 is
     }
 
     /// @notice Set vault contract
-    /// @dev don't allow to set signer as zero address
+    /// @dev don't allow to set vault as zero address
     function setVault(address vault_) external onlyOwner {
         require(
             vault_ != address(0),
@@ -217,13 +217,13 @@ contract FeralfileExhibitionV4 is
         );
     }
 
-    /// @notice Start token selling
+    /// @notice Start token sale
     function startSale() external onlyOwner {
         mintable = false;
         resumeSale();
     }
 
-    /// @notice Resume token selling
+    /// @notice Resume token sale
     function resumeSale() public onlyOwner {
         require(
             !mintable,
@@ -251,7 +251,7 @@ contract FeralfileExhibitionV4 is
         _selling = false;
     }
 
-    /// @notice Stop token selling and burn remaining tokens
+    /// @notice Stop token sale and burn remaining tokens
     function stopSaleAndBurn() external onlyOwner {
         pauseSale();
 
@@ -288,7 +288,7 @@ contract FeralfileExhibitionV4 is
             for (uint16 j = 0; j < seriesIds.length; j++) {
                 if (artwork.seriesId == seriesIds[j]) {
                     address to = recipientAddresses[j];
-                    _transfer(from, to, tokenId);
+                    _safeTransfer(from, to, tokenId, "");
                     break;
                 }
             }
@@ -373,12 +373,20 @@ contract FeralfileExhibitionV4 is
 
     /// @notice Update the base URI for all tokens
     function setTokenBaseURI(string memory baseURI_) external onlyOwner {
+        require(
+            bytes(tokenBaseURI).length > 0,
+            "ERC721Metadata: baseURI_ is empty"
+        );
         tokenBaseURI = baseURI_;
     }
 
     /// @notice the cost receiver address
     /// @param costReceiver_ - the address of cost receiver
     function setCostReceiver(address costReceiver_) external onlyOwner {
+        require(
+            costReceiver_ != address(0),
+            "FeralfileExhibitionV4: costReceiver_ is zero address"
+        );
         costReceiver = costReceiver_;
     }
 
