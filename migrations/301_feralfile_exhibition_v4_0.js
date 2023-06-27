@@ -1,7 +1,11 @@
 var FeralfileExhibitionV4 = artifacts.require("FeralfileExhibitionV4");
 
 const argv = require("minimist")(process.argv.slice(2), {
-    string: ["exhibition_curator"],
+    string: [
+        "exhibition_signer",
+        "exhibition_vault",
+        "exhibition_cost_receiver",
+    ],
 });
 
 module.exports = function (deployer) {
@@ -16,6 +20,11 @@ module.exports = function (deployer) {
         "0x6732389c6d47d01487dcDc96e2Cc6BAf108452f2";
     let burnable = argv.burnable || true;
     let bridgeable = argv.bridgeable || true;
+    let contract_uri =
+        argv.contract_uri ||
+        "ipfs://QmaQegRqExfFx8zuR6yscxzUwQJUc96LuNNQiAMK9BsUQe";
+    let series_ids = argv.series_ids || [1, 2, 3, 4];
+    let max_supplies = argv.max_supplies || [1000, 1000, 1000, 1000];
 
     deployer.deploy(
         FeralfileExhibitionV4,
@@ -26,9 +35,8 @@ module.exports = function (deployer) {
         exhibition_signer,
         exhibition_vault,
         exhibition_cost_receiver,
-        "https://ipfs.bitmark.com/ipfs/QmaQegRqExfFx8zuR6yscxzUwQJUc96LuNNQiAMK9BsUQe",
-        "https://ipfs.bitmark.com/ipfs/QmaQegRqExfFx8zuR6yscxzUwQJUc96LuNNQiAMK9BsUQe",
-        [1, 2, 3, 4],
-        [1000, 1000, 1000, 1000]
+        contract_uri,
+        series_ids,
+        max_supplies
     );
 };
