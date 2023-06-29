@@ -368,7 +368,7 @@ contract FeralfileExhibitionV4 is
     /// @notice Update the base URI for all tokens
     function setTokenBaseURI(string memory baseURI_) external onlyOwner {
         require(
-            bytes(tokenBaseURI).length > 0,
+            bytes(baseURI_).length > 0,
             "ERC721Metadata: baseURI_ is empty"
         );
         tokenBaseURI = baseURI_;
