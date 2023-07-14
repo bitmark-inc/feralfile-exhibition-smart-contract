@@ -446,6 +446,11 @@ contract FeralfileExhibitionV4 is
                 ) {
                     uint256 rev = (itemRevenue *
                         saleData_.revenueShares[i][j].bps) / 10000;
+                    if (
+                        saleData_.revenueShares[i][j].recipient == costReceiver
+                    ) {
+                        continue;
+                    }
                     distributedRevenue += rev;
                     payable(saleData_.revenueShares[i][j].recipient).transfer(
                         rev
@@ -456,10 +461,10 @@ contract FeralfileExhibitionV4 is
             emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i]);
         }
 
-        // Transfer cost and remaining funds
-        uint256 cost = saleData_.price - distributedRevenue;
-        if (cost > 0) {
-            payable(costReceiver).transfer(cost);
+        // Transfer cost, platform revenue and remaining funds
+        uint256 leftOver = saleData_.price - distributedRevenue;
+        if (leftOver > 0) {
+            payable(costReceiver).transfer(leftOver);
         }
     }
 
