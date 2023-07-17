@@ -461,6 +461,12 @@ contract FeralfileExhibitionV4 is
             emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i]);
         }
 
+        require(
+            saleData_.price >= distributedRevenue &&
+                saleData_.price - distributedRevenue >= saleData_.cost,
+            "FeralfileExhibitionV4: total bps over 10,000"
+        );
+
         // Transfer cost, platform revenue and remaining funds
         uint256 leftOver = saleData_.price - distributedRevenue;
         if (leftOver > 0) {

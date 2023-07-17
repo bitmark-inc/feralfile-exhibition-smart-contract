@@ -15,7 +15,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
 
         // Deploy multiple contracts
         this.contracts = [];
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 8; i++) {
             let contract = await FeralfileExhibitionV4.new(
                 "Feral File V4 Test",
                 "FFv4",
@@ -580,6 +580,117 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         } catch (err) {
             console.log(err);
             assert.fail();
+        }
+    });
+
+    it("test buy artworks failed with total bps over 10k", async function () {
+        let contract = this.contracts[7];
+
+        // Mint for buy by crypto
+        let owner = contract.address;
+        await contract.mintArtworks([
+            [this.seriesIds[3], 3000000, owner],
+            [this.seriesIds[3], 3000001, owner],
+            [this.seriesIds[4], 4000000, owner],
+            [this.seriesIds[4], 4000001, owner],
+            [this.seriesIds[4], 4000002, owner],
+        ]);
+
+        // Generate signature
+        const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
+        const signParams = web3.eth.abi.encodeParameters(
+            [
+                "uint",
+                "address",
+                "tuple(uint256,uint256,uint256,address,uint256[],tuple(address,uint256)[][],bool)",
+            ],
+            [
+                BigInt(await web3.eth.getChainId()).toString(),
+                contract.address,
+                [
+                    BigInt(0.25 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
+                    expiryTime,
+                    accounts[2],
+                    [3000000, 3000001, 4000000, 4000001, 4000002],
+                    [
+                        [
+                            [accounts[3], 8001],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8001],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 9000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 9000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8500],
+                            [accounts[4], 2000],
+                        ],
+                    ],
+                    false,
+                ],
+            ]
+        );
+        const hash = web3.utils.keccak256(signParams);
+        var sig = await web3.eth.sign(hash, this.signer);
+        sig = sig.substr(2);
+        const r = "0x" + sig.slice(0, 64);
+        const s = "0x" + sig.slice(64, 128);
+        const v = "0x" + sig.slice(128, 130);
+        // Generate signature
+
+        try {
+            await contract.startSale();
+            await contract.buyArtworks(
+                r,
+                s,
+                web3.utils.toDecimal(v) + 27, // magic 27
+                [
+                    BigInt(0.25 * 1e18).toString(),
+                    BigInt(0.02 * 1e18).toString(),
+                    expiryTime,
+                    accounts[2],
+                    [3000000, 3000001, 4000000, 4000001, 4000002],
+                    [
+                        [
+                            [accounts[3], 8001],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8001],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 9000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 9000],
+                            [accounts[4], 2000],
+                        ],
+                        [
+                            [accounts[3], 8500],
+                            [accounts[4], 2000],
+                        ],
+                    ],
+                    false,
+                ],
+                { from: accounts[5], value: 0.25 * 1e18 }
+            );
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: total bps over 10,000"
+                )
+            );
         }
     });
 
