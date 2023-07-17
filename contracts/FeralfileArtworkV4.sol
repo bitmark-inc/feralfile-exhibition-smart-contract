@@ -130,6 +130,12 @@ contract FeralfileExhibitionV4 is
 
         // initialize max supply map
         for (uint256 i = 0; i < seriesIds_.length; i++) {
+            // Check duplicate with others
+            for (uint256 j = i + 1; j < seriesIds_.length; j++) {
+                if (seriesIds_[i] == seriesIds_[j]) {
+                    revert("FeralfileExhibitionV4: duplicate seriesId");
+                }
+            }
             require(
                 seriesMaxSupplies_[i] > 0,
                 "FeralfileExhibitionV4: zero max supply"
@@ -440,6 +446,11 @@ contract FeralfileExhibitionV4 is
                 ) {
                     uint256 rev = (itemRevenue *
                         saleData_.revenueShares[i][j].bps) / 10000;
+                    if (
+                        saleData_.revenueShares[i][j].recipient == costReceiver
+                    ) {
+                        continue;
+                    }
                     distributedRevenue += rev;
                     payable(saleData_.revenueShares[i][j].recipient).transfer(
                         rev
@@ -450,10 +461,15 @@ contract FeralfileExhibitionV4 is
             emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i]);
         }
 
-        // Transfer cost and remaining funds
-        uint256 cost = saleData_.price - distributedRevenue;
-        if (cost > 0) {
-            payable(costReceiver).transfer(cost);
+        require(
+            saleData_.price - saleData_.cost >= distributedRevenue,
+            "FeralfileExhibitionV4: total bps over 10,000"
+        );
+
+        // Transfer cost, platform revenue and remaining funds
+        uint256 leftOver = saleData_.price - distributedRevenue;
+        if (leftOver > 0) {
+            payable(costReceiver).transfer(leftOver);
         }
     }
 
@@ -594,11 +610,6 @@ contract FeralfileExhibitionV4 is
             msg.sender == address(vault),
             "FeralfileExhibitionV4: only accept fund from vault contract."
         );
-    }
-
-    /// @notice withdraw all fund
-    function withdrawFunds() external onlyOwner {
-        payable(msg.sender).transfer(address(this).balance);
     }
 
     /// @notice Event emitted when new Artwork has been minted
