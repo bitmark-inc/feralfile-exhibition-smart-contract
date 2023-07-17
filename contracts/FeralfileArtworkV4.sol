@@ -462,8 +462,7 @@ contract FeralfileExhibitionV4 is
         }
 
         require(
-            saleData_.price >= distributedRevenue &&
-                saleData_.price - distributedRevenue >= saleData_.cost,
+            saleData_.price - saleData_.cost >= distributedRevenue,
             "FeralfileExhibitionV4: total bps over 10,000"
         );
 
