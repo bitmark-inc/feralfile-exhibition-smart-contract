@@ -607,11 +607,6 @@ contract FeralfileExhibitionV4 is
         );
     }
 
-    /// @notice withdraw all fund
-    function withdrawFunds() external onlyOwner {
-        payable(msg.sender).transfer(address(this).balance);
-    }
-
     /// @notice Event emitted when new Artwork has been minted
     event NewArtwork(
         address indexed owner,

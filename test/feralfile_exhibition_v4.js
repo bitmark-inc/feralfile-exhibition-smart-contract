@@ -66,6 +66,32 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         assert.equal(seriesTotalSupply1, 0);
     });
 
+    it("test duplicate series in constructor", async function () {
+        // Deploy contract with duplicate series defined 
+        let seriesIds = [0, 1, 2, 3, 1];
+        let seriesMaxSupply = [1, 1, 100, 1000, 10000];
+        try {
+            await FeralfileExhibitionV4.new(
+                "Feral File V4 Test",
+                "FFv4",
+                true,
+                true,
+                this.signer,
+                this.vault.address,
+                COST_RECEIVER,
+                CONTRACT_URI,
+                seriesIds,
+                seriesMaxSupply
+            );
+        } catch (error) {
+            assert.ok(
+                error.message.includes(
+                    "FeralfileExhibitionV4: duplicate seriesId"
+                )
+            );
+        }
+    })
+
     it("test mint artwork", async function () {
         const contract = this.contracts[0];
 
