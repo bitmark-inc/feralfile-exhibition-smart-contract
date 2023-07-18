@@ -429,6 +429,7 @@ contract FeralfileExhibitionV4 is
         }
 
         uint256 distributedRevenue;
+        uint256 platformRevenue;
         for (uint256 i = 0; i < saleData_.tokenIds.length; i++) {
             // send NFT
             _safeTransfer(
@@ -449,6 +450,7 @@ contract FeralfileExhibitionV4 is
                     if (
                         saleData_.revenueShares[i][j].recipient == costReceiver
                     ) {
+                        platformRevenue += rev;
                         continue;
                     }
                     distributedRevenue += rev;
@@ -462,7 +464,8 @@ contract FeralfileExhibitionV4 is
         }
 
         require(
-            saleData_.price - saleData_.cost >= distributedRevenue,
+            saleData_.price - saleData_.cost >=
+                distributedRevenue + platformRevenue,
             "FeralfileExhibitionV4: total bps over 10,000"
         );
 
