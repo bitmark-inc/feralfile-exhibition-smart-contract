@@ -616,23 +616,23 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                     [
                         [
                             [accounts[3], 8001],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                         [
                             [accounts[3], 8001],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                         [
                             [accounts[3], 9000],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                         [
                             [accounts[3], 9000],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                         [
                             [accounts[3], 8500],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                     ],
                     false,
@@ -662,23 +662,23 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                     [
                         [
                             [accounts[3], 8001],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                         [
                             [accounts[3], 8001],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                         [
                             [accounts[3], 9000],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                         [
                             [accounts[3], 9000],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                         [
                             [accounts[3], 8500],
-                            [accounts[4], 2000],
+                            [COST_RECEIVER, 2000],
                         ],
                     ],
                     false,
