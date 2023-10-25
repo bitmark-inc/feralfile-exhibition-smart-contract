@@ -133,6 +133,26 @@ contract FeralfileEnglishAuction is Ownable, FeralfileSaleData, ECDSASigner {
     }
 
     function isValidBidRequest(
+        bytes32 aucId_,
+        address bidder_,
+        uint256 amount_
+    ) external view returns (bool) {
+        // get the auction object
+        EnglishAuction memory auction_ = auctions[aucId_];
+        // get the last auction bid object
+        Bid memory lastBid_ = auctionLatestBid[aucId_];
+        // verify the bid is valid
+        return
+            _isValidBidRequest(
+                auction_,
+                lastBid_,
+                bidder_,
+                amount_,
+                block.timestamp
+            );
+    }
+
+    function _isValidBidRequest(
         EnglishAuction memory auction_,
         Bid memory lastBid_,
         address bidder_,
@@ -192,7 +212,7 @@ contract FeralfileEnglishAuction is Ownable, FeralfileSaleData, ECDSASigner {
         Bid memory lastBid_ = auctionLatestBid[aucId_];
         // verify the bid is valid
         require(
-            isValidBidRequest(
+            _isValidBidRequest(
                 auction_,
                 lastBid_,
                 msg.sender,
@@ -234,7 +254,13 @@ contract FeralfileEnglishAuction is Ownable, FeralfileSaleData, ECDSASigner {
         Bid memory lastBid_ = auctionLatestBid[aucId_];
         // verify the bid is valid
         require(
-            isValidBidRequest(auction_, lastBid_, bidder_, amount_, timestamp_),
+            _isValidBidRequest(
+                auction_,
+                lastBid_,
+                bidder_,
+                amount_,
+                timestamp_
+            ),
             "FeralfileEnglishAuction: invalid bid"
         );
 
