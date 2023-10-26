@@ -4,11 +4,11 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./FeralfileSaleData.sol";
+import "./IFeralfileSaleData.sol";
 import "./ECDSASigner.sol";
 import "./IFeralfileVault.sol";
 
-contract FFV4 is FeralfileSaleData {
+contract IFeralfileExhibitionV4 is IFeralfileSaleData {
     function buyArtworks(
         bytes32 r_,
         bytes32 s_,
@@ -17,7 +17,7 @@ contract FFV4 is FeralfileSaleData {
     ) external payable {}
 }
 
-contract FeralfileEnglishAuction is Ownable, FeralfileSaleData, ECDSASigner {
+contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
     struct EnglishAuction {
         bytes32 id;
         uint256 startAt;
@@ -329,7 +329,7 @@ contract FeralfileEnglishAuction is Ownable, FeralfileSaleData, ECDSASigner {
         if (!lastBid_.fromFeralFile) {
             payable(vaultAddr_).transfer(lastBid_.amount);
         }
-        FFV4(tokenAddr_).buyArtworks(r_, s_, v_, saleData_);
+        IFeralfileExhibitionV4(tokenAddr_).buyArtworks(r_, s_, v_, saleData_);
 
         emit AuctionSettled(
             aucId_,
