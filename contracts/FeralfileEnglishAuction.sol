@@ -132,6 +132,17 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         }
     }
 
+    function listAuctionLatestBids(
+        bytes32[] memory aucIds_
+    ) external view returns (Bid[] memory) {
+        Bid[] memory results = new Bid[](aucIds_.length);
+        for (uint i = 0; i < aucIds_.length; i++) {
+            // get the last auction bid object
+            results[i] = auctionLatestBid[aucIds_[i]];
+        }
+        return results;
+    }
+
     function isValidBidRequest(
         bytes32 aucId_,
         address bidder_,
