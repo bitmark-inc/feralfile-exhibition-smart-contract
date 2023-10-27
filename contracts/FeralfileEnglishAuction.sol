@@ -36,6 +36,12 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         bool fromFeralFile;
     }
 
+    struct LatestAuctionStatus {
+        Bid latestBid;
+        uint256 endAt;
+        bool isSettled;
+    }
+
     mapping(bytes32 => EnglishAuction) public auctions;
     mapping(bytes32 => Bid) public auctionLatestBid;
 
@@ -132,13 +138,19 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         }
     }
 
-    function listAuctionLatestBids(
+    function listAuctionLatestStatus(
         bytes32[] memory aucIds_
-    ) external view returns (Bid[] memory) {
-        Bid[] memory results = new Bid[](aucIds_.length);
+    ) external view returns (LatestAuctionStatus[] memory) {
+        LatestAuctionStatus[] memory results = new LatestAuctionStatus[](
+            aucIds_.length
+        );
         for (uint i = 0; i < aucIds_.length; i++) {
+            // get the auction object
+            EnglishAuction memory auction_ = auctions[aucIds_[i]];
             // get the last auction bid object
-            results[i] = auctionLatestBid[aucIds_[i]];
+            results[i].latestBid = auctionLatestBid[aucIds_[i]];
+            results[i].endAt = auction_.endAt;
+            results[i].isSettled = auction_.isSettled;
         }
         return results;
     }
