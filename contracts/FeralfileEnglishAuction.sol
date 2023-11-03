@@ -37,7 +37,7 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
     }
 
     struct LatestAuctionStatus {
-        Bid highestBid;
+        Bid latestBid;
         uint256 endAt;
         bool isSettled;
     }
@@ -110,7 +110,7 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         );
         for (uint i = 0; i < aucIds_.length; i++) {
             Auction memory auction_ = auctions[aucIds_[i]];
-            results[i].highestBid = highestBids[aucIds_[i]];
+            results[i].latestBid = highestBids[aucIds_[i]];
             results[i].endAt = auction_.endAt;
             results[i].isSettled = auction_.isSettled;
         }
