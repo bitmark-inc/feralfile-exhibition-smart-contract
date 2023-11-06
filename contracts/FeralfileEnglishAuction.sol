@@ -102,7 +102,7 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         }
     }
 
-    function listHighestBids(
+    function listAuctionStatus(
         uint256[] memory aucIds_
     ) external view returns (AuctionStatus[] memory) {
         AuctionStatus[] memory results = new AuctionStatus[](aucIds_.length);
