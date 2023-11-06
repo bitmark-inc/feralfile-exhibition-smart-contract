@@ -36,8 +36,8 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         bool fromFeralFile;
     }
 
-    struct LatestAuctionStatus {
-        Bid latestBid;
+    struct AuctionStatus {
+        Bid highestBid;
         uint256 endAt;
         bool isSettled;
     }
@@ -104,13 +104,11 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
 
     function listHighestBids(
         uint256[] memory aucIds_
-    ) external view returns (LatestAuctionStatus[] memory) {
-        LatestAuctionStatus[] memory results = new LatestAuctionStatus[](
-            aucIds_.length
-        );
+    ) external view returns (AuctionStatus[] memory) {
+        AuctionStatus[] memory results = new AuctionStatus[](aucIds_.length);
         for (uint i = 0; i < aucIds_.length; i++) {
             Auction memory auction_ = auctions[aucIds_[i]];
-            results[i].latestBid = highestBids[aucIds_[i]];
+            results[i].highestBid = highestBids[aucIds_[i]];
             results[i].endAt = auction_.endAt;
             results[i].isSettled = auction_.isSettled;
         }
@@ -123,11 +121,11 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
     ) external view returns (bool) {
         Auction memory auction_ = auctions[auctionID_];
         Bid memory highestBid_ = highestBids[auctionID_];
-        _validateBidRequest(auction_, highestBid_, amount_, block.timestamp);
+        _validateNewBid(auction_, highestBid_, amount_, block.timestamp);
         return true;
     }
 
-    function _validateBidRequest(
+    function _validateNewBid(
         Auction memory auction_,
         Bid memory highestBid_,
         uint256 amount_,
@@ -176,7 +174,7 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         Auction memory auction_ = auctions[auctionID_];
         Bid memory highestBid_ = highestBids[auctionID_];
         // verify the bid is valid
-        _validateBidRequest(auction_, highestBid_, amount_, timestamp_);
+        _validateNewBid(auction_, highestBid_, amount_, timestamp_);
         // transfer last winning bid amount to last bidder if fromFeralFile is false
         if (!highestBid_.fromFeralFile && highestBid_.amount > 0) {
             payable(highestBid_.bidder).transfer(highestBid_.amount);

@@ -249,7 +249,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             ],
         ]);
 
-        const biddingTime = latestTime.add(new BN(10)).toString();
+        const biddingTime = latestTime.add(new BN(5)).toString();
 
         // Generate signature
         const signParams = web3.eth.abi.encodeParameters(
@@ -803,7 +803,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const biddingTime = latestTime.add(new BN(10)).toString();
+        const biddingTime = latestTime.add(new BN(5)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
