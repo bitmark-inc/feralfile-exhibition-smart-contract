@@ -192,7 +192,7 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
                 auction_.extendDuration;
         }
         // emit new bid event
-        emit NewBid(auctionID_, msg.sender, msg.value, fromFeralFile_);
+        emit NewBid(auctionID_, bidder_, amount_, fromFeralFile_);
     }
 
     function placeBid(uint256 auctionID_) external payable {
