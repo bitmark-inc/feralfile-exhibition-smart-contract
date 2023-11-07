@@ -54,24 +54,30 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         assert.equal(artwork3.seriesId, this.seriesIds[2]);
 
         // auctionId for token 1
-        this.aucID1 = BigInt("0x8355cca0dc3141368ad49e250be8e2a5").toString();
+        this.auctionID1 = BigInt(
+            "0x8355cca0dc3141368ad49e250be8e2a5"
+        ).toString();
 
         // auctionId for token 2
-        this.aucID2 = BigInt("0xa1f8bce7f57f4d94b11bb1cdc1cefc41").toString();
+        this.auctionID2 = BigInt(
+            "0xa1f8bce7f57f4d94b11bb1cdc1cefc41"
+        ).toString();
 
         // auctionId for token 3
-        this.aucID3 = BigInt("0xddc4d455d9654db6800baca6cb0b946b").toString();
+        this.auctionID3 = BigInt(
+            "0xddc4d455d9654db6800baca6cb0b946b"
+        ).toString();
     });
 
     it("test auction is on going", async function () {
         const auctionContract = await FeralfileEnglishAuction.new(this.signer);
-        const aucID = "1";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 seconds
-        const endTime = latestTime.add(new BN(10 * 60)).toString(); // end in 10 minutes
+        const auctionID = "1";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 seconds
+        const endTime = nowTime.add(new BN(10 * 60)).toString(); // end in 10 minutes
         await auctionContract.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 300, //extendDuration
@@ -86,19 +92,19 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const isActionOngoing = await auctionContract.ongoingAuction(aucID);
+        const isActionOngoing = await auctionContract.ongoingAuction(auctionID);
         assert.equal(true, isActionOngoing);
     });
 
     it("test auction is not started yet", async function () {
         const auctionContract = await FeralfileEnglishAuction.new(this.signer);
-        const aucID = "1";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(10 * 60)).toString(); // start in 10 minutes
-        const endTime = latestTime.add(new BN(20 * 60)).toString(); // end in 20 minutes
+        const auctionID = "1";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(10 * 60)).toString(); // start in 10 minutes
+        const endTime = nowTime.add(new BN(20 * 60)).toString(); // end in 20 minutes
         await auctionContract.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 300, //extendDuration
@@ -110,19 +116,19 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             ],
         ]);
 
-        const isActionOngoing = await auctionContract.ongoingAuction(aucID);
+        const isActionOngoing = await auctionContract.ongoingAuction(auctionID);
         assert.equal(false, isActionOngoing);
     });
 
     it("test auction ended", async function () {
         const auctionContract = await FeralfileEnglishAuction.new(this.signer);
-        const aucID = "1";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 second
-        const endTime = latestTime.add(new BN(10)).toString(); // end in 10 seconds
+        const auctionID = "1";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 second
+        const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
         await auctionContract.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 300, //extendDuration
@@ -137,18 +143,18 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 15 seconds to end auction
         await time.increase(time.duration.seconds(15));
 
-        const isActionOngoing = await auctionContract.ongoingAuction(aucID);
+        const isActionOngoing = await auctionContract.ongoingAuction(auctionID);
         assert.equal(false, isActionOngoing);
     });
 
     it("test set auctions successfully", async function () {
-        const aucID = "1";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(5 * 60)).toString(); // start in 5 minutes
-        const endTime = latestTime.add(new BN(10 * 60)).toString(); // end in 10 minutes
+        const auctionID = "1";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(5 * 60)).toString(); // start in 5 minutes
+        const endTime = nowTime.add(new BN(10 * 60)).toString(); // end in 10 minutes
         await this.engAuction.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt
                 300, //extendDuration
@@ -160,21 +166,21 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             ],
         ]);
 
-        const auction = await this.engAuction.auctions(aucID);
-        assert.equal(aucID, auction.id);
+        const auction = await this.engAuction.auctions(auctionID);
+        assert.equal(auctionID, auction.id);
         assert.equal(startTime, auction.startAt);
         assert.equal(endTime, auction.endAt);
     });
 
     it("test set auctions failed because existed", async function () {
-        const aucID = "1";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(5 * 60)).toString(); // start in 5 minutes
-        const endTime = latestTime.add(new BN(10 * 60)).toString(); // end in 10 minutes
+        const auctionID = "1";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(5 * 60)).toString(); // start in 5 minutes
+        const endTime = nowTime.add(new BN(10 * 60)).toString(); // end in 10 minutes
         try {
             await this.engAuction.registerAuctions([
                 [
-                    aucID, // id
+                    auctionID, // id
                     startTime, // startAt
                     endTime, // endAt
                     300, //extendDuration
@@ -195,14 +201,14 @@ contract("FeralfileEnglishAuction", async (accounts) => {
     });
 
     it("test bid on auction by crypto successfully", async function () {
-        const aucID = "2";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 seconds
-        const endTime = latestTime.add(new BN(60 * 60)).toString(); // end in 1 hour
+        const auctionID = "2";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 seconds
+        const endTime = nowTime.add(new BN(60 * 60)).toString(); // end in 1 hour
 
         await this.engAuction.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 600, //extendDuration // 10 minutes
@@ -217,27 +223,27 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const isActionOngoing = await this.engAuction.ongoingAuction(aucID);
+        const isActionOngoing = await this.engAuction.ongoingAuction(auctionID);
         assert.equal(true, isActionOngoing);
 
-        await this.engAuction.placeBid(aucID, {
+        await this.engAuction.placeBid(auctionID, {
             from: accounts[2],
             value: web3.utils.toWei("0.2", "ether"),
         });
-        const latestBid = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.2", "ether"), latestBid.amount);
-        assert.equal(accounts[2], latestBid.bidder);
+        const highestBid = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBid.amount);
+        assert.equal(accounts[2], highestBid.bidder);
     });
 
     it("test bid on auction by Feralfile successfully", async function () {
-        const aucID = "3";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 second
-        const endTime = latestTime.add(new BN(10)).toString(); // end in 10 seconds
+        const auctionID = "3";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 second
+        const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
 
         await this.engAuction.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 600, //extendDuration // 10 minutes
@@ -249,14 +255,14 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             ],
         ]);
 
-        const biddingTime = latestTime.add(new BN(5)).toString();
+        const biddingTime = nowTime.add(new BN(5)).toString();
 
         // Generate signature
         const signParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
-                aucID,
+                auctionID,
                 accounts[2],
                 web3.utils.toWei("0.25", "ether"),
                 biddingTime,
@@ -271,7 +277,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // Generate signature
 
         await this.engAuction.placeSignedBid(
-            aucID,
+            auctionID,
             accounts[2],
             web3.utils.toWei("0.25", "ether"),
             biddingTime,
@@ -282,17 +288,17 @@ contract("FeralfileEnglishAuction", async (accounts) => {
                 from: accounts[5], // any address from biconomy
             }
         );
-        const latestBid = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.25", "ether"), latestBid.amount);
-        assert.equal(accounts[2], latestBid.bidder);
-        assert.equal(true, latestBid.fromFeralFile);
+        const highestBid = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.25", "ether"), highestBid.amount);
+        assert.equal(accounts[2], highestBid.bidder);
+        assert.equal(true, highestBid.fromFeralFile);
     });
 
     it("test bid on auction failed because under minimum increment", async function () {
-        const aucID = "2";
+        const auctionID = "2";
 
         try {
-            await this.engAuction.placeBid(aucID, {
+            await this.engAuction.placeBid(auctionID, {
                 from: accounts[3],
                 value: (web3.utils.toWei("0.2", "ether") * 1.1).toFixed(0), // 10% increase, expect 20% increase
             });
@@ -306,14 +312,14 @@ contract("FeralfileEnglishAuction", async (accounts) => {
     });
 
     it("test extends bidding time", async function () {
-        const aucID = "4";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 second
-        const endTime = latestTime.add(new BN(10)).toString(); // end in 10 seconds
+        const auctionID = "4";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 second
+        const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
 
         await this.engAuction.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 600, //extendDuration // 10 minutes
@@ -329,15 +335,15 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         await time.increase(time.duration.seconds(2));
 
         const timestamp = await time.latest();
-        await this.engAuction.placeBid(aucID, {
+        await this.engAuction.placeBid(auctionID, {
             from: accounts[2],
             value: web3.utils.toWei("0.2", "ether"),
         });
-        const latestBid = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.2", "ether"), latestBid.amount);
-        assert.equal(accounts[2], latestBid.bidder);
+        const highestBid = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBid.amount);
+        assert.equal(accounts[2], highestBid.bidder);
 
-        const auction = await this.engAuction.auctions(aucID);
+        const auction = await this.engAuction.auctions(auctionID);
         assert.equal(
             timestamp.add(new BN(600)).toString(),
             auction.endAt.toString()
@@ -345,14 +351,14 @@ contract("FeralfileEnglishAuction", async (accounts) => {
     });
 
     it("test refund to previous crypto bidder by new bidder by crypto", async function () {
-        const aucID = "5";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 seconds
-        const endTime = latestTime.add(new BN(60 * 60)).toString(); // end in 1 hour
+        const auctionID = "5";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 seconds
+        const endTime = nowTime.add(new BN(60 * 60)).toString(); // end in 1 hour
 
         await this.engAuction.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 600, //extendDuration // 10 minutes
@@ -367,47 +373,47 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const isActionOngoing = await this.engAuction.ongoingAuction(aucID);
+        const isActionOngoing = await this.engAuction.ongoingAuction(auctionID);
         assert.equal(true, isActionOngoing);
 
         // Bid by account[2]
-        await this.engAuction.placeBid(aucID, {
+        await this.engAuction.placeBid(auctionID, {
             from: accounts[2],
             value: web3.utils.toWei("0.2", "ether"),
         });
 
-        const latestBidAcc2 = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.2", "ether"), latestBidAcc2.amount);
-        assert.equal(accounts[2], latestBidAcc2.bidder);
+        const highestBidAcc2 = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBidAcc2.amount);
+        assert.equal(accounts[2], highestBidAcc2.bidder);
 
         const acc2BalanceBeforeRefund = await web3.eth.getBalance(accounts[2]);
 
         // Bid by accounts[3]
-        await this.engAuction.placeBid(aucID, {
+        await this.engAuction.placeBid(auctionID, {
             from: accounts[3],
             value: web3.utils.toWei("0.3", "ether"),
         });
-        const latestBidAcc3 = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.3", "ether"), latestBidAcc3.amount);
-        assert.equal(accounts[3], latestBidAcc3.bidder);
+        const highestBidAcc3 = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.3", "ether"), highestBidAcc3.amount);
+        assert.equal(accounts[3], highestBidAcc3.bidder);
 
         const acc2BalanceAfterRefund = await web3.eth.getBalance(accounts[2]);
 
         assert.equal(
-            latestBidAcc2.amount,
+            highestBidAcc2.amount,
             acc2BalanceAfterRefund - acc2BalanceBeforeRefund
         );
     });
 
     it("test refund to previous crypto bidder by new bidder from Feralfile", async function () {
-        const aucID = "6";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 seconds
-        const endTime = latestTime.add(new BN(60 * 60)).toString(); // end in 1 hour
+        const auctionID = "6";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 seconds
+        const endTime = nowTime.add(new BN(60 * 60)).toString(); // end in 1 hour
 
         await this.engAuction.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 600, //extendDuration // 10 minutes
@@ -422,30 +428,30 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const isActionOngoing = await this.engAuction.ongoingAuction(aucID);
+        const isActionOngoing = await this.engAuction.ongoingAuction(auctionID);
         assert.equal(true, isActionOngoing);
 
         // Bid by account[2]
-        await this.engAuction.placeBid(aucID, {
+        await this.engAuction.placeBid(auctionID, {
             from: accounts[2],
             value: web3.utils.toWei("0.2", "ether"),
         });
 
-        const latestBidAcc2 = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.2", "ether"), latestBidAcc2.amount);
-        assert.equal(accounts[2], latestBidAcc2.bidder);
-        assert.equal(false, latestBidAcc2.fromFeralFile);
+        const highestBidAcc2 = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBidAcc2.amount);
+        assert.equal(accounts[2], highestBidAcc2.bidder);
+        assert.equal(false, highestBidAcc2.fromFeralFile);
 
         const acc2BalanceBeforeRefund = await web3.eth.getBalance(accounts[2]);
 
         // Bid by accounts[3]
-        const biddingTime = latestTime.add(new BN(10)).toString();
+        const biddingTime = nowTime.add(new BN(10)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
-                aucID,
+                auctionID,
                 accounts[3],
                 web3.utils.toWei("0.3", "ether"),
                 biddingTime,
@@ -461,7 +467,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
 
         // Bid by account[2]
         await this.engAuction.placeSignedBid(
-            aucID,
+            auctionID,
             accounts[3],
             web3.utils.toWei("0.3", "ether"),
             biddingTime,
@@ -473,28 +479,28 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             }
         );
 
-        const latestBidAcc3 = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.3", "ether"), latestBidAcc3.amount);
-        assert.equal(accounts[3], latestBidAcc3.bidder);
-        assert.equal(true, latestBidAcc3.fromFeralFile);
+        const highestBidAcc3 = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.3", "ether"), highestBidAcc3.amount);
+        assert.equal(accounts[3], highestBidAcc3.bidder);
+        assert.equal(true, highestBidAcc3.fromFeralFile);
 
         const acc2BalanceAfterRefund = await web3.eth.getBalance(accounts[2]);
 
         assert.equal(
-            latestBidAcc2.amount,
+            highestBidAcc2.amount,
             acc2BalanceAfterRefund - acc2BalanceBeforeRefund
         );
     });
 
     it("test refund to previous FF bidder by new bidder by crypto", async function () {
-        const aucID = "7";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 seconds
-        const endTime = latestTime.add(new BN(60 * 60)).toString(); // end in 1 hour
+        const auctionID = "7";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 seconds
+        const endTime = nowTime.add(new BN(60 * 60)).toString(); // end in 1 hour
 
         await this.engAuction.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 600, //extendDuration // 10 minutes
@@ -509,17 +515,17 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const isActionOngoing = await this.engAuction.ongoingAuction(aucID);
+        const isActionOngoing = await this.engAuction.ongoingAuction(auctionID);
         assert.equal(true, isActionOngoing);
 
         // Bid by account[2]
-        const biddingTime = latestTime.add(new BN(10)).toString();
+        const biddingTime = nowTime.add(new BN(10)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
-                aucID,
+                auctionID,
                 accounts[2],
                 web3.utils.toWei("0.2", "ether"),
                 biddingTime,
@@ -533,7 +539,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const bidV = "0x" + biddingSig.slice(128, 130);
         // Generate signature
         await this.engAuction.placeSignedBid(
-            aucID,
+            auctionID,
             accounts[2],
             web3.utils.toWei("0.2", "ether"),
             biddingTime,
@@ -545,21 +551,21 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             }
         );
 
-        const latestBidAcc2 = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.2", "ether"), latestBidAcc2.amount);
-        assert.equal(accounts[2], latestBidAcc2.bidder);
-        assert.equal(true, latestBidAcc2.fromFeralFile);
+        const highestBidAcc2 = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBidAcc2.amount);
+        assert.equal(accounts[2], highestBidAcc2.bidder);
+        assert.equal(true, highestBidAcc2.fromFeralFile);
 
         const acc2BalanceBeforeRefund = await web3.eth.getBalance(accounts[2]);
 
         // Bid by accounts[3]
-        await this.engAuction.placeBid(aucID, {
+        await this.engAuction.placeBid(auctionID, {
             from: accounts[3],
             value: web3.utils.toWei("0.3", "ether"),
         });
-        const latestBidAcc3 = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.3", "ether"), latestBidAcc3.amount);
-        assert.equal(accounts[3], latestBidAcc3.bidder);
+        const highestBidAcc3 = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.3", "ether"), highestBidAcc3.amount);
+        assert.equal(accounts[3], highestBidAcc3.bidder);
 
         const acc2BalanceAfterRefund = await web3.eth.getBalance(accounts[2]);
 
@@ -567,14 +573,14 @@ contract("FeralfileEnglishAuction", async (accounts) => {
     });
 
     it("test refund to previous FF bidder by new FF bidder", async function () {
-        const aucID = "8";
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 seconds
-        const endTime = latestTime.add(new BN(60 * 60)).toString(); // end in 1 hour
+        const auctionID = "8";
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 seconds
+        const endTime = nowTime.add(new BN(60 * 60)).toString(); // end in 1 hour
 
         await this.engAuction.registerAuctions([
             [
-                aucID, // id
+                auctionID, // id
                 startTime, // startAt
                 endTime, // endAt // add 10 minutes
                 600, //extendDuration // 10 minutes
@@ -589,17 +595,17 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const isActionOngoing = await this.engAuction.ongoingAuction(aucID);
+        const isActionOngoing = await this.engAuction.ongoingAuction(auctionID);
         assert.equal(true, isActionOngoing);
 
         // Bid by account[2]
-        const biddingTime2 = latestTime.add(new BN(10)).toString();
+        const biddingTime2 = nowTime.add(new BN(10)).toString();
         // Generate signature
         const biddingParams2 = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
-                aucID,
+                auctionID,
                 accounts[2],
                 web3.utils.toWei("0.2", "ether"),
                 biddingTime2,
@@ -614,7 +620,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // Generate signature
 
         await this.engAuction.placeSignedBid(
-            aucID,
+            auctionID,
             accounts[2],
             web3.utils.toWei("0.2", "ether"),
             biddingTime2,
@@ -626,10 +632,10 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             }
         );
 
-        const latestBidAcc2 = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.2", "ether"), latestBidAcc2.amount);
-        assert.equal(accounts[2], latestBidAcc2.bidder);
-        assert.equal(true, latestBidAcc2.fromFeralFile);
+        const highestBidAcc2 = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBidAcc2.amount);
+        assert.equal(accounts[2], highestBidAcc2.bidder);
+        assert.equal(true, highestBidAcc2.fromFeralFile);
 
         const acc2BalanceBeforeRefund = await web3.eth.getBalance(accounts[2]);
 
@@ -640,7 +646,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             ["uint", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
-                aucID,
+                auctionID,
                 accounts[3],
                 web3.utils.toWei("0.3", "ether"),
                 biddingTime3,
@@ -656,7 +662,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
 
         // Bid by account[2]
         await this.engAuction.placeSignedBid(
-            aucID,
+            auctionID,
             accounts[3],
             web3.utils.toWei("0.3", "ether"),
             biddingTime3,
@@ -668,10 +674,10 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             }
         );
 
-        const latestBidAcc3 = await this.engAuction.highestBids(aucID);
-        assert.equal(web3.utils.toWei("0.3", "ether"), latestBidAcc3.amount);
-        assert.equal(accounts[3], latestBidAcc3.bidder);
-        assert.equal(true, latestBidAcc3.fromFeralFile);
+        const highestBidAcc3 = await this.engAuction.highestBids(auctionID);
+        assert.equal(web3.utils.toWei("0.3", "ether"), highestBidAcc3.amount);
+        assert.equal(accounts[3], highestBidAcc3.bidder);
+        assert.equal(true, highestBidAcc3.fromFeralFile);
 
         const acc2BalanceAfterRefund = await web3.eth.getBalance(accounts[2]);
 
@@ -679,12 +685,12 @@ contract("FeralfileEnglishAuction", async (accounts) => {
     });
 
     it("test settle auction purchase by crypto", async function () {
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 second
-        const endTime = latestTime.add(new BN(10)).toString(); // end in 10 seconds
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 second
+        const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
         await this.engAuction.registerAuctions([
             [
-                this.aucID1, // id
+                this.auctionID1, // id
                 startTime, // startAt
                 endTime, // endAt
                 0, //extendDuration
@@ -703,14 +709,14 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        await this.engAuction.placeBid(this.aucID1, {
+        await this.engAuction.placeBid(this.auctionID1, {
             from: accounts[2],
             value: web3.utils.toWei("0.2", "ether"),
         });
 
-        const latestBid = await this.engAuction.highestBids(this.aucID1);
-        assert.equal(web3.utils.toWei("0.2", "ether"), latestBid.amount);
-        assert.equal(accounts[2], latestBid.bidder);
+        const highestBid = await this.engAuction.highestBids(this.auctionID1);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBid.amount);
+        assert.equal(accounts[2], highestBid.bidder);
 
         // Waiting for auction to end...
         await time.increase(time.duration.seconds(10));
@@ -719,15 +725,15 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             this.engAuction.address
         );
         assert.equal(
-            latestBid.amount,
+            highestBid.amount,
             contractBalanceBeforeSettle - contractBalanceBeforeBid
         );
 
         // Generate signature
-        const latestTimeSettle = await time.latest();
-        const expiryTime = latestTimeSettle.add(new BN(300)).toString();
+        const nowTimeSettle = await time.latest();
+        const expiryTime = nowTimeSettle.add(new BN(300)).toString();
         const saleData = [
-            latestBid.amount,
+            highestBid.amount,
             "0",
             expiryTime,
             accounts[2],
@@ -761,7 +767,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // Generate signature
 
         await this.engAuction.settleAuction(
-            this.aucID1,
+            this.auctionID1,
             this.ff4Contract.address,
             this.vault.address,
             saleData,
@@ -778,17 +784,17 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         );
         assert.equal(contractBalanceAfter, contractBalanceBeforeBid);
 
-        const auction = await this.engAuction.auctions(this.aucID1);
+        const auction = await this.engAuction.auctions(this.auctionID1);
         assert.equal(true, auction.isSettled);
     });
 
     it("test settle auction purchase by credit card", async function () {
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 second
-        const endTime = latestTime.add(new BN(10)).toString(); // end in 10 seconds
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 second
+        const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
         await this.engAuction.registerAuctions([
             [
-                this.aucID2, // id
+                this.auctionID2, // id
                 startTime, // startAt
                 endTime, // endAt
                 0, //extendDuration
@@ -803,13 +809,13 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const biddingTime = latestTime.add(new BN(5)).toString();
+        const biddingTime = nowTime.add(new BN(5)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
-                this.aucID2,
+                this.auctionID2,
                 accounts[3],
                 web3.utils.toWei("0.25", "ether"),
                 biddingTime,
@@ -824,7 +830,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // Generate signature
 
         await this.engAuction.placeSignedBid(
-            this.aucID2,
+            this.auctionID2,
             accounts[3],
             web3.utils.toWei("0.25", "ether"),
             biddingTime,
@@ -836,19 +842,19 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             }
         );
 
-        const latestBid = await this.engAuction.highestBids(this.aucID2);
-        assert.equal(web3.utils.toWei("0.25", "ether"), latestBid.amount);
-        assert.equal(accounts[3], latestBid.bidder);
-        assert.equal(true, latestBid.fromFeralFile);
+        const highestBid = await this.engAuction.highestBids(this.auctionID2);
+        assert.equal(web3.utils.toWei("0.25", "ether"), highestBid.amount);
+        assert.equal(accounts[3], highestBid.bidder);
+        assert.equal(true, highestBid.fromFeralFile);
 
         // Waiting for auction to end...
         await time.increase(time.duration.seconds(10));
 
         // Generate signature
-        const latestTimeSettle = await time.latest();
-        const expiryTime = latestTimeSettle.add(new BN(300)).toString();
+        const nowTimeSettle = await time.latest();
+        const expiryTime = nowTimeSettle.add(new BN(300)).toString();
         const saleData = [
-            latestBid.amount,
+            highestBid.amount,
             "0",
             expiryTime,
             accounts[3],
@@ -884,11 +890,11 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         await web3.eth.sendTransaction({
             to: this.vault.address,
             from: accounts[8],
-            value: latestBid.amount,
+            value: highestBid.amount,
         });
 
         await this.engAuction.settleAuction(
-            this.aucID2,
+            this.auctionID2,
             this.ff4Contract.address,
             this.vault.address,
             saleData,
@@ -902,12 +908,12 @@ contract("FeralfileEnglishAuction", async (accounts) => {
     });
 
     it("test settle auction with FF cost", async function () {
-        const latestTime = await time.latest();
-        const startTime = latestTime.add(new BN(1)).toString(); // start in 1 second
-        const endTime = latestTime.add(new BN(10)).toString(); // end in 10 seconds
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 second
+        const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
         await this.engAuction.registerAuctions([
             [
-                this.aucID3, // id
+                this.auctionID3, // id
                 startTime, // startAt
                 endTime, // endAt
                 0, //extendDuration
@@ -926,14 +932,14 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        await this.engAuction.placeBid(this.aucID3, {
+        await this.engAuction.placeBid(this.auctionID3, {
             from: accounts[2],
             value: web3.utils.toWei("0.2", "ether"),
         });
 
-        const latestBid = await this.engAuction.highestBids(this.aucID3);
-        assert.equal(web3.utils.toWei("0.2", "ether"), latestBid.amount);
-        assert.equal(accounts[2], latestBid.bidder);
+        const highestBid = await this.engAuction.highestBids(this.auctionID3);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBid.amount);
+        assert.equal(accounts[2], highestBid.bidder);
 
         // Waiting for auction to end...
         await time.increase(time.duration.seconds(10));
@@ -942,15 +948,15 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             this.engAuction.address
         );
         assert.equal(
-            latestBid.amount,
+            highestBid.amount,
             contractBalanceBeforeSettle - contractBalanceBeforeBid
         );
 
         // Generate signature
-        const latestTimeSettle = await time.latest();
-        const expiryTime = latestTimeSettle.add(new BN(300)).toString();
+        const nowTimeSettle = await time.latest();
+        const expiryTime = nowTimeSettle.add(new BN(300)).toString();
         const saleData = [
-            latestBid.amount,
+            highestBid.amount,
             web3.utils.toWei("0.1", "ether").toString(),
             expiryTime,
             accounts[2],
@@ -991,7 +997,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const acc8BalanceBeforeSettle = await web3.eth.getBalance(accounts[8]);
 
         await this.engAuction.settleAuction(
-            this.aucID3,
+            this.auctionID3,
             this.ff4Contract.address,
             this.vault.address,
             saleData,
@@ -1008,7 +1014,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         );
         assert.equal(contractBalanceAfter, contractBalanceBeforeBid);
 
-        const auction = await this.engAuction.auctions(this.aucID3);
+        const auction = await this.engAuction.auctions(this.auctionID3);
         assert.equal(true, auction.isSettled);
 
         // Assert cost receiver balance
