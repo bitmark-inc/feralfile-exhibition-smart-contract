@@ -243,8 +243,8 @@ contract("FeralfileEnglishAuction", async (accounts) => {
     it("test bid on auction by Feralfile successfully", async function () {
         const auctionID = "3";
         const nowTime = await time.latest();
-        const startTime = nowTime.toString(); // start now
-        const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 seconds
+        const endTime = nowTime.add(new BN(60)).toString(); // end in 60 seconds
 
         await this.engAuction.registerAuctions([
             [
@@ -259,6 +259,9 @@ contract("FeralfileEnglishAuction", async (accounts) => {
                 false,
             ],
         ]);
+
+        // wait 2 seconds to start auction
+        await time.increase(time.duration.seconds(2));
 
         // biddingExpiry in 10 mins
         const biddingExpiry = nowTime.add(new BN(600)).toString();
