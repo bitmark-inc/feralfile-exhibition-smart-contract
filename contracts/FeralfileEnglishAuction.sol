@@ -47,6 +47,8 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
 
     constructor(address signer_) ECDSASigner(signer_) {}
 
+    function renounceOwnership() public override onlyOwner {}
+
     function ongoingAuction(uint256 id_) external view returns (bool) {
         require(
             auctions[id_].id > 0,
@@ -55,7 +57,7 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
 
         return
             auctions[id_].startAt <= block.timestamp &&
-            auctions[id_].endAt >= block.timestamp;
+            auctions[id_].endAt > block.timestamp;
     }
 
     function registerAuctions(Auction[] calldata auctions_) external onlyOwner {
@@ -121,21 +123,21 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
     ) external view returns (bool) {
         Auction memory auction_ = auctions[auctionID_];
         Bid memory highestBid_ = highestBids[auctionID_];
-        _validateNewBid(auction_, highestBid_, amount_, block.timestamp);
+        _validateNewBid(auction_, highestBid_, amount_);
         return true;
     }
 
     function _validateNewBid(
         Auction memory auction_,
         Bid memory highestBid_,
-        uint256 amount_,
-        uint256 timestamp_
-    ) internal pure {
+        uint256 amount_
+    ) internal view {
         // make sure the auction exist
         require(auction_.id > 0, "FeralfileEnglishAuction: auction not found");
         // check if auction is on going
         require(
-            auction_.startAt <= timestamp_ && timestamp_ < auction_.endAt,
+            auction_.startAt <= block.timestamp &&
+                block.timestamp < auction_.endAt,
             "FeralfileEnglishAuction: auction not started or ended"
         );
         // check if auction is not settled
@@ -168,17 +170,12 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         uint256 auctionID_,
         address bidder_,
         uint256 amount_,
-        uint256 timestamp_,
         bool fromFeralFile_
     ) private {
         Auction memory auction_ = auctions[auctionID_];
         Bid memory highestBid_ = highestBids[auctionID_];
         // verify the bid is valid
-        _validateNewBid(auction_, highestBid_, amount_, timestamp_);
-        // transfer last winning bid amount to last bidder if fromFeralFile is false
-        if (!highestBid_.fromFeralFile && highestBid_.amount > 0) {
-            payable(highestBid_.bidder).transfer(highestBid_.amount);
-        }
+        _validateNewBid(auction_, highestBid_, amount_);
         // replace the new bid to bid map
         highestBids[auctionID_] = Bid({
             bidder: bidder_,
@@ -191,32 +188,40 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
                 block.timestamp +
                 auction_.extendDuration;
         }
+        // transfer last winning bid amount to last bidder if fromFeralFile is false
+        if (!highestBid_.fromFeralFile && highestBid_.amount > 0) {
+            payable(highestBid_.bidder).transfer(highestBid_.amount);
+        }
         // emit new bid event
         emit NewBid(auctionID_, bidder_, amount_, fromFeralFile_);
     }
 
     function placeBid(uint256 auctionID_) external payable {
-        _placeBid(auctionID_, msg.sender, msg.value, block.timestamp, false);
+        _placeBid(auctionID_, msg.sender, msg.value, false);
     }
 
     function placeSignedBid(
         uint256 auctionID_,
         address bidder_,
         uint256 amount_,
-        uint256 timestamp_,
+        uint256 expiryTime_,
         bytes32 r_,
         bytes32 s_,
         uint8 v_
     ) external {
+        require(
+            expiryTime_ > block.timestamp,
+            "FeralfileEnglishAuction: signature is expired"
+        );
         bytes32 message_ = keccak256(
-            abi.encode(block.chainid, auctionID_, bidder_, amount_, timestamp_)
+            abi.encode(block.chainid, auctionID_, bidder_, amount_, expiryTime_)
         );
         require(
             isValidSignature(message_, r_, s_, v_),
             "FeralfileEnglishAuction: invalid signature"
         );
 
-        _placeBid(auctionID_, bidder_, amount_, timestamp_, true);
+        _placeBid(auctionID_, bidder_, amount_, true);
     }
 
     function settleAuction(
@@ -228,34 +233,19 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
         bytes32 s_,
         uint8 v_
     ) external onlyOwner {
-        Auction memory auction_ = auctions[auctionID_];
-        require(auction_.id != 0, "FeralfileEnglishAuction: auction not found");
-
         require(
-            auction_.endAt <= block.timestamp,
-            "FeralfileEnglishAuction: auction not ended"
+            saleData_.payByVaultContract,
+            "FeralfileEnglishAuction: saleData.payByVaultContract should be true"
         );
-
         Bid memory highestBid_ = highestBids[auctionID_];
         require(
-            highestBid_.bidder != address(0),
-            "FeralfileEnglishAuction: no bid"
+            saleData_.destination == highestBid_.bidder,
+            "FeralfileEnglishAuction: saleData_.destination is different from highest bid bidder"
         );
+        Auction memory auction_ = auctions[auctionID_];
 
-        require(
-            !auction_.isSettled,
-            "FeralfileEnglishAuction: auction already settled"
-        );
+        _settleAuctionFund(auction_, highestBid_, vaultAddr_);
 
-        auctions[auctionID_].isSettled = true;
-
-        saleData_.destination = highestBid_.bidder;
-        saleData_.payByVaultContract = true;
-
-        // transfer winning bid amount to Feral File Vault contract if winning bid is crypto bid
-        if (!highestBid_.fromFeralFile && highestBid_.amount > 0) {
-            payable(vaultAddr_).transfer(highestBid_.amount);
-        }
         IFeralfileExhibitionV4(tokenAddr_).buyArtworks(r_, s_, v_, saleData_);
 
         emit AuctionSettled(
@@ -264,6 +254,42 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
             highestBid_.bidder,
             highestBid_.amount
         );
+    }
+
+    function settleAuctionFund(
+        uint256 auctionID_,
+        address vaultAddr_
+    ) external onlyOwner {
+        Auction memory auction_ = auctions[auctionID_];
+        Bid memory highestBid_ = highestBids[auctionID_];
+        _settleAuctionFund(auction_, highestBid_, vaultAddr_);
+    }
+
+    function _settleAuctionFund(
+        Auction memory auction_,
+        Bid memory highestBid_,
+        address vaultAddr_
+    ) private {
+        require(auction_.id != 0, "FeralfileEnglishAuction: auction not found");
+        require(
+            auction_.endAt <= block.timestamp,
+            "FeralfileEnglishAuction: auction not ended"
+        );
+        require(
+            !auction_.isSettled,
+            "FeralfileEnglishAuction: auction already settled"
+        );
+        require(
+            highestBid_.bidder != address(0),
+            "FeralfileEnglishAuction: no bid"
+        );
+
+        auctions[auction_.id].isSettled = true;
+
+        // transfer winning bid amount to Feral File Vault contract if winning bid is crypto bid
+        if (!highestBid_.fromFeralFile && highestBid_.amount > 0) {
+            payable(vaultAddr_).transfer(highestBid_.amount);
+        }
     }
 
     event NewBid(

@@ -67,6 +67,11 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         this.auctionID3 = BigInt(
             "0xddc4d455d9654db6800baca6cb0b946b"
         ).toString();
+
+        // auctionId for token 4
+        this.auctionID4 = BigInt(
+            "0x72477528f351486e9bde559d86993545"
+        ).toString();
     });
 
     it("test auction is on going", async function () {
@@ -255,7 +260,8 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             ],
         ]);
 
-        const biddingTime = nowTime.add(new BN(5)).toString();
+        // biddingExpiry in 10 mins
+        const biddingExpiry = nowTime.add(new BN(600)).toString();
 
         // Generate signature
         const signParams = web3.eth.abi.encodeParameters(
@@ -265,7 +271,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
                 auctionID,
                 accounts[2],
                 web3.utils.toWei("0.25", "ether"),
-                biddingTime,
+                biddingExpiry,
             ]
         );
         const hash = web3.utils.keccak256(signParams);
@@ -280,7 +286,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             auctionID,
             accounts[2],
             web3.utils.toWei("0.25", "ether"),
-            biddingTime,
+            biddingExpiry,
             r,
             s,
             web3.utils.toDecimal(v) + 27, // magic 27
@@ -445,7 +451,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const acc2BalanceBeforeRefund = await web3.eth.getBalance(accounts[2]);
 
         // Bid by accounts[3]
-        const biddingTime = nowTime.add(new BN(10)).toString();
+        const biddingExpiry = nowTime.add(new BN(600)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
@@ -454,7 +460,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
                 auctionID,
                 accounts[3],
                 web3.utils.toWei("0.3", "ether"),
-                biddingTime,
+                biddingExpiry,
             ]
         );
         const biddingHash = web3.utils.keccak256(biddingParams);
@@ -470,7 +476,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             auctionID,
             accounts[3],
             web3.utils.toWei("0.3", "ether"),
-            biddingTime,
+            biddingExpiry,
             bidR,
             bidS,
             web3.utils.toDecimal(bidV) + 27, // magic 27
@@ -519,7 +525,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         assert.equal(true, isActionOngoing);
 
         // Bid by account[2]
-        const biddingTime = nowTime.add(new BN(10)).toString();
+        const biddingExpiry = nowTime.add(new BN(600)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
@@ -528,7 +534,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
                 auctionID,
                 accounts[2],
                 web3.utils.toWei("0.2", "ether"),
-                biddingTime,
+                biddingExpiry,
             ]
         );
         const biddingHash = web3.utils.keccak256(biddingParams);
@@ -542,7 +548,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             auctionID,
             accounts[2],
             web3.utils.toWei("0.2", "ether"),
-            biddingTime,
+            biddingExpiry,
             bidR,
             bidS,
             web3.utils.toDecimal(bidV) + 27, // magic 27
@@ -599,7 +605,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         assert.equal(true, isActionOngoing);
 
         // Bid by account[2]
-        const biddingTime2 = nowTime.add(new BN(10)).toString();
+        const biddingExpiry2 = nowTime.add(new BN(600)).toString();
         // Generate signature
         const biddingParams2 = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
@@ -608,7 +614,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
                 auctionID,
                 accounts[2],
                 web3.utils.toWei("0.2", "ether"),
-                biddingTime2,
+                biddingExpiry2,
             ]
         );
         const biddingHash2 = web3.utils.keccak256(biddingParams2);
@@ -623,7 +629,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             auctionID,
             accounts[2],
             web3.utils.toWei("0.2", "ether"),
-            biddingTime2,
+            biddingExpiry2,
             bidR2,
             bidS2,
             web3.utils.toDecimal(bidV2) + 27, // magic 27
@@ -640,7 +646,8 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const acc2BalanceBeforeRefund = await web3.eth.getBalance(accounts[2]);
 
         // Bid by accounts[3]
-        const biddingTime3 = (await time.latest()).add(new BN(2)).toString();
+
+        const biddingExpiry3 = (await time.latest()).add(new BN(600)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
@@ -649,7 +656,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
                 auctionID,
                 accounts[3],
                 web3.utils.toWei("0.3", "ether"),
-                biddingTime3,
+                biddingExpiry3,
             ]
         );
         const biddingHash3 = web3.utils.keccak256(biddingParams);
@@ -665,7 +672,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             auctionID,
             accounts[3],
             web3.utils.toWei("0.3", "ether"),
-            biddingTime3,
+            biddingExpiry3,
             bidR3,
             bidS3,
             web3.utils.toDecimal(bidV3) + 27, // magic 27
@@ -809,7 +816,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         // wait 2 seconds to start auction
         await time.increase(time.duration.seconds(2));
 
-        const biddingTime = nowTime.add(new BN(5)).toString();
+        const biddingExpiry = nowTime.add(new BN(600)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
             ["uint", "uint256", "address", "uint256", "uint256"],
@@ -818,7 +825,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
                 this.auctionID2,
                 accounts[3],
                 web3.utils.toWei("0.25", "ether"),
-                biddingTime,
+                biddingExpiry,
             ]
         );
         const biddingHash = web3.utils.keccak256(biddingParams);
@@ -833,7 +840,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
             this.auctionID2,
             accounts[3],
             web3.utils.toWei("0.25", "ether"),
-            biddingTime,
+            biddingExpiry,
             bidR,
             bidS,
             web3.utils.toDecimal(bidV) + 27, // magic 27
@@ -1036,6 +1043,80 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         assert.equal(
             web3.utils.toWei("0.02", "ether"),
             acc8BalanceAfterSettle - acc8BalanceBeforeSettle
+        );
+    });
+
+    it("test settle auction fund", async function () {
+        const nowTime = await time.latest();
+        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 second
+        const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
+        await this.engAuction.registerAuctions([
+            [
+                this.auctionID4, // id
+                startTime, // startAt
+                endTime, // endAt
+                0, //extendDuration
+                0, // extendThreshold
+                20, // minIncreaseFactor
+                30, // minIncreaseAmount
+                web3.utils.toWei("0.1", "ether"), // minPrice
+                false,
+            ],
+        ]);
+
+        const contractBalanceBeforeBid = await web3.eth.getBalance(
+            this.engAuction.address
+        );
+
+        // wait 2 seconds to start auction
+        await time.increase(time.duration.seconds(2));
+
+        await this.engAuction.placeBid(this.auctionID4, {
+            from: accounts[2],
+            value: web3.utils.toWei("0.2", "ether"),
+        });
+
+        const highestBid = await this.engAuction.highestBids(this.auctionID4);
+        assert.equal(web3.utils.toWei("0.2", "ether"), highestBid.amount);
+        assert.equal(accounts[2], highestBid.bidder);
+
+        // Waiting for auction to end...
+        await time.increase(time.duration.seconds(10));
+
+        const contractBalanceBeforeSettle = await web3.eth.getBalance(
+            this.engAuction.address
+        );
+
+        assert.equal(
+            highestBid.amount,
+            contractBalanceBeforeSettle - contractBalanceBeforeBid
+        );
+
+        // Get balance before settle
+        const vaultBalanceBeforeSettle = await web3.eth.getBalance(
+            this.vault.address
+        );
+
+        await this.engAuction.settleAuctionFund(
+            this.auctionID4,
+            this.vault.address,
+        );
+
+        const contractBalanceAfter = await web3.eth.getBalance(
+            this.engAuction.address
+        );
+        assert.equal(contractBalanceAfter, contractBalanceBeforeBid);
+
+        const auction = await this.engAuction.auctions(this.auctionID4);
+        assert.equal(true, auction.isSettled);
+
+        // Assert vault balance
+        const vaultBalanceAfterSettle = await web3.eth.getBalance(
+            this.vault.address
+        );
+        assert.equal(
+            web3.utils.toWei("0.2", "ether"),
+            vaultBalanceAfterSettle - vaultBalanceBeforeSettle
         );
     });
 });
