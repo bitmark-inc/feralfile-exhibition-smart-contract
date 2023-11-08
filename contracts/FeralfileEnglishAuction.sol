@@ -214,7 +214,14 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
             "FeralfileEnglishAuction: signature is expired"
         );
         bytes32 message_ = keccak256(
-            abi.encode(block.chainid, auctionID_, bidder_, amount_, expiryTime_)
+            abi.encode(
+                block.chainid,
+                address(this),
+                auctionID_,
+                bidder_,
+                amount_,
+                expiryTime_
+            )
         );
         require(
             isValidSignature(message_, r_, s_, v_),

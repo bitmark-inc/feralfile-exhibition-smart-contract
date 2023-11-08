@@ -243,7 +243,7 @@ contract("FeralfileEnglishAuction", async (accounts) => {
     it("test bid on auction by Feralfile successfully", async function () {
         const auctionID = "3";
         const nowTime = await time.latest();
-        const startTime = nowTime.add(new BN(1)).toString(); // start in 1 second
+        const startTime = nowTime.toString(); // start now
         const endTime = nowTime.add(new BN(10)).toString(); // end in 10 seconds
 
         await this.engAuction.registerAuctions([
@@ -265,9 +265,10 @@ contract("FeralfileEnglishAuction", async (accounts) => {
 
         // Generate signature
         const signParams = web3.eth.abi.encodeParameters(
-            ["uint", "uint256", "address", "uint256", "uint256"],
+            ["uint", "address", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
+                this.engAuction.address,
                 auctionID,
                 accounts[2],
                 web3.utils.toWei("0.25", "ether"),
@@ -454,9 +455,10 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const biddingExpiry = nowTime.add(new BN(600)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
-            ["uint", "uint256", "address", "uint256", "uint256"],
+            ["uint", "address", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
+                this.engAuction.address,
                 auctionID,
                 accounts[3],
                 web3.utils.toWei("0.3", "ether"),
@@ -528,9 +530,10 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const biddingExpiry = nowTime.add(new BN(600)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
-            ["uint", "uint256", "address", "uint256", "uint256"],
+            ["uint", "address", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
+                this.engAuction.address,
                 auctionID,
                 accounts[2],
                 web3.utils.toWei("0.2", "ether"),
@@ -608,9 +611,10 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const biddingExpiry2 = nowTime.add(new BN(600)).toString();
         // Generate signature
         const biddingParams2 = web3.eth.abi.encodeParameters(
-            ["uint", "uint256", "address", "uint256", "uint256"],
+            ["uint", "address", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
+                this.engAuction.address,
                 auctionID,
                 accounts[2],
                 web3.utils.toWei("0.2", "ether"),
@@ -650,9 +654,10 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const biddingExpiry3 = (await time.latest()).add(new BN(600)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
-            ["uint", "uint256", "address", "uint256", "uint256"],
+            ["uint", "address", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
+                this.engAuction.address,
                 auctionID,
                 accounts[3],
                 web3.utils.toWei("0.3", "ether"),
@@ -819,9 +824,10 @@ contract("FeralfileEnglishAuction", async (accounts) => {
         const biddingExpiry = nowTime.add(new BN(600)).toString();
         // Generate signature
         const biddingParams = web3.eth.abi.encodeParameters(
-            ["uint", "uint256", "address", "uint256", "uint256"],
+            ["uint", "address", "uint256", "address", "uint256", "uint256"],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
+                this.engAuction.address,
                 this.auctionID2,
                 accounts[3],
                 web3.utils.toWei("0.25", "ether"),
