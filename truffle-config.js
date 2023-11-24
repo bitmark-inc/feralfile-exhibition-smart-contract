@@ -27,6 +27,7 @@ let {
   mainnet_mnemonic,
   mainnet_endpoint,
   goerli_endpoint,
+  sepolia_endpoint,
   etherscan_api,
 } = secret;
 
@@ -67,6 +68,13 @@ module.exports = {
       },
       // gas: 6000000,
       network_id: 5,
+    },
+    sepolia: {
+      provider: function () {
+        return new HDWalletProvider(mnemonic, sepolia_endpoint);
+      },
+      // gas: 6000000,
+      network_id: 11155111,
     },
     // Another network with more advanced options...
     // advanced: {
