@@ -409,7 +409,7 @@ contract FeralfileExhibitionV4 is
             ? vault.payForSale(r_, s_, v_, saleData_)
             : require(
                 saleData_.price == msg.value,
-                "FeralfileExhibitionV4: invalid payment amount"
+                "FeralfileExhibitionV4: invalid payment amount."
             );
 
         bytes32 message = keccak256(
