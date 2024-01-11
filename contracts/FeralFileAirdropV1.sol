@@ -33,7 +33,7 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
 
     // @notice end the airdrop
     function end() external onlyOwner {
-        require(_ended == false, "FeralFileTokenAirdrop: already ended");
+        require(!_ended, "FeralFileAirdropV1: already ended");
         _ended = true;
     }
 
@@ -41,11 +41,11 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     /// @param tokenID token ID
     /// @param amount_ amount of tokens to mint
     function mint(uint256 tokenID, uint256 amount_) external onlyAuthorized {
-        require(_ended == false, "FeralFileTokenAirdrop: already ended");
+        require(!_ended, "FeralFileAirdropV1: already ended");
         require(
             (tokenType == Type.Fungible && amount_ > 0) ||
                 (tokenType == Type.NonFungible && amount_ == 1),
-            "FeralFileTokenAirdrop: amount mismatch"
+            "FeralFileAirdropV1: amount mismatch"
         );
         _mint(address(this), tokenID, amount_, "");
     }
@@ -57,11 +57,11 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
         uint256 tokenID,
         address[] calldata to_
     ) external onlyAuthorized {
-        require(_ended == false, "FeralFileTokenAirdrop: already ended");
+        require(!_ended, "FeralFileAirdropV1: already ended");
         require(
             (tokenType == Type.Fungible && to_.length > 0) ||
                 (tokenType == Type.NonFungible && to_.length == 1),
-            "FeralFileTokenAirdrop: amount mismatch"
+            "FeralFileAirdropV1: amount mismatch"
         );
 
         uint256[] memory _tokenIDs = new uint256[](1);
@@ -69,8 +69,8 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
 
         for (uint256 i = 0; i < to_.length; i++) {
             require(
-                airdroppedAddresses[to_[i]] == false,
-                "FeralFileTokenAirdrop: already airdropped"
+                !airdroppedAddresses[to_[i]],
+                "FeralFileAirdropV1: already airdropped"
             );
 
             uint256[] memory _amounts = new uint256[](1);
@@ -96,11 +96,15 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
 
     function onERC1155Received(
         address,
-        address,
+        address from_,
         uint256,
         uint256,
         bytes memory
     ) public pure returns (bytes4) {
+        require(
+            from_ == address(0),
+            "FeralFileAirdropV1: not allowed to send token back"
+        );
         return this.onERC1155Received.selector;
     }
 }

@@ -73,10 +73,7 @@ contract("FeralFileAirdropV1", async (accounts) => {
                     from: this.owner,
                 });
             } catch (e) {
-                assert.equal(
-                    e.reason,
-                    "FeralFileTokenAirdrop: amount mismatch"
-                );
+                assert.equal(e.reason, "FeralFileAirdropV1: amount mismatch");
             }
 
             // mint successfully
@@ -175,7 +172,26 @@ contract("FeralFileAirdropV1", async (accounts) => {
             } catch (e) {
                 assert.equal(
                     e.reason,
-                    "FeralFileTokenAirdrop: already airdropped"
+                    "FeralFileAirdropV1: already airdropped"
+                );
+            }
+
+            // test send token back to the contract isn't allowed
+            try {
+                await contract.safeTransferFrom(
+                    recipients[0],
+                    contract.address,
+                    TOKEN_ID,
+                    1,
+                    "0x00",
+                    {
+                        from: recipients[0],
+                    }
+                );
+            } catch (e) {
+                assert.equal(
+                    e.reason,
+                    "FeralFileAirdropV1: not allowed to send token back"
                 );
             }
         }
@@ -203,14 +219,14 @@ contract("FeralFileAirdropV1", async (accounts) => {
             try {
                 await contract.end({ from: this.owner });
             } catch (e) {
-                assert.equal(e.reason, "FeralFileTokenAirdrop: already ended");
+                assert.equal(e.reason, "FeralFileAirdropV1: already ended");
             }
 
             // test mint after ended
             try {
                 await contract.mint(TOKEN_ID, 1, { from: this.trustee });
             } catch (e) {
-                assert.equal(e.reason, "FeralFileTokenAirdrop: already ended");
+                assert.equal(e.reason, "FeralFileAirdropV1: already ended");
             }
 
             // test airdrop after ended
@@ -219,7 +235,7 @@ contract("FeralFileAirdropV1", async (accounts) => {
                     from: this.trustee,
                 });
             } catch (e) {
-                assert.equal(e.reason, "FeralFileTokenAirdrop: already ended");
+                assert.equal(e.reason, "FeralFileAirdropV1: already ended");
             }
         }
     });
