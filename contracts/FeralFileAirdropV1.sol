@@ -38,23 +38,23 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     }
 
     /// @notice Mint tokens to the contract
-    /// @param tokenID token ID
+    /// @param tokenID_ token ID
     /// @param amount_ amount of tokens to mint
-    function mint(uint256 tokenID, uint256 amount_) external onlyAuthorized {
+    function mint(uint256 tokenID_, uint256 amount_) external onlyAuthorized {
         require(!_ended, "FeralFileAirdropV1: already ended");
         require(
             (tokenType == Type.Fungible && amount_ > 0) ||
                 (tokenType == Type.NonFungible && amount_ == 1),
             "FeralFileAirdropV1: amount mismatch"
         );
-        _mint(address(this), tokenID, amount_, "");
+        _mint(address(this), tokenID_, amount_, "");
     }
 
     /// @notice airdrop tokens to a list of addresses
-    /// @param tokenID token ID
+    /// @param tokenID_ token ID
     /// @param to_ list of addresses to airdrop to
     function airdrop(
-        uint256 tokenID,
+        uint256 tokenID_,
         address[] calldata to_
     ) external onlyAuthorized {
         require(!_ended, "FeralFileAirdropV1: already ended");
@@ -65,7 +65,7 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
         );
 
         uint256[] memory _tokenIDs = new uint256[](1);
-        _tokenIDs[0] = tokenID;
+        _tokenIDs[0] = tokenID_;
 
         for (uint256 i = 0; i < to_.length; i++) {
             require(
@@ -89,9 +89,9 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     }
 
     /// @notice burn remaining tokens
-    /// @param tokenID token ID
-    function burnRemaining(uint256 tokenID) external onlyOwner {
-        _burn(address(this), tokenID, balanceOf(address(this), tokenID));
+    /// @param tokenID_ token ID
+    function burnRemaining(uint256 tokenID_) external onlyOwner {
+        _burn(address(this), tokenID_, balanceOf(address(this), tokenID_));
     }
 
     function onERC1155Received(
