@@ -55,6 +55,12 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
         _ended = true;
     }
 
+    /// @notice set contract URI
+    /// @param uri_ contract URI
+    function setURI(string memory uri_) external onlyOwner {
+        _setURI(uri_);
+    }
+
     /// @notice Mint tokens to the contract
     /// @param tokenID_ token ID
     /// @param amount_ amount of tokens to mint

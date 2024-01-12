@@ -16,7 +16,7 @@ contract("FeralFileAirdropV1", async (accounts) => {
         // To isolate the test cases, we create multiple pairs of contracts
         // for each token type. The index of the contract pair will be used
         // as index of test cases.
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 8; i++) {
             let burnable = i == 6 ? false : true;
             let bridgeable = true;
             let fungibleContract = await FeralFileAirdropV1.new(
@@ -354,6 +354,28 @@ contract("FeralFileAirdropV1", async (accounts) => {
             } catch (e) {
                 assert.equal(e.reason, "FeralFileAirdropV1: not burnable");
             }
+        }
+    });
+
+    it("test set uri", async () => {
+        let contracts = this.contracts[7];
+        for (let i = 0; i < contracts.length; i++) {
+            let contract = contracts[i];
+            let tokenURI =
+                "https://ipfs.bitmark.com/ipfs/QmNVdQSp1AvZonLwHzTbbZDPLgbpty15RMQrbPEWd4ooTV/{id}";
+
+            // test unauthorized call
+            try {
+                await contract.setURI(tokenURI, {
+                    from: accounts[2],
+                });
+            } catch (e) {
+                assert.equal(e.reason, "Ownable: caller is not the owner");
+            }
+
+            // test set uri successfully
+            await contract.setURI(tokenURI, { from: this.owner });
+            assert.equal(await contract.uri(TOKEN_ID), tokenURI);
         }
     });
 });
