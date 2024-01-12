@@ -11,7 +11,7 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     }
 
     // Version
-    string public constant version = "v1";
+    string public constant codeVersion = "FeralFileAirdropV1";
 
     // Airdropped addresses
     mapping(address => bool) public airdroppedAddresses;
@@ -25,15 +25,20 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     // Bridgeable flag
     bool public bridgeable;
 
+    // Contract URI
+    string public contractURI;
+
     // Ended flag
     bool private _ended;
 
     constructor(
         Type tokenType_,
         string memory tokenURI_,
+        string memory contractURI_,
         bool burnable_,
         bool bridgeable_
     ) ERC1155(tokenURI_) {
+        contractURI = contractURI_;
         tokenType = tokenType_;
         burnable = burnable_;
         bridgeable = bridgeable_;
@@ -69,25 +74,13 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
         require(!_ended, "FeralFileAirdropV1: already ended");
         _checkProperTokenAmount(to_.length); // to_ length is the amount of tokens to airdrop
 
-        uint256[] memory _tokenIDs = new uint256[](1);
-        _tokenIDs[0] = tokenID_;
-
         for (uint256 i = 0; i < to_.length; i++) {
             require(
                 !airdroppedAddresses[to_[i]],
                 "FeralFileAirdropV1: already airdropped"
             );
 
-            uint256[] memory _amounts = new uint256[](1);
-            _amounts[0] = 1; // 1 token for each address
-
-            _safeBatchTransferFrom(
-                address(this),
-                to_[i],
-                _tokenIDs,
-                _amounts,
-                ""
-            );
+            _safeTransferFrom(address(this), to_[i], tokenID_, 1, "");
 
             airdroppedAddresses[to_[i]] = true;
         }

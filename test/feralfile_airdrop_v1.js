@@ -2,6 +2,7 @@ const FeralFileAirdropV1 = artifacts.require("FeralFileAirdropV1");
 const TOKEN_URI =
     "https://ipfs.bitmark.com/ipfs/QmNVdQSp1AvZonLwHzTbbZDPLgbpty15RMQrbPEWd4ooTU/{id}";
 const TOKEN_ID = 999;
+const CONTRACT_URI = "ipfs://QmaQegRqExfFx8zuR6yscxzUwQJUc96LuNNQiAMK9BsUQe";
 const TOKEN_TYPE_FUNGIBLE = 0;
 const TOKEN_TYPE_NON_FUNGIBLE = 1;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -21,6 +22,7 @@ contract("FeralFileAirdropV1", async (accounts) => {
             let fungibleContract = await FeralFileAirdropV1.new(
                 TOKEN_TYPE_FUNGIBLE,
                 TOKEN_URI,
+                CONTRACT_URI,
                 burnable,
                 bridgeable
             );
@@ -30,6 +32,7 @@ contract("FeralFileAirdropV1", async (accounts) => {
             let nonFungibleContract = await FeralFileAirdropV1.new(
                 TOKEN_TYPE_NON_FUNGIBLE,
                 TOKEN_URI,
+                CONTRACT_URI,
                 burnable,
                 bridgeable
             );
@@ -47,8 +50,9 @@ contract("FeralFileAirdropV1", async (accounts) => {
         let contracts = this.contracts[0];
         for (let i = 0; i < contracts.length; i++) {
             let contract = contracts[i];
-            assert.equal(await contract.version(), "v1");
+            assert.equal(await contract.codeVersion(), "FeralFileAirdropV1");
             assert.equal(await contract.uri(TOKEN_ID), TOKEN_URI);
+            assert.equal(await contract.contractURI(), CONTRACT_URI);
             assert.equal(await contract.isEnded(), false);
             assert.equal(await contract.tokenType(), i);
         }
