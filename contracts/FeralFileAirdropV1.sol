@@ -16,14 +16,27 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     // Airdropped addresses
     mapping(address => bool) public airdroppedAddresses;
 
-    // already ended flag
-    bool private _ended;
-
     // Token type
     Type public tokenType;
 
-    constructor(Type tokenType_, string memory tokenURI_) ERC1155(tokenURI_) {
+    // Burnable flag
+    bool public burnable;
+
+    // Bridgeable flag
+    bool public bridgeable;
+
+    // Ended flag
+    bool private _ended;
+
+    constructor(
+        Type tokenType_,
+        string memory tokenURI_,
+        bool burnable_,
+        bool bridgeable_
+    ) ERC1155(tokenURI_) {
         tokenType = tokenType_;
+        burnable = burnable_;
+        bridgeable = bridgeable_;
     }
 
     // @notice check if the airdrop is ended
@@ -42,11 +55,7 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     /// @param amount_ amount of tokens to mint
     function mint(uint256 tokenID_, uint256 amount_) external onlyAuthorized {
         require(!_ended, "FeralFileAirdropV1: already ended");
-        require(
-            (tokenType == Type.Fungible && amount_ > 0) ||
-                (tokenType == Type.NonFungible && amount_ == 1),
-            "FeralFileAirdropV1: amount mismatch"
-        );
+        _checkProperTokenAmount(amount_);
         _mint(address(this), tokenID_, amount_, "");
     }
 
@@ -58,11 +67,7 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
         address[] calldata to_
     ) external onlyAuthorized {
         require(!_ended, "FeralFileAirdropV1: already ended");
-        require(
-            (tokenType == Type.Fungible && to_.length > 0) ||
-                (tokenType == Type.NonFungible && to_.length == 1),
-            "FeralFileAirdropV1: amount mismatch"
-        );
+        _checkProperTokenAmount(to_.length); // to_ length is the amount of tokens to airdrop
 
         uint256[] memory _tokenIDs = new uint256[](1);
         _tokenIDs[0] = tokenID_;
@@ -92,6 +97,24 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     /// @param tokenID_ token ID
     function burnRemaining(uint256 tokenID_) external onlyOwner {
         _burn(address(this), tokenID_, balanceOf(address(this), tokenID_));
+    }
+
+    /// @notice burn tokens
+    /// @param tokenID_ token ID
+    /// @param amount_ amount of tokens to burn
+    function burn(uint256 tokenID_, uint256 amount_) external {
+        require(burnable, "FeralFileAirdropV1: not burnable");
+        _checkProperTokenAmount(amount_);
+        _burn(_msgSender(), tokenID_, amount_);
+    }
+
+    /// @notice check proper amount of tokens
+    function _checkProperTokenAmount(uint256 amount_) internal view {
+        require(
+            (tokenType == Type.Fungible && amount_ > 0) ||
+                (tokenType == Type.NonFungible && amount_ == 1),
+            "FeralFileAirdropV1: amount mismatch"
+        );
     }
 
     function onERC1155Received(

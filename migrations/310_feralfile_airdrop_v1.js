@@ -9,6 +9,8 @@ module.exports = function (deployer) {
         argv.token_uri ||
         "https://ipfs.bitmark.com/ipfs/QmNVdQSp1AvZonLwHzTbbZDPLgbpty15RMQrbPEWd4ooTU/{id}";
     let type = argv.type || 0;
+    let burnable = argv.burnable || true;
+    let bridgeable = argv.bridgeable || true;
 
-    deployer.deploy(FeralFileAirdropV1, type, token_uri);
+    deployer.deploy(FeralFileAirdropV1, type, token_uri, burnable, bridgeable);
 };

@@ -15,17 +15,23 @@ contract("FeralFileAirdropV1", async (accounts) => {
         // To isolate the test cases, we create multiple pairs of contracts
         // for each token type. The index of the contract pair will be used
         // as index of test cases.
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 7; i++) {
+            let burnable = i == 6 ? false : true;
+            let bridgeable = true;
             let fungibleContract = await FeralFileAirdropV1.new(
                 TOKEN_TYPE_FUNGIBLE,
-                TOKEN_URI
+                TOKEN_URI,
+                burnable,
+                bridgeable
             );
             await fungibleContract.addTrustee(this.trustee, {
                 from: this.owner,
             });
             let nonFungibleContract = await FeralFileAirdropV1.new(
                 TOKEN_TYPE_NON_FUNGIBLE,
-                TOKEN_URI
+                TOKEN_URI,
+                burnable,
+                bridgeable
             );
             await nonFungibleContract.addTrustee(this.trustee, {
                 from: this.owner,
@@ -267,6 +273,83 @@ contract("FeralFileAirdropV1", async (accounts) => {
                 TOKEN_ID
             );
             assert.equal(afterBalance.toNumber(), 0);
+        }
+    });
+
+    it("test burn with burnable=true", async () => {
+        let contracts = this.contracts[5]; // burnable=true
+        for (let i = 0; i < contracts.length; i++) {
+            let contract = contracts[i];
+
+            // mint token to prepare for below tests
+            let correctAmount = i == 0 ? 10 : 1;
+            await contract.mint(TOKEN_ID, correctAmount, {
+                from: this.trustee,
+            });
+
+            recipient = accounts[0];
+            // test insufficient balance
+            try {
+                await contract.burn(TOKEN_ID, correctAmount, {
+                    from: recipient,
+                });
+            } catch (e) {
+                assert.equal(e.reason, "ERC1155: burn amount exceeds balance");
+            }
+
+            // airdrop to recipient
+            await contract.airdrop(TOKEN_ID, [recipient], {
+                from: this.trustee,
+            });
+
+            // test burn amount mismatch
+            wrongAmount = i == 0 ? 0 : 2;
+            try {
+                await contract.burn(TOKEN_ID, wrongAmount, { from: recipient });
+            } catch (e) {
+                assert.equal(e.reason, "FeralFileAirdropV1: amount mismatch");
+            }
+
+            // test burn successfully
+            let beforeBalance = await contract.balanceOf(recipient, TOKEN_ID);
+            assert.equal(beforeBalance.toNumber(), 1);
+
+            await contract.burn(TOKEN_ID, 1, { from: this.owner });
+
+            let afterBalance = await contract.balanceOf(recipient, TOKEN_ID);
+            assert.equal(afterBalance.toNumber(), 0);
+        }
+    });
+
+    it("test burn with burnable=false", async () => {
+        let contracts = this.contracts[6]; // burnable=false
+        for (let i = 0; i < contracts.length; i++) {
+            let contract = contracts[i];
+
+            // make sure burnable=false
+            assert.equal(await contract.burnable(), false);
+
+            // mint token to prepare for below tests
+            let correctAmount = i == 0 ? 10 : 1;
+            await contract.mint(TOKEN_ID, correctAmount, {
+                from: this.trustee,
+            });
+
+            burner = accounts[0];
+            // airdrop to burner
+            await contract.airdrop(TOKEN_ID, [burner], {
+                from: this.trustee,
+            });
+
+            // make sure burner has sufficient balance
+            assert.equal(await contract.balanceOf(burner, TOKEN_ID), 1);
+
+            // test burn fails due to the burnable=false
+            try {
+                await contract.burn(TOKEN_ID, 1, { from: burner });
+            } catch (e) {
+                assert.equal(e.reason, "FeralFileAirdropV1: not burnable");
+            }
         }
     });
 });
