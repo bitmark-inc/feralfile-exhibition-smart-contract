@@ -55,8 +55,8 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
         _ended = true;
     }
 
-    /// @notice set contract URI
-    /// @param uri_ contract URI
+    /// @notice set token URI
+    /// @param uri_ token URI
     function setURI(string memory uri_) external onlyOwner {
         _setURI(uri_);
     }
