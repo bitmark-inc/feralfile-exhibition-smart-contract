@@ -16,7 +16,7 @@ contract("FeralFileAirdropV1", async (accounts) => {
         // To isolate the test cases, we create multiple pairs of contracts
         // for each token type. The index of the contract pair will be used
         // as index of test cases.
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 9; i++) {
             let burnable = i == 6 ? false : true;
             let bridgeable = true;
             let fungibleContract = await FeralFileAirdropV1.new(
@@ -376,6 +376,32 @@ contract("FeralFileAirdropV1", async (accounts) => {
             // test set uri successfully
             await contract.setURI(tokenURI, { from: this.owner });
             assert.equal(await contract.uri(TOKEN_ID), tokenURI);
+        }
+    });
+
+    it("test set contract uri", async () => {
+        let contracts = this.contracts[8];
+        for (let i = 0; i < contracts.length; i++) {
+            let contract = contracts[i];
+            let contractURI =
+                "ipfs://QmaQegRqExfFx8zuR6yscxzUwQJUc96LuNNQiAMK9BsUQc";
+
+            // test unauthorized call
+            try {
+                await contract.setContractURI(contractURI, {
+                    from: accounts[2],
+                });
+            } catch (e) {
+                assert.equal(e.reason, "Ownable: caller is not the owner");
+            }
+
+            // test set contract uri successfully
+            await contract.setContractURI(contractURI, { from: this.owner });
+            assert.equal(await contract.contractURI(), contractURI);
+
+            // test event emitted
+            let events = await contract.getPastEvents("ContractURIUpdated");
+            assert.equal(events.length, 1);
         }
     });
 });

@@ -26,7 +26,7 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     bool public bridgeable;
 
     // Contract URI
-    string public contractURI;
+    string private _contractURI;
 
     // Ended flag
     bool private _ended;
@@ -38,7 +38,7 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
         bool burnable_,
         bool bridgeable_
     ) ERC1155(tokenURI_) {
-        contractURI = contractURI_;
+        _contractURI = contractURI_;
         tokenType = tokenType_;
         burnable = burnable_;
         bridgeable = bridgeable_;
@@ -59,6 +59,17 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
     /// @param uri_ token URI
     function setURI(string memory uri_) external onlyOwner {
         _setURI(uri_);
+    }
+
+    /// @notice get contract URI
+    function contractURI() public view returns (string memory) {
+        return _contractURI;
+    }
+
+    /// @notice set contract URI
+    function setContractURI(string memory contractURI_) external onlyOwner {
+        _contractURI = contractURI_;
+        emit ContractURIUpdated();
     }
 
     /// @notice Mint tokens to the contract
@@ -129,4 +140,6 @@ contract FeralFileAirdropV1 is ERC1155, Authorizable {
         );
         return this.onERC1155Received.selector;
     }
+
+    event ContractURIUpdated();
 }
