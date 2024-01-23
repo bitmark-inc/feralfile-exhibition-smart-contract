@@ -30,13 +30,13 @@ build-contract: check
 	jq -r ".abi" build/contracts/FeralFileAirdropV1.json > ./build/FeralFileAirdropV1.abi
 
 build: build-contract
-	mkdir -p ./binding/feralfile-exhibition-v2 && \
-	mkdir -p ./binding/feralfile-exhibition-v3 && \
-	mkdir -p ./binding/feralfile-exhibition-v4 && \
-	mkdir -p ./binding/feralfile-english-auction && \
-	mkdir -p ./binding/feralfile-airdrop-v1 && \
-	abigen --abi ./build/FeralfileExhibitionV2.abi --bin ./build/FeralfileExhibitionV2.bin --pkg feralfilev2 -type FeralfileExhibitionV2 --out ./binding/feralfile-exhibition-v2/abi.go
-	abigen --abi ./build/FeralfileExhibitionV3.abi --bin ./build/FeralfileExhibitionV3.bin --pkg feralfilev3 -type FeralfileExhibitionV3 --out ./binding/feralfile-exhibition-v3/abi.go
-	abigen --abi ./build/FeralfileExhibitionV4.abi --bin ./build/FeralfileExhibitionV4.bin --pkg feralfilev4 -type FeralfileExhibitionV4 --out ./binding/feralfile-exhibition-v4/abi.go
-	abigen --abi ./build/FeralfileEnglishAuction.abi --bin ./build/FeralfileEnglishAuction.bin --pkg english_auction -type FeralfileEnglishAuction --out ./binding/feralfile-english-auction/abi.go
-	abigen --abi ./build/FeralFileAirdropV1.abi --bin ./build/FeralFileAirdropV1.bin --pkg airdropv1 -type FeralFileAirdropV1 --out ./binding/feralfile-airdrop-v1/abi.go
+	mkdir -p ./go-binding/feralfile-exhibition-v2 && \
+	mkdir -p ./go-binding/feralfile-exhibition-v3 && \
+	mkdir -p ./go-binding/feralfile-exhibition-v4 && \
+	mkdir -p ./go-binding/feralfile-english-auction && \
+	mkdir -p ./go-binding/feralfile-airdrop-v1 && \
+	abigen --abi ./build/FeralfileExhibitionV2.abi --bin ./build/FeralfileExhibitionV2.bin --pkg feralfilev2 -type FeralfileExhibitionV2 --out ./go-binding/feralfile-exhibition-v2/abi.go
+	abigen --abi ./build/FeralfileExhibitionV3.abi --bin ./build/FeralfileExhibitionV3.bin --pkg feralfilev3 -type FeralfileExhibitionV3 --out ./go-binding/feralfile-exhibition-v3/abi.go
+	abigen --abi ./build/FeralfileExhibitionV4.abi --bin ./build/FeralfileExhibitionV4.bin --pkg feralfilev4 -type FeralfileExhibitionV4 --out ./go-binding/feralfile-exhibition-v4/abi.go
+	abigen --abi ./build/FeralfileEnglishAuction.abi --bin ./build/FeralfileEnglishAuction.bin --pkg english_auction -type FeralfileEnglishAuction --out ./go-binding/feralfile-english-auction/abi.go
+	abigen --abi ./build/FeralFileAirdropV1.abi --bin ./build/FeralFileAirdropV1.bin --pkg airdropv1 -type FeralFileAirdropV1 --out ./go-binding/feralfile-airdrop-v1/abi.go
