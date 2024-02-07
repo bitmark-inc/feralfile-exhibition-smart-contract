@@ -413,7 +413,7 @@ contract FeralfileExhibitionV5 is
                 }
             }
 
-            emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i]);
+            emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i], saleData_.biddingUnixNano);
         }
 
         require(
@@ -651,7 +651,7 @@ contract FeralfileExhibitionV5 is
     event BurnArtwork(uint256 indexed tokenId, uint256 amount);
 
     /// @notice Event emitted when Artwork has been sold
-    event BuyArtwork(address indexed buyer, uint256 indexed tokenId);
+    event BuyArtwork(address indexed buyer, uint256 indexed tokenId, uint256 biddingUnixNano);
 
     /// @notice Event emitted when contract URI has been updated
     event ContractURIUpdated();
