@@ -6,15 +6,15 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./Authorizable.sol";
 import "./UpdateableOperatorFilterer.sol";
-import "./FeralfileSaleData.sol";
+import "./FeralfileSaleDataV2.sol";
 import "./ECDSASigner.sol";
 
-import "./IFeralfileVault.sol";
+import "./FeralfileVaultV2.sol";
 
 contract FeralfileExhibitionV5 is
     ERC1155,
     Authorizable,
-    FeralfileSaleData,
+    FeralfileSaleDataV2,
     ECDSASigner
 {
     using Strings for uint256;
@@ -57,13 +57,13 @@ contract FeralfileExhibitionV5 is
     address public costReceiver;
 
     // vault contract instance
-    IFeralfileVault public vault;
+    IFeralfileVaultV2 public vault;
 
     // mapping from series ID to max supply of the series
     mapping(uint256 => uint256) internal _seriesMaxSupplies;
 
     // mapping from series ID to max supply of artwork belongs to the series
-    mapping(uint256 => uint256) internal _seriesArtworkMaxSupplies; 
+    mapping(uint256 => uint256) internal _seriesArtworkMaxSupplies;
 
     // mapping from series ID to total supply of the series
     mapping(uint256 => uint256) internal _seriesTotalSupplies;
@@ -117,24 +117,23 @@ contract FeralfileExhibitionV5 is
         );
         require(
             seriesArtworkMaxSupplies_.length > 0,
-            "FeralfileExhibitionV5: seriesArtworkMaxSupplies_ is empty");
+            "FeralfileExhibitionV5: seriesArtworkMaxSupplies_ is empty"
+        );
         require(
-            seriesIds_.length == seriesMaxSupplies_.length && seriesIds_.length == seriesArtworkMaxSupplies_.length,
+            seriesIds_.length == seriesMaxSupplies_.length &&
+                seriesIds_.length == seriesArtworkMaxSupplies_.length,
             "FeralfileExhibitionV5: seriesMaxSupplies_ and seriesIds_ lengths are not the same"
         );
 
         contractURI = contractURI_;
         costReceiver = costReceiver_;
-        vault = IFeralfileVault(payable(vault_));
+        vault = IFeralfileVaultV2(payable(vault_));
         burnable = burnable_;
 
         // initialize max supply map
         for (uint256 i = 0; i < seriesIds_.length; i++) {
             // Check invalid series ID
-            require(
-                seriesIds_[i] > 0,
-                "FeralfileExhibitionV5: zero seriesId"
-            );
+            require(seriesIds_[i] > 0, "FeralfileExhibitionV5: zero seriesId");
             // Check invalid max supply
             require(
                 seriesMaxSupplies_[i] > 0,
@@ -146,11 +145,19 @@ contract FeralfileExhibitionV5 is
             );
 
             // Check duplicate with others
-            require(_seriesMaxSupplies[seriesIds_[i]] == 0, "FeralfileExhibitionV5: duplicate seriesId");
-            require(_seriesArtworkMaxSupplies[seriesIds_[i]] == 0, "FeralfileExhibitionV5: duplicate seriesId");
+            require(
+                _seriesMaxSupplies[seriesIds_[i]] == 0,
+                "FeralfileExhibitionV5: duplicate seriesId"
+            );
+            require(
+                _seriesArtworkMaxSupplies[seriesIds_[i]] == 0,
+                "FeralfileExhibitionV5: duplicate seriesId"
+            );
 
             _seriesMaxSupplies[seriesIds_[i]] = seriesMaxSupplies_[i];
-            _seriesArtworkMaxSupplies[seriesIds_[i]] = seriesArtworkMaxSupplies_[i];
+            _seriesArtworkMaxSupplies[
+                seriesIds_[i]
+            ] = seriesArtworkMaxSupplies_[i];
         }
     }
 
@@ -159,7 +166,7 @@ contract FeralfileExhibitionV5 is
     function artworkOf(
         address owner_
     ) external view returns (Artwork[] memory) {
-        uint256[]  memory tokens = _ownedTokens[owner_];
+        uint256[] memory tokens = _ownedTokens[owner_];
         Artwork[] memory artworks = new Artwork[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             artworks[i] = _allArtworks[tokens[i]];
@@ -169,9 +176,7 @@ contract FeralfileExhibitionV5 is
 
     /// @notice Get all token IDs of an owner
     /// @param owner_ an address of the owner
-    function tokenOf(
-        address owner_
-    ) external view returns (uint256[] memory) {
+    function tokenOf(address owner_) external view returns (uint256[] memory) {
         return _ownedTokens[owner_];
     }
 
@@ -227,7 +232,7 @@ contract FeralfileExhibitionV5 is
             vault_ != address(0),
             "FeralfileExhibitionV5: vault_ is zero address"
         );
-        vault = IFeralfileVault(payable(vault_));
+        vault = IFeralfileVaultV2(payable(vault_));
     }
 
     /// @notice set contract URI
@@ -240,10 +245,7 @@ contract FeralfileExhibitionV5 is
     /// @notice set base token URI
     /// @param uri_ token URI
     function setBaseTokenURI(string memory uri_) external onlyOwner {
-        require(
-            bytes(uri_).length > 0,
-            "FeralfileExhibitionV5: uri_ is empty"
-        );
+        require(bytes(uri_).length > 0, "FeralfileExhibitionV5: uri_ is empty");
         _setURI(uri_);
     }
 
@@ -273,7 +275,10 @@ contract FeralfileExhibitionV5 is
             !selling,
             "FeralfileExhibitionV5: selling required to be false"
         );
-        require(_ownedTokens[address(this)].length > 0, "FeralfileExhibitionV5: no more artwork to sell");
+        require(
+            _ownedTokens[address(this)].length > 0,
+            "FeralfileExhibitionV5: no more artwork to sell"
+        );
 
         selling = true;
     }
@@ -284,10 +289,7 @@ contract FeralfileExhibitionV5 is
             !mintable,
             "FeralfileExhibitionV5: mintable required to be false"
         );
-        require(
-            selling,
-            "FeralfileExhibitionV5: selling required to be true"
-        );
+        require(selling, "FeralfileExhibitionV5: selling required to be true");
         selling = false;
     }
 
@@ -333,9 +335,18 @@ contract FeralfileExhibitionV5 is
     /// @notice transfer unsold artworks to a destination address
     /// @param tokenIds_ an array of token IDs
     /// @param to_ the destination address
-    function transferUnsoldArtworks(uint256[] calldata tokenIds_, address to_) external onlyOwner {
-        require(to_ != address(0), "FeralfileExhibitionV5: to_ is zero address");
-        require(tokenIds_.length > 0, "FeralfileExhibitionV5: tokenIds_ is empty");
+    function transferUnsoldArtworks(
+        uint256[] calldata tokenIds_,
+        address to_
+    ) external onlyOwner {
+        require(
+            to_ != address(0),
+            "FeralfileExhibitionV5: to_ is zero address"
+        );
+        require(
+            tokenIds_.length > 0,
+            "FeralfileExhibitionV5: tokenIds_ is empty"
+        );
         require(
             !mintable,
             "FeralfileExhibitionV5: mintable required to be false"
@@ -367,7 +378,10 @@ contract FeralfileExhibitionV5 is
     ) external payable {
         // validation
         require(selling, "FeralfileExhibitionV5: sale is not started");
-        require(_ownedTokens[address(this)].length > 0, "FeralfileExhibitionV5: no artwork to sell");
+        require(
+            _ownedTokens[address(this)].length > 0,
+            "FeralfileExhibitionV5: no artwork to sell"
+        );
         validateSaleData(saleData_);
 
         // payment
@@ -398,7 +412,10 @@ contract FeralfileExhibitionV5 is
         uint256 distributedRevenue;
         uint256 platformRevenue;
         for (uint256 i = 0; i < saleData_.tokenIds.length; i++) {
-        require(saleData_.tokenIds[i] != 0, "FeralfileExhibitionV5: token ID is zero");
+            require(
+                saleData_.tokenIds[i] != 0,
+                "FeralfileExhibitionV5: token ID is zero"
+            );
 
             // send token
             _safeTransferFrom(
@@ -406,8 +423,9 @@ contract FeralfileExhibitionV5 is
                 saleData_.destination,
                 saleData_.tokenIds[i],
                 1,
-                ""); // only support 1 token per transaction
-            
+                ""
+            ); // only support 1 token per transaction
+
             if (itemRevenue > 0) {
                 // distribute royalty
                 for (
@@ -430,7 +448,11 @@ contract FeralfileExhibitionV5 is
                 }
             }
 
-            emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i], saleData_.biddingUnix);
+            emit BuyArtwork(
+                saleData_.destination,
+                saleData_.tokenIds[i],
+                saleData_.biddingUnix
+            );
         }
 
         require(
@@ -459,18 +481,26 @@ contract FeralfileExhibitionV5 is
         for (uint256 i = 0; i < ids.length; i++) {
             uint256 tokenId = ids[i];
 
-            if (from != address(0) && from != to && balanceOf(from, tokenId) == amounts[i]) {
-                // only remove Artwork from Artwork enumeration if the current owned 
+            if (
+                from != address(0) &&
+                from != to &&
+                balanceOf(from, tokenId) == amounts[i]
+            ) {
+                // only remove Artwork from Artwork enumeration if the current owned
                 // token amount is equal to the amount of token to be transferred
                 // otherwise, just update the amount of the token
                 _removeTokenFromOwnerEnumeration(from, ids[i]);
             }
-            if (to != address(0) && to != from && _ownedTokensIndex[tokenId] == 0) {
+            if (
+                to != address(0) &&
+                to != from &&
+                _ownedTokensIndex[tokenId] == 0
+            ) {
                 // only add Artwork to Artwork enumeration if the token is not owned by the receiver
                 // otherwise, just update the amount of the token
                 _addTokenToOwnerEnumeration(to, tokenId);
             }
-        } 
+        }
     }
 
     /// @dev Modify from {ERC721Enumerable}
@@ -514,7 +544,12 @@ contract FeralfileExhibitionV5 is
             "FeralfileExhibitionV5: contract doesn't allow to mint"
         );
         for (uint256 i = 0; i < data_.length; i++) {
-            _mintArtwork(data_[i].seriesId, data_[i].tokenId, data_[i].owner, data_[i].amount);
+            _mintArtwork(
+                data_[i].seriesId,
+                data_[i].tokenId,
+                data_[i].owner,
+                data_[i].amount
+            );
         }
     }
 
@@ -546,7 +581,8 @@ contract FeralfileExhibitionV5 is
 
         // check artwork total supplies
         require(
-            _artworkTotalSupplies[tokenId_] + amount_ <= _seriesArtworkMaxSupplies[seriesId_],
+            _artworkTotalSupplies[tokenId_] + amount_ <=
+                _seriesArtworkMaxSupplies[seriesId_],
             "FeralfileExhibitionV5: no more artwork slots available"
         );
 
@@ -565,13 +601,14 @@ contract FeralfileExhibitionV5 is
             // 1. increase series total supplies
             _seriesTotalSupplies[seriesId_] += 1;
 
-            // 2. add artwork to allArtworks    
+            // 2. add artwork to allArtworks
             _allArtworks[tokenId_] = Artwork({
                 seriesId: seriesId_,
                 tokenId: tokenId_,
-                amount: amount_});
+                amount: amount_
+            });
         }
-       
+
         // increase artwork total supplies
         _artworkTotalSupplies[tokenId_] += amount_;
 
@@ -592,14 +629,24 @@ contract FeralfileExhibitionV5 is
         }
     }
 
-    function _burnArtwork(address from_, uint256 tokenId_, uint256 amount_) internal {
+    function _burnArtwork(
+        address from_,
+        uint256 tokenId_,
+        uint256 amount_
+    ) internal {
         require(tokenId_ != 0, "FeralfileExhibitionV5: token ID is zero");
         require(amount_ != 0, "FeralfileExhibitionV5: amount is zero");
-        require(from_ != address(0), "FeralfileExhibitionV5: from is zero address");
+        require(
+            from_ != address(0),
+            "FeralfileExhibitionV5: from is zero address"
+        );
 
-        Artwork memory artwork = _allArtworks[tokenId_]; 
-        require(artwork.tokenId != 0, "FeralfileExhibitionV5: artwork doesn't exist");
-        
+        Artwork memory artwork = _allArtworks[tokenId_];
+        require(
+            artwork.tokenId != 0,
+            "FeralfileExhibitionV5: artwork doesn't exist"
+        );
+
         if (artwork.amount <= amount_) {
             // if burn whole token of artwork
             // 1. decrease series total supplies
@@ -611,7 +658,7 @@ contract FeralfileExhibitionV5 is
             // just decrease artwork amount
             _allArtworks[tokenId_].amount -= amount_;
         }
-        
+
         // decrease artwork total supplies
         _artworkTotalSupplies[tokenId_] -= amount_;
 
@@ -656,7 +703,11 @@ contract FeralfileExhibitionV5 is
     event BurnArtwork(uint256 indexed tokenId_, uint256 amount_);
 
     /// @notice Event emitted when Artwork has been sold
-    event BuyArtwork(address indexed buyer_, uint256 indexed tokenId_, uint256 biddingUnix_);
+    event BuyArtwork(
+        address indexed buyer_,
+        uint256 indexed tokenId_,
+        uint256 biddingUnix_
+    );
 
     /// @notice Event emitted when contract URI has been updated
     event ContractURIUpdated();

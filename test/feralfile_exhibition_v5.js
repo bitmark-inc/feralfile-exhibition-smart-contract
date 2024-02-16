@@ -1,9 +1,9 @@
 const FeralfileExhibitionV5 = artifacts.require("FeralfileExhibitionV5");
-const FeralfileVault = artifacts.require("FeralfileVault");
+const FeralfileVault = artifacts.require("FeralfileVaultV2");
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
-const VAULT_ADDRESS = "0x7a15b36cb834aea88553de69077d3777460d73ac";
+const VAULT_ADDRESS = "0x9c90C920370D4Cd0097786d25812b2aEab5e9E3c";
 const CONTRACT_URI = "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 const TOKEN_URI = "ipfs://QmZt5r6bU7r3BvCp6b6Z1yYK5Hd9M9WnQV2g8VfNnMmM3T/{id}";
 
