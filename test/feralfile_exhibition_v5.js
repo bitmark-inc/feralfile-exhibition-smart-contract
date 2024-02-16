@@ -19,7 +19,7 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
         this.contracts = [];
 
         // Deploy multiple contracts
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 7; i++) {
             let contract = await FeralfileExhibitionV5.new(
                 TOKEN_URI,
                 CONTRACT_URI,
@@ -350,7 +350,6 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
     it("test burn artwork", async function () {
         const contract = this.contracts[1];
         const owner = accounts[1];
-        const seriesId = this.seriesIds[0];
 
         // 1. pre-condition check failed
         const data = [
@@ -676,7 +675,6 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
             const royaltyPayees = testData[i][6];
             const withFunds = testData[i][7];
             const contract = testData[i][8];
-            const owner = contract.address;
             const bps = 10000;
             const royaltyShares = [
                 [
@@ -705,18 +703,18 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
             // mint artwork
             await contract.mintArtworks(
                 [
-                    [seriesIds[0], tokenIDs[0], owner, amounts[0]],
-                    [seriesIds[1], tokenIDs[1], owner, amounts[1]],
+                    [seriesIds[0], tokenIDs[0], contract.address, amounts[0]],
+                    [seriesIds[1], tokenIDs[1], contract.address, amounts[1]],
                 ],
                 { from: this.trustee }
             );
             const balanceOfToken1 = await contract.balanceOf(
-                owner,
+                contract.address,
                 tokenIDs[0]
             );
             assert.equal(balanceOfToken1, amounts[0]);
             const balanceOfToken2 = await contract.balanceOf(
-                owner,
+                contract.address,
                 tokenIDs[1]
             );
             assert.equal(balanceOfToken2, amounts[1]);
@@ -756,7 +754,7 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
             const s = "0x" + sig.slice(64, 128);
             const v = "0x" + sig.slice(128, 130);
 
-            // check balances for stakeholders
+            // get ETH balances for stakeholders
             const payee1BalanceBefore = await web3.eth.getBalance(
                 royaltyPayees[0]
             );
@@ -766,6 +764,30 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
             const costReceiverBalanceBefore = await web3.eth.getBalance(
                 COST_RECEIVER
             );
+
+            // check token balance before sale
+            for (let i = 0; i < tokenIDs.length; i++) {
+                assert.equal(
+                    await contract.balanceOf(recipient, tokenIDs[i]),
+                    0
+                );
+                assert.equal(
+                    await contract.balanceOf(contract.address, tokenIDs[i]),
+                    amounts[i]
+                );
+            }
+
+            // check seller artworks before sale
+            const artworkOfSender = await contract.artworkOf(contract.address);
+            assert.equal(artworkOfSender.length, 2);
+            for (let i = 0; i < artworkOfSender.length; i++) {
+                assert.equal(artworkOfSender[i].seriesId, seriesIds[i]);
+                assert.equal(artworkOfSender[i].tokenId, tokenIDs[i]);
+                assert.equal(artworkOfSender[i].amount, amounts[i]);
+            }
+
+            // check recipient artworks before sale
+            assert.equal((await contract.artworkOf(recipient)).length, 0);
 
             // buy artworks
             const funds = withFunds ? price : 0;
@@ -777,25 +799,33 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 { from: buyer, value: funds }
             );
 
-            // check recipient token balance
+            // check token balance after sale
             for (let i = 0; i < tokenIDs.length; i++) {
-                const balanceOf = await contract.balanceOf(
-                    recipient,
-                    tokenIDs[i]
+                assert.equal(
+                    await contract.balanceOf(contract.address, tokenIDs[i]),
+                    amounts[i] - 1
                 );
-                assert.equal(balanceOf, 1);
+                assert.equal(
+                    await contract.balanceOf(recipient, tokenIDs[i]),
+                    1
+                );
             }
 
-            // check artworkOf()
-            const artworks = await contract.artworkOf(recipient);
-            assert.equal(artworks.length, 2);
-            for (let i = 0; i < artworks.length; i++) {
-                assert.equal(artworks[i].seriesId, seriesIds[i]);
-                assert.equal(artworks[i].tokenId, tokenIDs[i]);
-                assert.equal(artworks[i].amount, amounts[i]);
+            // check recipient artworks after sale
+            const artworksOfRecipientAfter = await contract.artworkOf(
+                recipient
+            );
+            assert.equal(artworksOfRecipientAfter.length, 2);
+            for (let i = 0; i < artworksOfRecipientAfter.length; i++) {
+                assert.equal(
+                    artworksOfRecipientAfter[i].seriesId,
+                    seriesIds[i]
+                );
+                assert.equal(artworksOfRecipientAfter[i].tokenId, tokenIDs[i]);
+                assert.equal(artworksOfRecipientAfter[i].amount, amounts[i]);
             }
 
-            // check payees's balances
+            // get ETH balances for stakeholders after sale
             const payee1BalanceAfter = await web3.eth.getBalance(
                 royaltyPayees[0]
             );
@@ -806,6 +836,7 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 COST_RECEIVER
             );
 
+            // check the royalty distribution
             assert.equal(
                 (
                     BigInt(payee1BalanceAfter) - BigInt(payee1BalanceBefore)
@@ -826,5 +857,199 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 BigInt(cost).toString()
             );
         }
+    });
+
+    it("test burn unsold artworks", async function () {
+        let contract = this.contracts[5];
+
+        // 1. unauthorized call
+        try {
+            await contract.burnUnsoldArtworks(10, { from: this.trustee });
+        } catch (error) {
+            assert.equal("Ownable: caller is not the owner", error.reason);
+        }
+
+        // 2. limit is zero
+        try {
+            await contract.burnUnsoldArtworks(0);
+        } catch (error) {
+            assert.equal("FeralfileExhibitionV5: limit_ is zero", error.reason);
+        }
+
+        // 3. mintable is true
+        try {
+            await contract.burnUnsoldArtworks(10);
+        } catch (error) {
+            assert.equal(
+                "FeralfileExhibitionV5: mintable required to be false",
+                error.reason
+            );
+        }
+
+        // mint artworks and start sale
+        assert.equal(await contract.selling(), false);
+        const tokenIDs = [1, 2, 3, 4, 5];
+        const amounts = [1, 1, 1, 100, 100];
+        await contract.mintArtworks([
+            [this.seriesIds[0], tokenIDs[0], contract.address, amounts[0]],
+            [this.seriesIds[1], tokenIDs[1], contract.address, amounts[1]],
+            [this.seriesIds[2], tokenIDs[2], contract.address, amounts[2]],
+            [this.seriesIds[3], tokenIDs[3], contract.address, amounts[3]],
+            [this.seriesIds[4], tokenIDs[4], contract.address, amounts[4]],
+        ]);
+        await contract.startSale();
+        assert.equal(await contract.selling(), true);
+
+        // 4. selling is true
+        try {
+            await contract.burnUnsoldArtworks(10);
+        } catch (error) {
+            assert.equal(
+                "FeralfileExhibitionV5: selling required to be false",
+                error.reason
+            );
+        }
+
+        // 4. burn unsold artworks successfully
+        await contract.pauseSale();
+        assert.equal(await contract.selling(), false);
+        assert.equal(await contract.mintable(), false);
+        const tokensBefore = await contract.tokenOf(contract.address);
+        assert.equal(tokensBefore.length, 5);
+        const artworkBefore = await contract.artworkOf(contract.address);
+        assert.equal(artworkBefore.length, 5);
+
+        // burn with limit = 1
+        await contract.burnUnsoldArtworks(1);
+        let tokensAfter = await contract.tokenOf(contract.address);
+        assert.equal(tokensAfter.length, 4);
+        let artworkAfter = await contract.artworkOf(contract.address);
+        assert.equal(artworkAfter.length, 4);
+
+        // burn with large limitation
+        await contract.burnUnsoldArtworks(10);
+        tokensAfter = await contract.tokenOf(contract.address);
+        assert.equal(tokensAfter.length, 0);
+        artworkAfter = await contract.artworkOf(contract.address);
+        assert.equal(artworkAfter.length, 0);
+
+        // series total supply
+        assert.equal(await contract.seriesTotalSupply(this.seriesIds[0]), 0);
+        assert.equal(await contract.seriesTotalSupply(this.seriesIds[1]), 0);
+        assert.equal(await contract.seriesTotalSupply(this.seriesIds[2]), 0);
+        assert.equal(await contract.seriesTotalSupply(this.seriesIds[3]), 0);
+        assert.equal(await contract.seriesTotalSupply(this.seriesIds[4]), 0);
+
+        // artwork total supply
+        assert.equal(await contract.artworkTotalSupply(tokenIDs[0]), 0);
+        assert.equal(await contract.artworkTotalSupply(tokenIDs[1]), 0);
+        assert.equal(await contract.artworkTotalSupply(tokenIDs[2]), 0);
+        assert.equal(await contract.artworkTotalSupply(tokenIDs[3]), 0);
+        assert.equal(await contract.artworkTotalSupply(tokenIDs[4]), 0);
+
+        // get artwork
+        for (let i = 0; i < tokenIDs.length; i++) {
+            const artwork = await contract.getArtwork(tokenIDs[i]);
+            assert.equal(artwork.tokenId, 0);
+            assert.equal(artwork.seriesId, 0);
+            assert.equal(artwork.amount, 0);
+        }
+    });
+
+    it("test transfer unsold artworks", async function () {
+        let contract = this.contracts[6];
+
+        // 1. unauthorized call
+        try {
+            await contract.transferUnsoldArtworks([1, 2, 3], accounts[0], {
+                from: this.trustee,
+            });
+        } catch (error) {
+            assert.equal("Ownable: caller is not the owner", error.reason);
+        }
+
+        // 2. address is zero
+        try {
+            await contract.transferUnsoldArtworks([1, 2, 3], ZERO_ADDRESS),
+                { from: accounts[0] };
+        } catch (error) {
+            assert.equal(
+                "FeralfileExhibitionV5: to_ is zero address",
+                error.reason
+            );
+        }
+
+        // 3. token IDs is empty
+        try {
+            await contract.transferUnsoldArtworks([], accounts[0], {
+                from: accounts[0],
+            });
+        } catch (error) {
+            assert.equal(
+                "FeralfileExhibitionV5: tokenIds_ is empty",
+                error.reason
+            );
+        }
+
+        // 4. mintable is true
+        try {
+            await contract.transferUnsoldArtworks([1, 2, 3], accounts[0], {
+                from: accounts[0],
+            });
+        } catch (error) {
+            assert.equal(
+                "FeralfileExhibitionV5: mintable required to be false",
+                error.reason
+            );
+        }
+
+        // mint artworks and start sale
+        assert.equal(await contract.selling(), false);
+        const tokenIDs = [1, 2, 3, 4, 5];
+        const amounts = [1, 1, 1, 100, 100];
+        await contract.mintArtworks([
+            [this.seriesIds[0], tokenIDs[0], contract.address, amounts[0]],
+            [this.seriesIds[1], tokenIDs[1], contract.address, amounts[1]],
+            [this.seriesIds[2], tokenIDs[2], contract.address, amounts[2]],
+            [this.seriesIds[3], tokenIDs[3], contract.address, amounts[3]],
+            [this.seriesIds[4], tokenIDs[4], contract.address, amounts[4]],
+        ]);
+        await contract.startSale();
+        assert.equal(await contract.selling(), true);
+
+        // 5. selling is true
+        try {
+            await contract.transferUnsoldArtworks([1, 2, 3], accounts[0], {
+                from: accounts[0],
+            });
+        } catch (error) {
+            assert.equal(
+                "FeralfileExhibitionV5: selling required to be false",
+                error.reason
+            );
+        }
+
+        // 6. transfer unsold artworks successfully
+        await contract.pauseSale();
+        assert.equal(await contract.selling(), false);
+        assert.equal(await contract.mintable(), false);
+
+        // verify token balance before transfer
+        const tokensOfContractBefore = await contract.tokenOf(contract.address);
+        assert.equal(tokensOfContractBefore.length, tokenIDs.length);
+        const recipient = accounts[0];
+        const tokensOfRecipientBefore = await contract.tokenOf(recipient);
+        assert.equal(tokensOfRecipientBefore.length, 0);
+
+        // transfer unsold artworks
+        await contract.transferUnsoldArtworks(tokenIDs, recipient, {
+            from: accounts[0],
+        });
+
+        // verify token balance after transfer
+        const tokensOfContractAfter = await contract.tokenOf(contract.address);
+        assert.equal(tokensOfContractAfter.length, 0);
+        const tokensOfRecipientAfter = await contract.tokenOf(recipient);
+        assert.equal(tokensOfRecipientAfter.length, tokenIDs.length);
     });
 });

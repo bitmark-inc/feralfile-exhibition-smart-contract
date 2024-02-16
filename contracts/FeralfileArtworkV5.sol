@@ -334,6 +334,8 @@ contract FeralfileExhibitionV5 is
     /// @param tokenIds_ an array of token IDs
     /// @param to_ the destination address
     function transferUnsoldArtworks(uint256[] calldata tokenIds_, address to_) external onlyOwner {
+        require(to_ != address(0), "FeralfileExhibitionV5: to_ is zero address");
+        require(tokenIds_.length > 0, "FeralfileExhibitionV5: tokenIds_ is empty");
         require(
             !mintable,
             "FeralfileExhibitionV5: mintable required to be false"
@@ -342,8 +344,6 @@ contract FeralfileExhibitionV5 is
             !selling,
             "FeralfileExhibitionV5: selling required to be false"
         );
-        require(to_ != address(0), "FeralfileExhibitionV5: to_ is zero address");
-        require(tokenIds_.length > 0, "FeralfileExhibitionV5: tokenIds_ is empty");
 
         uint256[] memory amounts = new uint256[](tokenIds_.length);
         for (uint256 i = 0; i < tokenIds_.length; i++) {
