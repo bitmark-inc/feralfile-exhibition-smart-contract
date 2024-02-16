@@ -15,6 +15,6 @@ interface IFeralfileSaleData {
         uint256[] tokenIds;
         RevenueShare[][] revenueShares; // address and royalty bps (500 means 5%)
         bool payByVaultContract; // get eth from vault contract, used by credit card pay that proxy by ITX
-        uint256 biddingUnixNano; // in nano
+        uint256 biddingUnix; // unix timestamp for bidding
     }
 }

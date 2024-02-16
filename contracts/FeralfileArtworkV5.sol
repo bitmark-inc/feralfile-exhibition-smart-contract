@@ -155,11 +155,11 @@ contract FeralfileExhibitionV5 is
     }
 
     /// @notice Get all Artworks of an owner
-    /// @param owner an address of the owner
+    /// @param owner_ an address of the owner
     function artworkOf(
-        address owner
+        address owner_
     ) external view returns (Artwork[] memory) {
-        uint256[]  memory tokens =  _ownedTokens[owner];
+        uint256[]  memory tokens = _ownedTokens[owner_];
         Artwork[] memory artworks = new Artwork[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             artworks[i] = _allArtworks[tokens[i]];
@@ -168,55 +168,55 @@ contract FeralfileExhibitionV5 is
     }
 
     /// @notice Get all token IDs of an owner
-    /// @param owner an address of the owner
+    /// @param owner_ an address of the owner
     function tokenOf(
-        address owner
+        address owner_
     ) external view returns (uint256[] memory) {
-        return _ownedTokens[owner];
+        return _ownedTokens[owner_];
     }
 
     /// @notice Get series max supply
-    /// @param seriesId a series ID
+    /// @param seriesId_ a series ID
     /// @return uint256 the max supply
     function seriesMaxSupply(
-        uint256 seriesId
+        uint256 seriesId_
     ) external view virtual returns (uint256) {
-        return _seriesMaxSupplies[seriesId];
+        return _seriesMaxSupplies[seriesId_];
     }
 
     /// @notice Get series artwork max supply
-    /// @param seriesId a series ID
+    /// @param seriesId_ a series ID
     function seriesArtworkMaxSupply(
-        uint256 seriesId
+        uint256 seriesId_
     ) external view virtual returns (uint256) {
-        return _seriesArtworkMaxSupplies[seriesId];
+        return _seriesArtworkMaxSupplies[seriesId_];
     }
 
     /// @notice Get series total supply
-    /// @param seriesId a series ID
+    /// @param seriesId_ a series ID
     /// @return uint256 the total supply
     function seriesTotalSupply(
-        uint256 seriesId
+        uint256 seriesId_
     ) external view virtual returns (uint256) {
-        return _seriesTotalSupplies[seriesId];
+        return _seriesTotalSupplies[seriesId_];
     }
 
     /// @notice Get artwork total supply
-    /// @param tokenId a token ID representing the artwork
+    /// @param tokenId_ a token ID representing the artwork
     /// @return uint256 the total supply
     function artworkTotalSupply(
-        uint256 tokenId
+        uint256 tokenId_
     ) external view virtual returns (uint256) {
-        return _artworkTotalSupplies[tokenId];
+        return _artworkTotalSupplies[tokenId_];
     }
 
     /// @notice Get artwork data
-    /// @param tokenId a token ID representing the artwork
+    /// @param tokenId_ a token ID representing the artwork
     /// @return Artwork the Artwork object
     function getArtwork(
-        uint256 tokenId
+        uint256 tokenId_
     ) external view virtual returns (Artwork memory) {
-        return _allArtworks[tokenId];
+        return _allArtworks[tokenId_];
     }
 
     /// @notice Set vault contract
@@ -292,8 +292,10 @@ contract FeralfileExhibitionV5 is
     }
 
     /// @notice burn unsold artworks
-    /// @param tokenIds an array of token IDs
-    function burnUnsoldArtworks(uint256[] calldata tokenIds) external onlyOwner {
+    /// @param limit_ the maximum number of unsold artworks to burn
+    /// @dev the limit_ is used to prevent the function from running out of gas
+    function burnUnsoldArtworks(uint256 limit_) external onlyOwner {
+        require(limit_ > 0, "FeralfileExhibitionV5: limit_ is zero");
         require(
             !mintable,
             "FeralfileExhibitionV5: mintable required to be false"
@@ -303,22 +305,35 @@ contract FeralfileExhibitionV5 is
             "FeralfileExhibitionV5: selling required to be false"
         );
 
-        uint256[] memory amounts = new uint256[](tokenIds.length);
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            uint256 amount = balanceOf(address(this), tokenIds[i]);
-            amounts[i] = amount;
+        // get all token IDs of the contract
+        uint256[] memory tokenIds = _ownedTokens[address(this)];
+        if (tokenIds.length == 0) {
+            return;
+        }
+        if (tokenIds.length < limit_) {
+            limit_ = tokenIds.length;
         }
 
-        _burnBatch(address(this), tokenIds, amounts);
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-           delete _allArtworks[tokenIds[i]];
+        // burn data
+        BurnData[] memory data = new BurnData[](limit_);
+        for (uint256 i = 0; i < limit_; i++) {
+            data[i] = BurnData({
+                from: address(this),
+                tokenId: tokenIds[i],
+                amount: balanceOf(address(this), tokenIds[i])
+            });
+        }
+
+        // burn artworks
+        for (uint256 i = 0; i < data.length; i++) {
+            _burnArtwork(data[i].from, data[i].tokenId, data[i].amount);
         }
     }
 
     /// @notice transfer unsold artworks to a destination address
-    /// @param tokenIds an array of token IDs
-    /// @param to the destination address
-    function transferUnsoldArtworks(uint256[] calldata tokenIds, address to) external onlyOwner {
+    /// @param tokenIds_ an array of token IDs
+    /// @param to_ the destination address
+    function transferUnsoldArtworks(uint256[] calldata tokenIds_, address to_) external onlyOwner {
         require(
             !mintable,
             "FeralfileExhibitionV5: mintable required to be false"
@@ -327,14 +342,16 @@ contract FeralfileExhibitionV5 is
             !selling,
             "FeralfileExhibitionV5: selling required to be false"
         );
+        require(to_ != address(0), "FeralfileExhibitionV5: to_ is zero address");
+        require(tokenIds_.length > 0, "FeralfileExhibitionV5: tokenIds_ is empty");
 
-        uint256[] memory amounts = new uint256[](tokenIds.length);
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            uint256 amount = balanceOf(address(this), tokenIds[i]);
+        uint256[] memory amounts = new uint256[](tokenIds_.length);
+        for (uint256 i = 0; i < tokenIds_.length; i++) {
+            uint256 amount = balanceOf(address(this), tokenIds_[i]);
             amounts[i] = amount;
         }
 
-        _safeBatchTransferFrom(address(this), to, tokenIds, amounts, "");
+        _safeBatchTransferFrom(address(this), to_, tokenIds_, amounts, "");
     }
 
     /// @notice pay to get artworks to a destination address. The pricing, costs and other details is included in the saleData
@@ -413,7 +430,7 @@ contract FeralfileExhibitionV5 is
                 }
             }
 
-            emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i], saleData_.biddingUnixNano);
+            emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i], saleData_.biddingUnix);
         }
 
         require(
@@ -441,23 +458,17 @@ contract FeralfileExhibitionV5 is
 
         for (uint256 i = 0; i < ids.length; i++) {
             uint256 tokenId = ids[i];
-            uint256 amount = amounts[i];
-            Artwork memory artwork = _allArtworks[tokenId];
 
-            if (from != address(0) && from != to) {
+            if (from != address(0) && from != to && balanceOf(from, tokenId) == amounts[i]) {
                 // only remove Artwork from Artwork enumeration if the current owned 
                 // token amount is equal to the amount of token to be transferred
                 // otherwise, just update the amount of the token
-                if (artwork.amount == amount) {
-                    _removeTokenFromOwnerEnumeration(from, ids[i]);
-                }
+                _removeTokenFromOwnerEnumeration(from, ids[i]);
             }
-            if (to != address(0) && to != from) {
+            if (to != address(0) && to != from && _ownedTokensIndex[tokenId] == 0) {
                 // only add Artwork to Artwork enumeration if the token is not owned by the receiver
                 // otherwise, just update the amount of the token
-                if (_ownedTokensIndex[tokenId] == 0) {
-                    _addTokenToOwnerEnumeration(to, tokenId);
-                } 
+                _addTokenToOwnerEnumeration(to, tokenId);
             }
         } 
     }
@@ -494,48 +505,48 @@ contract FeralfileExhibitionV5 is
 
     /// @notice Mint new collection of Artwork
     /// @dev the function iterates over the array of MintData to call the internal function _mintArtwork
-    /// @param data an array of MintData
+    /// @param data_ an array of MintData
     function mintArtworks(
-        MintData[] calldata data
+        MintData[] calldata data_
     ) external virtual onlyAuthorized {
         require(
             mintable,
             "FeralfileExhibitionV5: contract doesn't allow to mint"
         );
-        for (uint256 i = 0; i < data.length; i++) {
-            _mintArtwork(data[i].seriesId, data[i].tokenId, data[i].owner, data[i].amount);
+        for (uint256 i = 0; i < data_.length; i++) {
+            _mintArtwork(data_[i].seriesId, data_[i].tokenId, data_[i].owner, data_[i].amount);
         }
     }
 
     function _mintArtwork(
-        uint256 seriesId,
-        uint256 tokenId,
-        address owner,
-        uint256 amount
+        uint256 seriesId_,
+        uint256 tokenId_,
+        address owner_,
+        uint256 amount_
     ) internal {
-        require(tokenId != 0, "FeralfileExhibitionV5: token ID is zero");
-        require(amount != 0, "FeralfileExhibitionV5: amount is zero");
+        require(tokenId_ != 0, "FeralfileExhibitionV5: token ID is zero");
+        require(amount_ != 0, "FeralfileExhibitionV5: amount is zero");
 
-        Artwork memory artwork = _allArtworks[tokenId];
+        Artwork memory artwork = _allArtworks[tokenId_];
         if (artwork.tokenId != 0) {
             // reassign seriesId for existing artwork to avoid bypass the max supply checks
-            seriesId = artwork.seriesId;
+            seriesId_ = artwork.seriesId;
         }
 
         // check series exists
         require(
-            _seriesMaxSupplies[seriesId] > 0,
+            _seriesMaxSupplies[seriesId_] > 0,
             string(
                 abi.encodePacked(
                     "FeralfileExhibitionV5: seriesId doesn't exist: ",
-                    Strings.toString(seriesId)
+                    Strings.toString(seriesId_)
                 )
             )
         );
 
         // check artwork total supplies
         require(
-            _artworkTotalSupplies[tokenId] + amount <= _seriesArtworkMaxSupplies[seriesId],
+            _artworkTotalSupplies[tokenId_] + amount_ <= _seriesArtworkMaxSupplies[seriesId_],
             "FeralfileExhibitionV5: no more artwork slots available"
         );
 
@@ -543,72 +554,72 @@ contract FeralfileExhibitionV5 is
             // if artwork exists before
             // 1.check series total supplies
             require(
-                _seriesTotalSupplies[seriesId] < _seriesMaxSupplies[seriesId],
+                _seriesTotalSupplies[seriesId_] < _seriesMaxSupplies[seriesId_],
                 "FeralfileExhibitionV5: no more series slots available"
             );
 
             // 2. increase artwork amount
-            _allArtworks[tokenId].amount += amount;
+            _allArtworks[tokenId_].amount += amount_;
         } else {
             // if artwork doesn't exist before
             // 1. increase series total supplies
-            _seriesTotalSupplies[seriesId] += 1;
+            _seriesTotalSupplies[seriesId_] += 1;
 
             // 2. add artwork to allArtworks    
-            _allArtworks[tokenId] = Artwork({
-                seriesId: seriesId,
-                tokenId: tokenId,
-                amount: amount});
+            _allArtworks[tokenId_] = Artwork({
+                seriesId: seriesId_,
+                tokenId: tokenId_,
+                amount: amount_});
         }
        
         // increase artwork total supplies
-        _artworkTotalSupplies[tokenId] += amount;
+        _artworkTotalSupplies[tokenId_] += amount_;
 
         // mint token
-        _mint(owner, tokenId, amount, "");
+        _mint(owner_, tokenId_, amount_, "");
 
         // emit event
-        emit NewArtwork(owner, seriesId, tokenId, amount);
+        emit NewArtwork(owner_, seriesId_, tokenId_, amount_);
     }
 
     /// @notice Burn a collection of artworks
     /// @dev the function iterates over the array of token ID to call the internal function _burnArtwork
-    /// @param data an array of BurnData
-    function burnArtworks(BurnData[] calldata data) external {
+    /// @param data_ an array of BurnData
+    function burnArtworks(BurnData[] calldata data_) external {
         require(burnable, "FeralfileExhibitionV5: token is not burnable");
-        for (uint256 i = 0; i < data.length; i++) {
-            _burnArtwork(data[i].from, data[i].tokenId, data[i].amount);
+        for (uint256 i = 0; i < data_.length; i++) {
+            _burnArtwork(data_[i].from, data_[i].tokenId, data_[i].amount);
         }
     }
 
-    function _burnArtwork(address from, uint256 tokenId, uint256 amount) internal {
-        require(tokenId != 0, "FeralfileExhibitionV5: token ID is zero");
-        require(amount != 0, "FeralfileExhibitionV5: amount is zero");
-        require(from != address(0), "FeralfileExhibitionV5: from is zero address");
+    function _burnArtwork(address from_, uint256 tokenId_, uint256 amount_) internal {
+        require(tokenId_ != 0, "FeralfileExhibitionV5: token ID is zero");
+        require(amount_ != 0, "FeralfileExhibitionV5: amount is zero");
+        require(from_ != address(0), "FeralfileExhibitionV5: from is zero address");
 
-        Artwork memory artwork = _allArtworks[tokenId]; 
+        Artwork memory artwork = _allArtworks[tokenId_]; 
         require(artwork.tokenId != 0, "FeralfileExhibitionV5: artwork doesn't exist");
-
-        // burn artwork
-        _burn(from, tokenId, amount);
         
-        if (artwork.amount == amount) {
+        if (artwork.amount <= amount_) {
             // if burn whole token of artwork
             // 1. decrease series total supplies
             // 2. remove artwork from allArtworks
             _seriesTotalSupplies[artwork.seriesId] -= 1;
-            delete _allArtworks[tokenId];
+            delete _allArtworks[tokenId_];
         } else {
             // if burn part of token of artwork
             // just decrease artwork amount
-            _allArtworks[tokenId].amount -= amount;
+            _allArtworks[tokenId_].amount -= amount_;
         }
         
         // decrease artwork total supplies
-        _artworkTotalSupplies[tokenId] -= amount;
+        _artworkTotalSupplies[tokenId_] -= amount_;
+
+        // burn artwork
+        _burn(from_, tokenId_, amount_);
 
         // emit event
-        emit BurnArtwork(tokenId, amount);
+        emit BurnArtwork(tokenId_, amount_);
     }
 
     /// @notice able to receive fund from vault contract
@@ -633,25 +644,19 @@ contract FeralfileExhibitionV5 is
         return this.onERC1155Received.selector;
     }
 
-    /// @notice check if artwork exists
-    function _artworkExists(uint256 tokenId) internal view returns (bool) {
-        require(tokenId != 0, "FeralfileExhibitionV5: token ID is zero");
-        return _allArtworks[tokenId].tokenId == tokenId;
-    }
-
     /// @notice Event emitted when new Artwork has been minted
     event NewArtwork(
-        address indexed owner,
-        uint256 indexed seriesId,
-        uint256 indexed tokenId,
-        uint256 amount
+        address indexed owner_,
+        uint256 indexed seriesId_,
+        uint256 indexed tokenId_,
+        uint256 amount_
     );
 
     /// @notice Event emitted when Artwork has been burned
-    event BurnArtwork(uint256 indexed tokenId, uint256 amount);
+    event BurnArtwork(uint256 indexed tokenId_, uint256 amount_);
 
     /// @notice Event emitted when Artwork has been sold
-    event BuyArtwork(address indexed buyer, uint256 indexed tokenId, uint256 biddingUnixNano);
+    event BuyArtwork(address indexed buyer_, uint256 indexed tokenId_, uint256 biddingUnix_);
 
     /// @notice Event emitted when contract URI has been updated
     event ContractURIUpdated();
