@@ -686,7 +686,7 @@ contract FeralfileExhibitionV5 is
     ) public pure returns (bytes4) {
         require(
             from_ == address(0),
-            "FeralFileAirdropV1: not allowed to send token back"
+            "FeralfileExhibitionV5: not allowed to send token back"
         );
         return this.onERC1155Received.selector;
     }
