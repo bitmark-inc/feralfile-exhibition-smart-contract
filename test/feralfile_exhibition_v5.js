@@ -326,6 +326,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 await contract.mintArtworks([
                     [seriesId, tokenId * 123, owner, 1],
                 ]);
+                assert.fail(
+                    "expected to throw error: FeralfileExhibitionV5: no more series slots available"
+                );
             } catch (error) {
                 assert.equal(
                     "FeralfileExhibitionV5: no more series slots available",
@@ -338,6 +341,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 await contract.mintArtworks([
                     [seriesId, tokenId, owner, amount * 123],
                 ]);
+                assert.fail(
+                    "expected to throw error: FeralfileExhibitionV5: no more artwork slots available"
+                );
             } catch (error) {
                 assert.equal(
                     "FeralfileExhibitionV5: no more artwork slots available",
@@ -364,6 +370,7 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
         for (let i = 0; i < data.length; i++) {
             try {
                 await contract.burnArtworks([data[i][0]]);
+                assert.fail("expected to throw error: " + data[i][1]);
             } catch (error) {
                 assert.equal(data[i][1], error.reason);
             }
@@ -490,6 +497,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 from: buyer,
                 value: price,
             });
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: sale is not started"
+            );
         } catch (error) {
             assert.equal(
                 "FeralfileExhibitionV5: sale is not started",
@@ -511,6 +521,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 from: buyer,
                 value: price,
             });
+            assert.fail(
+                "expected to throw error: FeralfileSaleData: tokenIds is empty"
+            );
         } catch (error) {
             assert.equal("FeralfileSaleData: tokenIds is empty", error.reason);
         }
@@ -523,6 +536,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 from: buyer,
                 value: price,
             });
+            assert.fail(
+                "expected to throw error: FeralfileSaleData: tokenIds and revenueShares length mismatch"
+            );
         } catch (error) {
             assert.equal(
                 "FeralfileSaleData: tokenIds and revenueShares length mismatch",
@@ -538,6 +554,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 from: buyer,
                 value: price,
             });
+            assert.fail(
+                "expected to throw error: FeralfileSaleData: sale is expired"
+            );
         } catch (error) {
             assert.equal("FeralfileSaleData: sale is expired", error.reason);
         }
@@ -549,6 +568,7 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                 from: buyer,
                 value: price,
             });
+            assert.fail("expected to throw error: ECDSA: invalid signature");
         } catch (error) {
             assert.equal("ECDSA: invalid signature", error.reason);
         }
@@ -582,6 +602,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                     from: buyer,
                     value: price,
                 }
+            );
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: invalid signature"
             );
         } catch (error) {
             assert.equal(
@@ -629,6 +652,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
                     from: buyer,
                     value: price,
                 }
+            );
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: total bps over 10,000"
             );
         } catch (error) {
             assert.equal(
@@ -865,6 +891,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
         // 1. unauthorized call
         try {
             await contract.burnUnsoldArtworks(10, { from: this.trustee });
+            assert.fail(
+                "expected to throw error: Ownable: caller is not the owner"
+            );
         } catch (error) {
             assert.equal("Ownable: caller is not the owner", error.reason);
         }
@@ -872,6 +901,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
         // 2. limit is zero
         try {
             await contract.burnUnsoldArtworks(0);
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: limit_ is zero"
+            );
         } catch (error) {
             assert.equal("FeralfileExhibitionV5: limit_ is zero", error.reason);
         }
@@ -879,6 +911,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
         // 3. mintable is true
         try {
             await contract.burnUnsoldArtworks(10);
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: mintable required to be false"
+            );
         } catch (error) {
             assert.equal(
                 "FeralfileExhibitionV5: mintable required to be false",
@@ -903,6 +938,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
         // 4. selling is true
         try {
             await contract.burnUnsoldArtworks(10);
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: selling required to be false"
+            );
         } catch (error) {
             assert.equal(
                 "FeralfileExhibitionV5: selling required to be false",
@@ -964,6 +1002,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
             await contract.transferUnsoldArtworks([1, 2, 3], accounts[0], {
                 from: this.trustee,
             });
+            assert.fail(
+                "expected to throw error: Ownable: caller is not the owner"
+            );
         } catch (error) {
             assert.equal("Ownable: caller is not the owner", error.reason);
         }
@@ -972,6 +1013,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
         try {
             await contract.transferUnsoldArtworks([1, 2, 3], ZERO_ADDRESS),
                 { from: accounts[0] };
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: to_ is zero address"
+            );
         } catch (error) {
             assert.equal(
                 "FeralfileExhibitionV5: to_ is zero address",
@@ -984,6 +1028,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
             await contract.transferUnsoldArtworks([], accounts[0], {
                 from: accounts[0],
             });
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: tokenIds_ is empty"
+            );
         } catch (error) {
             assert.equal(
                 "FeralfileExhibitionV5: tokenIds_ is empty",
@@ -996,6 +1043,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
             await contract.transferUnsoldArtworks([1, 2, 3], accounts[0], {
                 from: accounts[0],
             });
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: mintable required to be false"
+            );
         } catch (error) {
             assert.equal(
                 "FeralfileExhibitionV5: mintable required to be false",
@@ -1022,6 +1072,9 @@ contract("FeralfileExhibitionV5_0", async (accounts) => {
             await contract.transferUnsoldArtworks([1, 2, 3], accounts[0], {
                 from: accounts[0],
             });
+            assert.fail(
+                "expected to throw error: FeralfileExhibitionV5: selling required to be false"
+            );
         } catch (error) {
             assert.equal(
                 "FeralfileExhibitionV5: selling required to be false",
