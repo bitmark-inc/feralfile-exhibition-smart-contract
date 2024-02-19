@@ -587,20 +587,20 @@ contract FeralfileExhibitionV5 is
 
         if (artwork.tokenId != 0) {
             // if artwork exists before
+            // increase artwork amount
+            _allArtworks[tokenId_].amount += amount_;
+        } else {
+            // if artwork doesn't exist before
             // 1.check series total supplies
             require(
                 _seriesTotalSupplies[seriesId_] < _seriesMaxSupplies[seriesId_],
                 "FeralfileExhibitionV5: no more series slots available"
             );
 
-            // 2. increase artwork amount
-            _allArtworks[tokenId_].amount += amount_;
-        } else {
-            // if artwork doesn't exist before
-            // 1. increase series total supplies
+            // 2. increase series total supplies
             _seriesTotalSupplies[seriesId_] += 1;
 
-            // 2. add artwork to allArtworks
+            // 3. add artwork to allArtworks
             _allArtworks[tokenId_] = Artwork({
                 seriesId: seriesId_,
                 tokenId: tokenId_,
