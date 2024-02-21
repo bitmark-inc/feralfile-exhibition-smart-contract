@@ -4,6 +4,8 @@ const FeralfileVault = artifacts.require("FeralfileVault");
 
 const CONTRACT_URI = "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 
+const { bufferToHex } = require("ethereumjs-util");
+
 const bytesToString = (bytes) => {
     return web3.utils.toAscii(bytes).replace(/\u0000/g, "");
 };
@@ -33,6 +35,7 @@ contract("OwnerData", async (accounts) => {
             [1, 4, accounts[0]],
             [1, 5, accounts[1]],
             [1, 6, accounts[2]],
+            [1, 7, "0x23221e5403511CeC833294D2B1B006e9D639A61b"],
         ]);
     });
 
@@ -252,7 +255,7 @@ contract("OwnerData", async (accounts) => {
                 [accounts[1], cidBytes, "{duration: 1000}"]
             );
         } catch (error) {
-            assert.equal(error.reason, "OwnerData: owner mismatch");
+            assert.equal(error.reason, "OwnerData: data owner mismatch");
         }
     });
 
@@ -272,5 +275,29 @@ contract("OwnerData", async (accounts) => {
                 )
             );
         }
+    });
+
+    it("test adding with signed add function", async function () {
+        const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
+        const cidBytes = web3.utils.fromAscii(cid);
+        const data = [
+            "0x23221e5403511CeC833294D2B1B006e9D639A61b",
+            cidBytes,
+            "{duration: 1000}",
+        ];
+
+        const msg = `Feral File is requesting authorization to write your sound piece to contract ${this.ownerDataContract.address.toLowerCase()}.`;
+        const msgHash = bufferToHex(Buffer.from(msg, "utf-8"));
+        const privateKey =
+            "0x5cd8bcda59dd3a9988bd20bdbdea7225a4a57949d12b9a527caf3ff819941d7f";
+        const { signature } = await web3.eth.accounts.sign(msgHash, privateKey);
+
+        const tx = await this.ownerDataContract.signedAdd(
+            this.exhibitionContract.address,
+            1,
+            signature,
+            data
+        );
+        assert.equal(tx.logs[0].event, "DataAdded");
     });
 });
