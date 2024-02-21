@@ -6,6 +6,6 @@ const argv = require("minimist")(process.argv.slice(2), {
 
 module.exports = function (deployer) {
     let exhibition_signer =
-        argv.exhibition_signer || "0x6732389c6d47d01487dcDc96e2Cc6BAf108452f2";
+        argv.exhibition_signer || "0xdB33365a8730de2F7574ff1189fB9D337bF4c36d";
     deployer.deploy(FeralfileVault, exhibition_signer);
 };

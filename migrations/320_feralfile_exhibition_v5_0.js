@@ -10,12 +10,12 @@ const argv = require("minimist")(process.argv.slice(2), {
 
 module.exports = function (deployer) {
     let exhibition_signer =
-        argv.exhibition_signer || "0x6732389c6d47d01487dcDc96e2Cc6BAf108452f2";
+        argv.exhibition_signer || "0xdB33365a8730de2F7574ff1189fB9D337bF4c36d";
     let exhibition_vault =
         argv.exhibition_vault || "0x0c51e8becb17ba3203cd04d3fc31fcb90de412a1";
     let exhibition_cost_receiver =
         argv.exhibition_cost_receiver ||
-        "0x6732389c6d47d01487dcDc96e2Cc6BAf108452f2";
+        "0xdB33365a8730de2F7574ff1189fB9D337bF4c36d";
     let burnable = argv.burnable || true;
     let contract_uri =
         argv.contract_uri ||
