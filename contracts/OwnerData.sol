@@ -5,11 +5,10 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract FF {
-    function ownerOf(uint256 tokenId) public view returns (address) {}
+contract FFV5 {
+    function balanceOf(address account, uint256 id) public view returns (uint256) {}
 }
 
-// string constant SIGNED_MESSAGE = "Feral File is requesting authorization to write your sound piece to contract";
 string constant SIGNED_MESSAGE = "Authorize to write your data to the contract";
 
 contract OwnerData is Context {
@@ -55,12 +54,11 @@ contract OwnerData is Context {
         if (data.owner != sender) {
             revert OwnerMismatch(data.owner, sender);
         }
-        Data[] storage datas = _tokenData[contractAddress][tokenID];
-        if (_tokenDataOwner[contractAddress][tokenID][data.owner]) {
-            revert DataExisted(data.owner);
-        }
+        require(data.dataHash.length > 0, "OwnerData: dataHash is empty");
+        require(!_tokenDataOwner[contractAddress][tokenID][data.owner], "OwnerData: data already added");
+
+        _tokenData[contractAddress][tokenID].push(data);
         _tokenDataOwner[contractAddress][tokenID][data.owner] = true;
-        datas.push(data);
 
         emit DataAdded(contractAddress, tokenID, data);
     }
@@ -70,14 +68,12 @@ contract OwnerData is Context {
         return ECDSA.recover(ECDSA.toEthSignedMessageHash(message), signature);
     }
 
-    function _isOwner(address contractAddress, uint256 tokenID, address owner) private view returns (bool) {
-        return FF(contractAddress).ownerOf(tokenID) == owner;
+    function _isOwner(address contractAddress, uint256 tokenID, address account) private view returns (bool) {
+        return FFV5(contractAddress).balanceOf(account, tokenID) > 0;
     }
 
     event DataAdded(address indexed contractAddress, uint256 indexed tokenID, Data data);
-    event DataRemoved(address indexed contractAddress, uint256 indexed tokenID);
 
     error NotOwner(address caller, address contractAddress, uint256 tokenID); 
     error OwnerMismatch(address dataOwner, address caller);
-    error DataExisted(address dataOwner);
 }
