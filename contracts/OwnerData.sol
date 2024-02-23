@@ -9,7 +9,8 @@ contract FF {
     function ownerOf(uint256 tokenId) public view returns (address) {}
 }
 
-string constant SIGNED_MESSAGE = "Feral File is requesting authorization to write your sound piece to contract";
+// string constant SIGNED_MESSAGE = "Feral File is requesting authorization to write your sound piece to contract";
+string constant SIGNED_MESSAGE = "Authorize to write your data to the contract";
 
 contract OwnerData is Context {
     struct Data {
@@ -18,12 +19,13 @@ contract OwnerData is Context {
         string metadata;
     }
 
+    // contractAddress => tokenID => Data[]
     mapping(address => mapping(uint256 => Data[])) private _tokenData;
+    // contractAddress => tokenID => owner => bool
+    mapping(address => mapping(uint256 => mapping(address => bool))) private _tokenDataOwner;
 
     function add(address contractAddress, uint256 tokenID, Data calldata data) external {
-        require(_isOwner(contractAddress, tokenID, _msgSender()), "OwnerData: caller is not the owner");
-        require(data.owner == _msgSender(), "OwnerData: data owner mismatch");
-        _updateData(contractAddress, tokenID, data);
+        _addData(_msgSender(), contractAddress, tokenID, data);
     }
 
     function signedAdd(
@@ -33,51 +35,34 @@ contract OwnerData is Context {
         Data calldata data
     ) external {
         address signer = _verifySignature(signature);
-        require(_isOwner(contractAddress, tokenID, signer), "OwnerData: signer is not the owner");
-        require(data.owner == signer, "OwnerData: data owner mismatch");
-        _updateData(contractAddress, tokenID, data);
+        _addData(signer, contractAddress, tokenID, data);
     }
 
-    function remove(address contractAddress, uint256 tokenID) external {
-        require(_isOwner(contractAddress, tokenID, _msgSender()), "OwnerData: caller is not the owner");
-        _removeData(contractAddress, tokenID);
-    }
 
     function get(address contractAddress, uint256 tokenID) external view returns (Data[] memory) {
         return _tokenData[contractAddress][tokenID];
     }
 
-    function _updateData(
+    function _addData(
+        address sender,
         address contractAddress,
         uint256 tokenID,
         Data calldata data
     ) private {
+        if (!_isOwner(contractAddress, tokenID, sender)) {
+            revert NotOwner(sender, contractAddress, tokenID);
+        }
+        if (data.owner != sender) {
+            revert OwnerMismatch(data.owner, sender);
+        }
         Data[] storage datas = _tokenData[contractAddress][tokenID];
-        bool exists = false;
-        for (uint256 i = 0; i < datas.length; ++i) {
-            if (datas[i].owner == data.owner) {
-                datas[i] = data;
-                exists = true;
-                break;
-            }
+        if (_tokenDataOwner[contractAddress][tokenID][data.owner]) {
+            revert DataExisted(data.owner);
         }
-        if (!exists) {
-            datas.push(data);
-        }
-        emit DataAdded(contractAddress, tokenID, data);
-    }
+        _tokenDataOwner[contractAddress][tokenID][data.owner] = true;
+        datas.push(data);
 
-    function _removeData(address contractAddress, uint256 tokenID) private {
-        Data[] storage datas = _tokenData[contractAddress][tokenID];
-        for (uint256 i = 0; i < datas.length; ++i) {
-            if (datas[i].owner == _msgSender()) {
-                datas[i] = datas[datas.length - 1];
-                datas.pop();
-                emit DataRemoved(contractAddress, tokenID);
-                return;
-            }
-        }
-        revert("OwnerData: data not found");
+        emit DataAdded(contractAddress, tokenID, data);
     }
 
     function _verifySignature(bytes memory signature) private view returns (address) {
@@ -91,4 +76,8 @@ contract OwnerData is Context {
 
     event DataAdded(address indexed contractAddress, uint256 indexed tokenID, Data data);
     event DataRemoved(address indexed contractAddress, uint256 indexed tokenID);
+
+    error NotOwner(address caller, address contractAddress, uint256 tokenID); 
+    error OwnerMismatch(address dataOwner, address caller);
+    error DataExisted(address dataOwner);
 }
