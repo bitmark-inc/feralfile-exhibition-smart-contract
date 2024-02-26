@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract FFV5 {
-    function balanceOf(address account, uint256 id) public view returns (uint256) {}
+contract IFF {
+    function ownerOf(uint256 tokenId) public view returns (address) {}
 }
 
 string constant SIGNED_MESSAGE = "Authorize to write your data to the contract";
@@ -17,11 +17,25 @@ contract OwnerData is Context {
         bytes dataHash;
         string metadata;
     }
+    struct Signature {
+        bytes ownerSign;
+        uint256 expiryBlock;
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+    }
+
+    address private _trustee;
 
     // contractAddress => tokenID => Data[]
     mapping(address => mapping(uint256 => Data[])) private _tokenData;
     // contractAddress => tokenID => owner => bool
     mapping(address => mapping(uint256 => mapping(address => bool))) private _tokenDataOwner;
+
+    constructor(address trustee_) {
+        require(trustee_ != address(0), "OwnerData: Trustee is the zero address");
+        _trustee = trustee_;
+    }
 
     function add(address contractAddress, uint256 tokenID, Data calldata data) external {
         _addData(_msgSender(), contractAddress, tokenID, data);
@@ -30,11 +44,12 @@ contract OwnerData is Context {
     function signedAdd(
         address contractAddress,
         uint256 tokenID,
-        bytes memory signature,
-        Data calldata data
+        Data calldata data,
+        Signature calldata signature
     ) external {
-        address signer = _verifySignature(signature);
-        _addData(signer, contractAddress, tokenID, data);
+        _validateSignature(signature);
+        address account = _recoverOwnerSignature(signature.ownerSign);
+        _addData(account, contractAddress, tokenID, data);
     }
 
 
@@ -48,12 +63,8 @@ contract OwnerData is Context {
         uint256 tokenID,
         Data calldata data
     ) private {
-        if (!_isOwner(contractAddress, tokenID, sender)) {
-            revert NotOwner(sender, contractAddress, tokenID);
-        }
-        if (data.owner != sender) {
-            revert OwnerMismatch(data.owner, sender);
-        }
+        require(_isOwner(contractAddress, tokenID, sender), "OwnerData: sender is not the owner");
+        require(data.owner == sender, "OwnerData: data owner mismatch");
         require(data.dataHash.length > 0, "OwnerData: dataHash is empty");
         require(!_tokenDataOwner[contractAddress][tokenID][data.owner], "OwnerData: data already added");
 
@@ -63,17 +74,29 @@ contract OwnerData is Context {
         emit DataAdded(contractAddress, tokenID, data);
     }
 
-    function _verifySignature(bytes memory signature) private view returns (address) {
+    function _validateSignature(Signature calldata signature) private view {
+        require(signature.expiryBlock >= block.number, "OwnerData: signature expired");
+
+        bytes32 message = keccak256(
+            abi.encode(block.chainid, address(this), signature.ownerSign, signature.expiryBlock)
+        );
+        address reqSigner = ECDSA.recover(
+            ECDSA.toEthSignedMessageHash(message),
+            signature.v,
+            signature.r,
+            signature.s
+        );
+        require(reqSigner == _trustee, "OwnerData: invalid signature");
+    }
+
+    function _recoverOwnerSignature(bytes memory signature) private view returns (address) {
         bytes memory message = abi.encodePacked(SIGNED_MESSAGE, " ", Strings.toHexString(address(this)), ".");
         return ECDSA.recover(ECDSA.toEthSignedMessageHash(message), signature);
     }
 
     function _isOwner(address contractAddress, uint256 tokenID, address account) private view returns (bool) {
-        return FFV5(contractAddress).balanceOf(account, tokenID) > 0;
+        return IFF(contractAddress).ownerOf(tokenID) == account;
     }
 
     event DataAdded(address indexed contractAddress, uint256 indexed tokenID, Data data);
-
-    error NotOwner(address caller, address contractAddress, uint256 tokenID); 
-    error OwnerMismatch(address dataOwner, address caller);
 }

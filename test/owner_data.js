@@ -1,9 +1,8 @@
 const OwnerData = artifacts.require("OwnerData");
-const FeralfileExhibitionV5 = artifacts.require("FeralfileExhibitionV5");
+const FeralfileExhibitionV4 = artifacts.require("FeralfileExhibitionV4");
 const FeralfileVault = artifacts.require("FeralfileVault");
 
 const CONTRACT_URI = "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
-const TOKEN_BASE_URI = "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
 
 const { bufferToHex } = require("ethereumjs-util");
@@ -16,31 +15,33 @@ contract("OwnerData", async (accounts) => {
     before(async function () {
         this.signer = accounts[0];
         this.trustee = accounts[1];
+        this.signTrustee = accounts[5];
         this.vault = await FeralfileVault.new(this.signer);
-        this.ownerDataContract = await OwnerData.new();
+        this.ownerDataContract = await OwnerData.new(this.signTrustee);
         this.seriesIds = [1, 2];
         this.seriesMaxSupply = [100, 1];
         this.seriesArtworkMaxSupply = [1, 100];
-        this.exhibitionContract = await FeralfileExhibitionV5.new(
-            TOKEN_BASE_URI,
-            CONTRACT_URI,
+        this.exhibitionContract = await FeralfileExhibitionV4.new(
+            "Feral File V4 Test",
+            "FFv4",
+            true,
+            true,
             this.signer,
             this.vault.address,
             COST_RECEIVER,
-            true,
+            CONTRACT_URI,
             this.seriesIds,
-            this.seriesMaxSupply,
-            this.seriesArtworkMaxSupply
+            this.seriesMaxSupply
         );
 
         await this.exhibitionContract.mintArtworks([
-            [1, 1, accounts[0], 1],
-            [1, 2, accounts[1], 1],
-            [1, 3, accounts[2], 1],
-            [1, 4, accounts[0], 1],
-            [1, 5, accounts[1], 1],
-            [1, 6, accounts[2], 1],
-            [1, 7, "0x23221e5403511CeC833294D2B1B006e9D639A61b", 1],
+            [1, 1, accounts[0]],
+            [1, 2, accounts[1]],
+            [1, 3, accounts[2]],
+            [1, 4, accounts[0]],
+            [1, 5, accounts[1]],
+            [1, 6, accounts[2]],
+            [1, 7, "0x23221e5403511CeC833294D2B1B006e9D639A61b"],
         ]);
         await this.exhibitionContract.addTrustee(this.trustee);
     });
@@ -114,19 +115,14 @@ contract("OwnerData", async (accounts) => {
         assert.equal(bytesToString(tx1.logs[0].args.data.dataHash), cid1);
 
         // Transfer to account 3
-        await this.exhibitionContract.safeTransferFrom(
+        await this.exhibitionContract.transferFrom(
             accounts[1],
             accounts[2],
             2,
-            1,
-            web3.utils.fromAscii(""),
             { from: accounts[1] }
         );
-        const acc2Balance = await this.exhibitionContract.balanceOf(
-            accounts[2],
-            2
-        );
-        assert.equal(acc2Balance, 1);
+        const acc2Owner = await this.exhibitionContract.ownerOf(2);
+        assert.equal(acc2Owner, accounts[2]);
 
         const tx2 = await this.ownerDataContract.add(
             this.exhibitionContract.address,
@@ -137,19 +133,14 @@ contract("OwnerData", async (accounts) => {
         assert.equal(bytesToString(tx2.logs[0].args.data.dataHash), cid2);
 
         // Transfer to account 4
-        await this.exhibitionContract.safeTransferFrom(
+        await this.exhibitionContract.transferFrom(
             accounts[2],
             accounts[4],
             2,
-            1,
-            web3.utils.fromAscii(""),
             { from: accounts[2] }
         );
-        const acc4Balance = await this.exhibitionContract.balanceOf(
-            accounts[4],
-            2
-        );
-        assert.equal(acc4Balance, 1);
+        const acc4Owner = await this.exhibitionContract.ownerOf(2);
+        assert.equal(acc4Owner, accounts[4]);
 
         const tx3 = await this.ownerDataContract.add(
             this.exhibitionContract.address,
@@ -185,11 +176,7 @@ contract("OwnerData", async (accounts) => {
                 [accounts[1], cidBytes, "{duration: 1000}"]
             );
         } catch (error) {
-            assert.ok(
-                error.message.includes(
-                    "VM Exception while processing transaction: revert"
-                )
-            );
+            assert.equal(error.reason, "OwnerData: data owner mismatch");
         }
     });
 
@@ -226,11 +213,39 @@ contract("OwnerData", async (accounts) => {
             "0x5cd8bcda59dd3a9988bd20bdbdea7225a4a57949d12b9a527caf3ff819941d7f";
         const { signature } = await web3.eth.accounts.sign(msgHash, privateKey);
 
+        const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
+        const chainId = await web3.eth.getChainId();
+        const signedParams = web3.eth.abi.encodeParameters(
+            ["uint", "address", "bytes", "uint256"],
+            [
+                BigInt(chainId).toString(),
+                this.ownerDataContract.address,
+                signature,
+                expiryTime,
+            ]
+        );
+
+        const hash = web3.utils.keccak256(signedParams);
+        const trusteeSignature = await web3.eth.sign(hash, accounts[5]);
+        const sig = trusteeSignature.substr(2);
+        const r = "0x" + sig.slice(0, 64);
+        const s = "0x" + sig.slice(64, 128);
+        const v = "0x" + sig.slice(128, 130);
+
+        // sign params
+        const signs = [
+            signature,
+            expiryTime,
+            r,
+            s,
+            web3.utils.toDecimal(v) + 27,
+        ];
+
         const tx = await this.ownerDataContract.signedAdd(
             this.exhibitionContract.address,
             7,
-            signature,
-            data
+            data,
+            signs
         );
         assert.equal(tx.logs[0].event, "DataAdded");
     });
