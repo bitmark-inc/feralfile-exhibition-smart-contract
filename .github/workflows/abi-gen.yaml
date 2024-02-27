@@ -7,7 +7,7 @@ on:
       - '**/*.sol'
 
 jobs:
-  truffle-reviewdog:
+  gen-abi:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
@@ -37,13 +37,12 @@ jobs:
           
           for FILE in $FILES; do
             CONTRACT_NAME=$(basename "$FILE" .sol)
-            solc --abi $FILE -o build
-            abigen --abi=build/$CONTRACT_NAME.abi --pkg=abis --type=$CONTRACT_NAME --out=go-bindings/$CONTRACT_NAME.go
+            abigen --abi=build/$CONTRACT_NAME.abi --bin build/$CONTRACT_NAME.bin --pkg=go-binding --type=$CONTRACT_NAME --out=go-binding/$CONTRACT_NAME.go
           done
       - name: Commit and push the generated ABI files
         run: |
           git config --global user.email "bot@bitmark.com"
           git config --global user.name "Bitmark Bot"
-          git add go-bindings/*.go
+          git add go-binding/*.go
           git commit -m "Generate and commit ABI files for Pull Requests: $PR_NUMBER" || echo "No changes to commit"
           git push
