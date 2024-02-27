@@ -628,3 +628,4 @@ contract FeralfileExhibitionV4 is
     /// @notice Event emitted when Artwork has been sold
     event BuyArtwork(address indexed buyer, uint256 indexed tokenId);
 }
+ 
