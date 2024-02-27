@@ -25,6 +25,28 @@ jobs:
   
       - name: Install abigen
         run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+
+      - name: Write secret.json file
+        env:
+          MNEMONIC: ${{ secrets.MNEMONIC }}
+          MAINNET_ENDPOINT: ${{ secrets.MAINNET_ENDPOINT }}
+          GOERLI_ENDPOINT: ${{ secrets.GOERLI_ENDPOINT }}
+          BSCTEST_ENDPOINT: ${{ secrets.BSCTEST_ENDPOINT }}
+          BSC_ENDPOINT: ${{ secrets.BSC_ENDPOINT }}
+          ETHERSCAN_API: ${{ secrets.ETHERSCAN_API }}
+          BSC_API: ${{ secrets.BSC_API }}
+        run: |
+          cat <<EOF > secret.json
+          {
+            "mnemonic": "${MNEMONIC}",
+            "mainnet_endpoint": "${MAINNET_ENDPOINT}",
+            "goerli_endpoint": "${GOERLI_ENDPOINT}",
+            "bsctest_endpoint": "${BSCTEST_ENDPOINT}",
+            "bsc_endpoint": "${BSC_ENDPOINT}",
+            "etherscan_api": "${ETHERSCAN_API}",
+            "bsc_api": "${BSC_API}"
+          }
+          EOF
   
       - name: Generate ABI files for changed Solidity files
         env:
