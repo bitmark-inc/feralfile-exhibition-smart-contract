@@ -14,12 +14,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      
+      - name: NodeJS Setup
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
 
-      - name: Install Solidity Compiler
-        run: |
-          sudo add-apt-repository ppa:ethereum/ethereum
-          sudo apt-get update
-          sudo apt-get install solc
+      - name: Install Truffle globally
+        run: npm install -g truffle sol-merger
   
       - name: Install abigen
         run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
@@ -34,9 +36,14 @@ jobs:
           # Fetch the list of changed files in the PR
           FILES=$(gh pr view $PR_NUMBER --json files --jq '.files[].path' | grep '\.sol$')
           echo "Changed Solidity files: $FILES"
+
+          npm install
+          truffle compile
           
           for FILE in $FILES; do
             CONTRACT_NAME=$(basename "$FILE" .sol)
+            jq -r ".bytecode" build/contracts/CONTRACT_NAME.json > ./build/CONTRACT_NAME.bin
+            jq -r ".abi" build/contracts/CONTRACT_NAME.json > ./build/CONTRACT_NAME.abi
             abigen --abi=build/$CONTRACT_NAME.abi --bin build/$CONTRACT_NAME.bin --pkg=go-binding --type=$CONTRACT_NAME --out=go-binding/$CONTRACT_NAME.go
           done
       - name: Commit and push the generated ABI files
