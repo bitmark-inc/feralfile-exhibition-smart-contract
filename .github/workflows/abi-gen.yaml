@@ -25,6 +25,8 @@ jobs:
         run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
   
       - name: Generate ABI files for changed Solidity files
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
           echo "Pull Request Number: $PR_NUMBER"
