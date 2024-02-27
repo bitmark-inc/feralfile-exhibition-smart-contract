@@ -36,7 +36,7 @@ jobs:
           ETHERSCAN_API: ${{ secrets.ETHERSCAN_API }}
           BSC_API: ${{ secrets.BSC_API }}
         run: |
-          cat <<EOF > secret.json
+          cat <<EOF > .secret.json
           {
             "mnemonic": "${MNEMONIC}",
             "mainnet_endpoint": "${MAINNET_ENDPOINT}",
