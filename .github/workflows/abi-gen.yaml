@@ -64,8 +64,8 @@ jobs:
           
           for FILE in $FILES; do
             CONTRACT_NAME=$(basename "$FILE" .sol)
-            jq -r ".bytecode" build/contracts/CONTRACT_NAME.json > ./build/CONTRACT_NAME.bin
-            jq -r ".abi" build/contracts/CONTRACT_NAME.json > ./build/CONTRACT_NAME.abi
+            jq -r ".bytecode" build/contracts/$CONTRACT_NAME.json > ./build/$CONTRACT_NAME.bin
+            jq -r ".abi" build/contracts/$CONTRACT_NAME.json > ./build/$CONTRACT_NAME.abi
             abigen --abi=build/$CONTRACT_NAME.abi --bin build/$CONTRACT_NAME.bin --pkg=go-binding --type=$CONTRACT_NAME --out=go-binding/$CONTRACT_NAME.go
           done
       - name: Commit and push the generated ABI files
