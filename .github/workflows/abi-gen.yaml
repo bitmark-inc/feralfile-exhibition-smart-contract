@@ -1,0 +1,47 @@
+name: Generate ABIs
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**/*.sol'
+
+jobs:
+  truffle-reviewdog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Solidity Compiler
+        run: |
+          sudo add-apt-repository ppa:ethereum/ethereum
+          sudo apt-get update
+          sudo apt-get install solc
+  
+      - name: Install abigen
+        run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+  
+      - name: Generate ABI files for changed Solidity files
+        run: |
+          PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
+          echo "Pull Request Number: $PR_NUMBER"
+          
+          # Fetch the list of changed files in the PR
+          FILES=$(gh pr view $PR_NUMBER --json files --jq '.files[].path' | grep '\.sol$')
+          echo "Changed Solidity files: $FILES"
+          
+          for FILE in $FILES; do
+            CONTRACT_NAME=$(basename "$FILE" .sol)
+            solc --abi $FILE -o build
+            abigen --abi=build/$CONTRACT_NAME.abi --pkg=abis --type=$CONTRACT_NAME --out=go-bindings/$CONTRACT_NAME.go
+          done
+      - name: Commit and push the generated ABI files
+        run: |
+          git config --global user.email "bot@bitmark.com"
+          git config --global user.name "Bitmark Bot"
+          git add go-bindings/*.go
+          git commit -m "Generate and commit ABI files for Pull Requests: $PR_NUMBER" || echo "No changes to commit"
+          git push
