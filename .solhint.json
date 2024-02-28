@@ -1,3 +1,9 @@
 {
-  "extends": "solhint:recommended"
+  "extends": "solhint:recommended",
+  "rules": {
+    "gas-calldata-parameters": "warn",
+    "gas-indexed-events": "warn",
+    "gas-small-strings": "warn",
+    "code-complexity": ["warn",7]
+  }
 }
