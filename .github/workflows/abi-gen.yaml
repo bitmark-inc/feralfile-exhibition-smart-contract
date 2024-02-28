@@ -1,13 +1,12 @@
 name: Generate ABIs
 
 on:
-  pull_request:
-    branches: [ main ]
-    paths:
-      - '**/*.sol'
+  pull_request_review:
+    types: [submitted]
 
 jobs:
   gen-abi:
+    if: github.event.review.state == 'APPROVED'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -31,7 +30,7 @@ jobs:
   
       - name: Install abigen
         run: |
-          go install github.com/ethereum/go-ethereum/cmd/abigen@1.13.14
+          go install github.com/ethereum/go-ethereum/cmd/abigen@latest
 
       - name: Write secret.json file
         env:
