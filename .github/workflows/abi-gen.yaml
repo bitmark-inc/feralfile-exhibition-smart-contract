@@ -1,0 +1,68 @@
+name: Generate ABIs
+
+on:
+  pull_request:
+    branches: [ main ]
+    # paths:
+    #   - '**/*.sol'
+
+jobs:
+  gen-abi:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+
+      - name: Install Truffle globally
+        run: npm install -g truffle sol-merger
+  
+      - name: Install abigen
+        run: |
+          go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+
+      - name: Write secret.json file
+        env:
+          MNEMONIC: ${{ secrets.MNEMONIC }}
+          MAINNET_ENDPOINT: ${{ secrets.MAINNET_ENDPOINT }}
+          GOERLI_ENDPOINT: ${{ secrets.GOERLI_ENDPOINT }}
+          BSCTEST_ENDPOINT: ${{ secrets.BSCTEST_ENDPOINT }}
+          BSC_ENDPOINT: ${{ secrets.BSC_ENDPOINT }}
+          ETHERSCAN_API: ${{ secrets.ETHERSCAN_API }}
+          BSC_API: ${{ secrets.BSC_API }}
+        run: |
+          cat <<EOF > .secret.json
+          {
+            "mnemonic": "${MNEMONIC}",
+            "mainnet_endpoint": "${MAINNET_ENDPOINT}",
+            "goerli_endpoint": "${GOERLI_ENDPOINT}",
+            "bsctest_endpoint": "${BSCTEST_ENDPOINT}",
+            "bsc_endpoint": "${BSC_ENDPOINT}",
+            "etherscan_api": "${ETHERSCAN_API}",
+            "bsc_api": "${BSC_API}"
+          }
+          EOF
+  
+      - name: Generate ABI files
+        run: |
+          make build
+
+      - name: Commit and push the generated ABI files
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Generate ABIs for PR #${{github.event.pull_request.number}}"
+          file_pattern: '*.go'
+          commit_user_name: Bitmark Bot
+          commit_user_email: bot@bitmark.com
