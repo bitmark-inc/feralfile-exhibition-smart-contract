@@ -1,0 +1,34 @@
+name: Solidity Lint
+
+on: [pull_request]
+
+jobs:
+  solidity-lint:
+    name: Lint Solidity
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '18'
+
+    - name: Install Solhint
+      run: npm install -g solhint
+
+    - name: Run Solhint
+      run: solhint -f sarif 'contracts/**/*.sol' > solhint-report.txt
+      continue-on-error: true
+
+    - name: Install Reviewdog
+      uses: reviewdog/action-setup@v1
+
+    - name: Run Reviewdog
+      env:
+        REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        reviewdog -f=sarif -name="solhint" -reporter=github-pr-review -filter-mode=added < solhint-report.txt
