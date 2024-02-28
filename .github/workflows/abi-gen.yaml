@@ -3,8 +3,8 @@ name: Generate ABIs
 on:
   pull_request:
     branches: [ main ]
-    # paths:
-    #   - '**/*.sol'
+    paths:
+      - '**/*.sol'
 
 jobs:
   gen-abi:
@@ -31,7 +31,7 @@ jobs:
   
       - name: Install abigen
         run: |
-          go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+          go install github.com/ethereum/go-ethereum/cmd/abigen@1.13.14
 
       - name: Write secret.json file
         env:
