@@ -1,9 +1,13 @@
 const OwnerData = artifacts.require("OwnerData");
 const FeralfileExhibitionV4 = artifacts.require("FeralfileExhibitionV4");
+const FeralFileAirdropV1 = artifacts.require("FeralFileAirdropV1");
 const FeralfileVault = artifacts.require("FeralfileVault");
 
 const CONTRACT_URI = "ipfs://QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
 const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
+const TOKEN_URI =
+    "https://ipfs.bitmark.com/ipfs/QmNVdQSp1AvZonLwHzTbbZDPLgbpty15RMQrbPEWd4ooTU/{id}";
+const TOKEN_TYPE_FUNGIBLE = 0;
 
 const { bufferToHex } = require("ethereumjs-util");
 
@@ -31,19 +35,40 @@ contract("OwnerData", async (accounts) => {
             COST_RECEIVER,
             CONTRACT_URI,
             this.seriesIds,
-            this.seriesMaxSupply
+            this.seriesMaxSupply,
         );
 
         await this.exhibitionContract.mintArtworks([
-            [1, 1, accounts[0]],
-            [1, 2, accounts[1]],
-            [1, 3, accounts[2]],
-            [1, 4, accounts[0]],
-            [1, 5, accounts[1]],
-            [1, 6, accounts[2]],
-            [1, 7, "0x23221e5403511CeC833294D2B1B006e9D639A61b"],
+            [this.seriesIds[0], 100001, accounts[0]],
+            [this.seriesIds[0], 100002, accounts[1]],
+            [this.seriesIds[0], 100003, accounts[2]],
+            [this.seriesIds[0], 100004, accounts[0]],
+            [this.seriesIds[0], 100005, accounts[1]],
+            [this.seriesIds[0], 100006, accounts[2]],
+            [
+                this.seriesIds[0],
+                100007,
+                "0x23221e5403511CeC833294D2B1B006e9D639A61b",
+            ],
+            [this.seriesIds[1], 200001, accounts[0]],
         ]);
+
         await this.exhibitionContract.addTrustee(this.trustee);
+        await this.ownerDataContract.setPublicTokens(
+            [this.exhibitionContract.address],
+            [200001],
+            true,
+        );
+
+        this.fungibleContract = await FeralFileAirdropV1.new(
+            TOKEN_TYPE_FUNGIBLE,
+            TOKEN_URI,
+            CONTRACT_URI,
+            true,
+            true,
+        );
+        await this.fungibleContract.mint(999, 10);
+        await this.fungibleContract.airdrop(999, [accounts[0], accounts[1]]);
     });
 
     it("test adding data successfully", async function () {
@@ -51,8 +76,9 @@ contract("OwnerData", async (accounts) => {
         const cidBytes = web3.utils.fromAscii(cid);
         const tx = await this.ownerDataContract.add(
             this.exhibitionContract.address,
-            1,
-            [accounts[0], cidBytes, "{duration: 1000}"]
+            100001,
+            [accounts[0], cidBytes, "{duration: 1000}"],
+            { from: accounts[0], value: 0 },
         );
         const { logs } = tx;
         assert.equal(logs[0].event, "DataAdded");
@@ -63,12 +89,12 @@ contract("OwnerData", async (accounts) => {
     it("test getting data", async function () {
         const data = await this.ownerDataContract.get(
             this.exhibitionContract.address,
-            1
+            100001,
         );
         assert.equal(data[0].owner, accounts[0]);
         assert.equal(
             bytesToString(data[0].dataHash),
-            "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc"
+            "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc",
         );
         assert.equal(data[0].metadata, "{duration: 1000}");
     });
@@ -78,9 +104,9 @@ contract("OwnerData", async (accounts) => {
         const cidBytes = web3.utils.fromAscii(cid);
         const tx = await this.ownerDataContract.add(
             this.exhibitionContract.address,
-            3,
+            100003,
             [accounts[2], cidBytes, "{duration: 1000}"],
-            { from: accounts[2] }
+            { from: accounts[2], value: 0 },
         );
         assert.equal(bytesToString(tx.logs[0].args.data.dataHash), cid);
 
@@ -89,9 +115,9 @@ contract("OwnerData", async (accounts) => {
         try {
             await this.ownerDataContract.add(
                 this.exhibitionContract.address,
-                3,
+                100003,
                 [accounts[2], updatedCidBytes, "{duration: 2000}"],
-                { from: accounts[2] }
+                { from: accounts[2], value: 0 },
             );
         } catch (error) {
             assert.equal(error.reason, "OwnerData: data already added");
@@ -108,9 +134,9 @@ contract("OwnerData", async (accounts) => {
 
         const tx1 = await this.ownerDataContract.add(
             this.exhibitionContract.address,
-            2,
+            100002,
             [accounts[1], cidBytes1, "{duration: 1000}"],
-            { from: accounts[1] }
+            { from: accounts[1], value: 0 },
         );
         assert.equal(bytesToString(tx1.logs[0].args.data.dataHash), cid1);
 
@@ -118,17 +144,17 @@ contract("OwnerData", async (accounts) => {
         await this.exhibitionContract.transferFrom(
             accounts[1],
             accounts[2],
-            2,
-            { from: accounts[1] }
+            100002,
+            { from: accounts[1] },
         );
-        const acc2Owner = await this.exhibitionContract.ownerOf(2);
+        const acc2Owner = await this.exhibitionContract.ownerOf(100002);
         assert.equal(acc2Owner, accounts[2]);
 
         const tx2 = await this.ownerDataContract.add(
             this.exhibitionContract.address,
-            2,
+            100002,
             [accounts[2], cidBytes2, "{duration: 2000}"],
-            { from: accounts[2] }
+            { from: accounts[2], value: 0 },
         );
         assert.equal(bytesToString(tx2.logs[0].args.data.dataHash), cid2);
 
@@ -136,23 +162,23 @@ contract("OwnerData", async (accounts) => {
         await this.exhibitionContract.transferFrom(
             accounts[2],
             accounts[4],
-            2,
-            { from: accounts[2] }
+            100002,
+            { from: accounts[2] },
         );
-        const acc4Owner = await this.exhibitionContract.ownerOf(2);
+        const acc4Owner = await this.exhibitionContract.ownerOf(100002);
         assert.equal(acc4Owner, accounts[4]);
 
         const tx3 = await this.ownerDataContract.add(
             this.exhibitionContract.address,
-            2,
+            100002,
             [accounts[4], cidBytes3, "{duration: 3000}"],
-            { from: accounts[4] }
+            { from: accounts[4], value: 0 },
         );
         assert.equal(bytesToString(tx3.logs[0].args.data.dataHash), cid3);
 
         const data = await this.ownerDataContract.get(
             this.exhibitionContract.address,
-            2
+            100002,
         );
 
         assert.equal(data.length, 3);
@@ -172,11 +198,15 @@ contract("OwnerData", async (accounts) => {
         try {
             await this.ownerDataContract.add(
                 this.exhibitionContract.address,
-                1,
-                [accounts[1], cidBytes, "{duration: 1000}"]
+                100001,
+                [accounts[1], cidBytes, "{duration: 1000}"],
+                { from: accounts[0], value: 0 },
             );
         } catch (error) {
-            assert.equal(error.reason, "OwnerData: data owner mismatch");
+            assert.equal(
+                error.reason,
+                "OwnerData: data owner and sender mismatch",
+            );
         }
     });
 
@@ -184,16 +214,17 @@ contract("OwnerData", async (accounts) => {
         const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
         const cidBytes = web3.utils.fromAscii(cid);
         try {
-            await this.ownerDataContract.add(accounts[1], 1, [
-                accounts[0],
-                cidBytes,
-                "{duration: 1000}",
-            ]);
+            await this.ownerDataContract.add(
+                accounts[1],
+                100001,
+                [accounts[0], cidBytes, "{duration: 1000}"],
+                { from: accounts[0], value: 0 },
+            );
         } catch (error) {
             assert.ok(
                 error.message.includes(
-                    "VM Exception while processing transaction: revert"
-                )
+                    "VM Exception while processing transaction: revert",
+                ),
             );
         }
     });
@@ -222,7 +253,7 @@ contract("OwnerData", async (accounts) => {
                 this.ownerDataContract.address,
                 signature,
                 expiryTime,
-            ]
+            ],
         );
 
         const hash = web3.utils.keccak256(signedParams);
@@ -241,12 +272,103 @@ contract("OwnerData", async (accounts) => {
             web3.utils.toDecimal(v) + 27,
         ];
 
-        const tx = await this.ownerDataContract.signedAdd(
+        const tx = await this.ownerDataContract.signedAdd([
+            [this.exhibitionContract.address, 100007, data, signs],
+        ]);
+        assert.equal(tx.logs[0].event, "DataAdded");
+    });
+
+    it("test adding data for public token", async function () {
+        const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
+        const cidBytes = web3.utils.fromAscii(cid);
+
+        const tx1 = await this.ownerDataContract.add(
             this.exhibitionContract.address,
-            7,
-            data,
-            signs
+            200001,
+            [accounts[0], cidBytes, "{duration: 1000}"],
+            { from: accounts[0], value: web3.utils.toWei("0.001", "ether") },
+        );
+        assert.equal(tx1.logs[0].event, "DataAdded");
+
+        const tx2 = await this.ownerDataContract.add(
+            this.exhibitionContract.address,
+            200001,
+            [accounts[2], cidBytes, "{duration: 1000}"],
+            { from: accounts[2], value: web3.utils.toWei("0.02", "ether") },
+        );
+        assert.equal(tx2.logs[0].event, "DataAdded");
+    });
+
+    it("test adding data for public token using signed add function", async function () {
+        const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
+        const cidBytes = web3.utils.fromAscii(cid);
+        const data = [
+            "0x23221e5403511CeC833294D2B1B006e9D639A61b",
+            cidBytes,
+            "{duration: 1000}",
+        ];
+
+        const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
+        const chainId = await web3.eth.getChainId();
+        const signedParams = web3.eth.abi.encodeParameters(
+            ["uint", "address", "bytes", "uint256"],
+            [
+                BigInt(chainId).toString(),
+                this.ownerDataContract.address,
+                web3.utils.fromAscii(""),
+                expiryTime,
+            ],
+        );
+
+        const hash = web3.utils.keccak256(signedParams);
+        const trusteeSignature = await web3.eth.sign(hash, accounts[5]);
+        const sig = trusteeSignature.substr(2);
+        const r = "0x" + sig.slice(0, 64);
+        const s = "0x" + sig.slice(64, 128);
+        const v = "0x" + sig.slice(128, 130);
+
+        // sign params
+        const signs = [
+            web3.utils.fromAscii(""),
+            expiryTime,
+            r,
+            s,
+            web3.utils.toDecimal(v) + 27,
+        ];
+
+        const tx = await this.ownerDataContract.signedAdd([
+            [this.exhibitionContract.address, 200001, data, signs],
+        ]);
+        assert.equal(tx.logs[0].event, "DataAdded");
+    });
+
+    it("test add sound for ERC1155 token successfully", async function () {
+        const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
+        const cidBytes = web3.utils.fromAscii(cid);
+        const tx = await this.ownerDataContract.add(
+            this.fungibleContract.address,
+            999,
+            [accounts[0], cidBytes, "{duration: 1000}"],
+            { from: accounts[0], value: 0 },
         );
         assert.equal(tx.logs[0].event, "DataAdded");
+    });
+
+    it("test add sound for ERC1155 token failed because wrong token owner", async function () {
+        const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
+        const cidBytes = web3.utils.fromAscii(cid);
+        try {
+            const tx = await this.ownerDataContract.add(
+                this.fungibleContract.address,
+                999,
+                [accounts[0], cidBytes, "{duration: 1000}"],
+                { from: accounts[2], value: 0 },
+            );
+        } catch (error) {
+            assert.equal(
+                error.reason,
+                "OwnerData: data owner and sender mismatch",
+            );
+        }
     });
 });
