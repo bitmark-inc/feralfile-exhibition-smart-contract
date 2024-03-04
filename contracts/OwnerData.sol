@@ -15,7 +15,9 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
  */
 contract OwnerData is Context, Ownable {
     string private constant SIGNED_MESSAGE = "Authorize to write your data to the contract";
-    address private immutable _trustee;
+    address private immutable _signer;
+    address private immutable _costReceiver;
+    uint256 private immutable _cost;
 
     struct Data {
         address owner;
@@ -47,21 +49,45 @@ contract OwnerData is Context, Ownable {
 
     event DataAdded(address indexed contractAddress, uint256 indexed tokenID, Data data);
 
-    constructor(address trustee_) {
-        require(trustee_ != address(0), "OwnerData: Trustee is the zero address");
-        _trustee = trustee_;
+    constructor(address signer_, address costReceiver_, uint256 cost_) {
+        require(signer_ != address(0), "OwnerData: Trustee is the zero address");
+        require(costReceiver_ != address(0), "OwnerData: Cost receiver is the zero address");
+        require(cost_ > 0, "OwnerData: Cost is zero");
+        _signer = signer_;
+        _costReceiver = costReceiver_;
+        _cost = cost_;
     }
 
     function add(address contractAddress_, uint256 tokenID_, Data calldata data_) external payable {
-        require(!_publicTokens[contractAddress_][tokenID_] || msg.value > 0, "OwnerData: Payment required for public token");
+        require(!_publicTokens[contractAddress_][tokenID_] || msg.value == _cost, "OwnerData: Payment required for public token");
         _addData(_msgSender(), contractAddress_, tokenID_, data_);
         if (msg.value > 0) {
-            payable(owner()).transfer(msg.value);
+            payable(_costReceiver).transfer(msg.value);
         }
     }
 
-    function get(address contractAddress_, uint256 tokenID_) external view returns (Data[] memory) {
-        return _tokenData[contractAddress_][tokenID_];
+    function get(address contractAddress_, uint256 tokenID_, uint256 startIndex, uint256 count) public view returns (Data[] memory) {
+        Data[] memory data = _tokenData[contractAddress_][tokenID_];
+        require(startIndex >= 0 && count > 0 && startIndex < data.length, "OwnerData: Invalid parameters");
+        if (count > data.length - startIndex) {
+            count = data.length - startIndex;
+        }
+        Data[] memory result = new Data[](count);
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = data[startIndex + i];
+        }
+        return result;
+    }
+
+    function remove(address contractAddress_, uint256 tokenID_, uint256[] calldata indexes_) external {
+        Data[] storage data = _tokenData[contractAddress_][tokenID_];
+        for (uint256 i = 0; i < indexes_.length; i++) {
+            require(indexes_[i] < data.length, "Index out of bounds");
+            if (indexes_[i] != data.length - 1) {
+                data[indexes_[i]] = data[data.length - 1];
+            }
+            data.pop();
+        }
     }
 
     function setPublicTokens(address[] memory contractAddresses_, uint256[] memory tokenIDs_, bool isPublic_) external onlyOwner {
@@ -119,7 +145,7 @@ contract OwnerData is Context, Ownable {
             signature_.r,
             signature_.s
         );
-        require(reqSigner == _trustee, "OwnerData: Invalid signature");
+        require(reqSigner == _signer, "OwnerData: Invalid signature");
     }
 
     function _recoverOwnerSignature(bytes memory signature_) private view returns (address) {

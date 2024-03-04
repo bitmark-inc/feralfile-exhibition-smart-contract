@@ -19,11 +19,15 @@ contract("OwnerData", async (accounts) => {
     before(async function () {
         this.signer = accounts[0];
         this.trustee = accounts[1];
-        this.signTrustee = accounts[5];
+        this.ownerDataSigner = accounts[5];
         this.vault = await FeralfileVault.new(this.signer);
-        this.ownerDataContract = await OwnerData.new(this.signTrustee);
-        this.seriesIds = [1, 2];
-        this.seriesMaxSupply = [100, 1];
+        this.ownerDataContract = await OwnerData.new(
+            this.ownerDataSigner,
+            COST_RECEIVER,
+            web3.utils.toWei("0.015", "ether"),
+        );
+        this.seriesIds = [1, 2, 3];
+        this.seriesMaxSupply = [100, 1, 1];
         this.seriesArtworkMaxSupply = [1, 100];
         this.exhibitionContract = await FeralfileExhibitionV4.new(
             "Feral File V4 Test",
@@ -51,12 +55,13 @@ contract("OwnerData", async (accounts) => {
                 "0x23221e5403511CeC833294D2B1B006e9D639A61b",
             ],
             [this.seriesIds[1], 200001, accounts[0]],
+            [this.seriesIds[2], 200002, accounts[0]],
         ]);
 
         await this.exhibitionContract.addTrustee(this.trustee);
         await this.ownerDataContract.setPublicTokens(
-            [this.exhibitionContract.address],
-            [200001],
+            [this.exhibitionContract.address, this.exhibitionContract.address],
+            [200001, 200002],
             true,
         );
 
@@ -90,6 +95,8 @@ contract("OwnerData", async (accounts) => {
         const data = await this.ownerDataContract.get(
             this.exhibitionContract.address,
             100001,
+            0,
+            100,
         );
         assert.equal(data[0].owner, accounts[0]);
         assert.equal(
@@ -179,6 +186,8 @@ contract("OwnerData", async (accounts) => {
         const data = await this.ownerDataContract.get(
             this.exhibitionContract.address,
             100002,
+            0,
+            100,
         );
 
         assert.equal(data.length, 3);
@@ -227,6 +236,62 @@ contract("OwnerData", async (accounts) => {
                 ),
             );
         }
+    });
+
+    it("test removing data successfully", async function () {
+        const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
+        const cidBytes = web3.utils.fromAscii(cid);
+        await this.ownerDataContract.add(
+            this.exhibitionContract.address,
+            200002,
+            [accounts[0], cidBytes, "{duration: 1000}"],
+            { from: accounts[0], value: web3.utils.toWei("0.015", "ether") },
+        );
+        await this.ownerDataContract.add(
+            this.exhibitionContract.address,
+            200002,
+            [accounts[1], cidBytes, "{duration: 1000}"],
+            { from: accounts[1], value: web3.utils.toWei("0.015", "ether") },
+        );
+        await this.ownerDataContract.add(
+            this.exhibitionContract.address,
+            200002,
+            [accounts[2], cidBytes, "{duration: 1000}"],
+            { from: accounts[2], value: web3.utils.toWei("0.015", "ether") },
+        );
+        await this.ownerDataContract.add(
+            this.exhibitionContract.address,
+            200002,
+            [accounts[1], cidBytes, "{duration: 1000}"],
+            { from: accounts[1], value: web3.utils.toWei("0.015", "ether") },
+        );
+        await this.ownerDataContract.add(
+            this.exhibitionContract.address,
+            200002,
+            [accounts[0], cidBytes, "{duration: 1000}"],
+            { from: accounts[0], value: web3.utils.toWei("0.015", "ether") },
+        );
+        const res = await this.ownerDataContract.get(
+            this.exhibitionContract.address,
+            200002,
+            0,
+            100,
+        );
+        assert.equal(res.length, 5);
+        const tx = await this.ownerDataContract.remove(
+            this.exhibitionContract.address,
+            200002,
+            [4, 2],
+            { from: accounts[0] },
+        );
+
+        const res2 = await this.ownerDataContract.get(
+            this.exhibitionContract.address,
+            200002,
+            0,
+            100,
+        );
+        assert.equal(res2.length, 3);
     });
 
     it("test adding with signed add function", async function () {
@@ -286,7 +351,7 @@ contract("OwnerData", async (accounts) => {
             this.exhibitionContract.address,
             200001,
             [accounts[0], cidBytes, "{duration: 1000}"],
-            { from: accounts[0], value: web3.utils.toWei("0.001", "ether") },
+            { from: accounts[0], value: web3.utils.toWei("0.015", "ether") },
         );
         assert.equal(tx1.logs[0].event, "DataAdded");
 
@@ -294,7 +359,7 @@ contract("OwnerData", async (accounts) => {
             this.exhibitionContract.address,
             200001,
             [accounts[2], cidBytes, "{duration: 1000}"],
-            { from: accounts[2], value: web3.utils.toWei("0.02", "ether") },
+            { from: accounts[2], value: web3.utils.toWei("0.015", "ether") },
         );
         assert.equal(tx2.logs[0].event, "DataAdded");
     });
