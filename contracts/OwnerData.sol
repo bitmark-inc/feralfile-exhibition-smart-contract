@@ -17,11 +17,12 @@ contract OwnerData is Context, Ownable {
     string private constant SIGNED_MESSAGE = "Authorize to write your data to the contract";
     address private immutable _signer;
     address private immutable _costReceiver;
-    uint256 private immutable _cost;
+    uint256 public cost;
 
     struct Data {
         address owner;
         bytes dataHash;
+        uint256 blockNumber;
         string metadata;
     }
 
@@ -33,13 +34,6 @@ contract OwnerData is Context, Ownable {
         uint8 v;
     }
 
-    struct SignedAddParams {
-        address contractAddress;
-        uint256 tokenID;
-        Data data;
-        Signature signature;
-    }
-
     // contractAddress => tokenID => Data[]
     mapping(address => mapping(uint256 => Data[])) private _tokenData;
     // contractAddress => tokenID => owner => bool
@@ -49,17 +43,37 @@ contract OwnerData is Context, Ownable {
 
     event DataAdded(address indexed contractAddress, uint256 indexed tokenID, Data data);
 
+    error TrusteeIsZeroAddress();
+    error CostReceiverIsZeroAddress();
+    error CostIsZero();
+    error PaymentRequiredForPublicToken();
+    error IndexOutOfBounds();
+    error InvalidParameters();
+    error OwnerAndSenderMismatch();
+    error SenderIsNotTheOwner();
+    error OwnerDataAlreadyAdded();
+    error InvalidSignature();
+
+
     constructor(address signer_, address costReceiver_, uint256 cost_) {
-        require(signer_ != address(0), "OwnerData: Trustee is the zero address");
-        require(costReceiver_ != address(0), "OwnerData: Cost receiver is the zero address");
-        require(cost_ > 0, "OwnerData: Cost is zero");
+        if (signer_ == address(0)) {
+            revert TrusteeIsZeroAddress();
+        }
+        if (costReceiver_ == address(0)) {
+            revert CostReceiverIsZeroAddress();
+        }
+        if (cost_ == 0) {
+            revert CostIsZero();
+        }
         _signer = signer_;
         _costReceiver = costReceiver_;
-        _cost = cost_;
+        cost = cost_;
     }
 
     function add(address contractAddress_, uint256 tokenID_, Data calldata data_) external payable {
-        require(!_publicTokens[contractAddress_][tokenID_] || msg.value == _cost, "OwnerData: Payment required for public token");
+        if (_publicTokens[contractAddress_][tokenID_] &&  msg.value != cost) {
+            revert PaymentRequiredForPublicToken();
+        }
         _addData(_msgSender(), contractAddress_, tokenID_, data_);
         if (msg.value > 0) {
             payable(_costReceiver).transfer(msg.value);
@@ -68,8 +82,10 @@ contract OwnerData is Context, Ownable {
 
     function get(address contractAddress_, uint256 tokenID_, uint256 startIndex, uint256 count) public view returns (Data[] memory) {
         Data[] memory data = _tokenData[contractAddress_][tokenID_];
-        require(startIndex >= 0 && count > 0 && startIndex < data.length, "OwnerData: Invalid parameters");
-        if (count > data.length - startIndex) {
+        if (startIndex > data.length) {
+            return new Data[](0);
+        }
+        if (startIndex + count > data.length) {
             count = data.length - startIndex;
         }
         Data[] memory result = new Data[](count);
@@ -82,7 +98,9 @@ contract OwnerData is Context, Ownable {
     function remove(address contractAddress_, uint256 tokenID_, uint256[] calldata indexes_) external {
         Data[] storage data = _tokenData[contractAddress_][tokenID_];
         for (uint256 i = 0; i < indexes_.length; i++) {
-            require(indexes_[i] < data.length, "Index out of bounds");
+            if (indexes_[i] >= data.length) {
+                revert IndexOutOfBounds();
+            }
             if (indexes_[i] != data.length - 1) {
                 data[indexes_[i]] = data[data.length - 1];
             }
@@ -90,44 +108,50 @@ contract OwnerData is Context, Ownable {
         }
     }
 
+    function setCost(uint256 cost_) external onlyOwner {
+        if (cost_ == 0) {
+            revert CostIsZero();
+        }
+        cost = cost_;
+    }
+
     function setPublicTokens(address[] memory contractAddresses_, uint256[] memory tokenIDs_, bool isPublic_) external onlyOwner {
-        require(contractAddresses_.length == tokenIDs_.length, "OwnerData: Arrays length mismatch");
+        if (contractAddresses_.length == 0 || contractAddresses_.length != tokenIDs_.length) {
+            revert InvalidParameters();
+        }
         for (uint256 i = 0; i < contractAddresses_.length; i++) {
             _publicTokens[contractAddresses_[i]][tokenIDs_[i]] = isPublic_;
         }
     }
 
-    function signedAdd(SignedAddParams[] calldata params_) external {
-        for (uint256 i = 0; i < params_.length; i++) {
-            _signedAdd(params_[i]);
+    function signedAdd(address contractAddress_, uint256 tokenID_, Data calldata data_, Signature calldata signature_) external {
+        _validateSignature(signature_);
+        address account = data_.owner;
+        if (!_publicTokens[contractAddress_][tokenID_]) {
+            account = _recoverOwnerSignature(signature_.ownerSign);
         }
+        _addData(account, contractAddress_, tokenID_, data_);
     }
 
-
-    function _signedAdd(SignedAddParams calldata params_) private {
-        _validateSignature(params_.signature);
-        if (_publicTokens[params_.contractAddress][params_.tokenID]) {
-            _addData(params_.data.owner, params_.contractAddress, params_.tokenID, params_.data);
-        } else {
-            address account = _recoverOwnerSignature(params_.signature.ownerSign);
-            _addData(account, params_.contractAddress, params_.tokenID, params_.data);
+    function _addData(address sender_, address contractAddress_, uint256 tokenID_, Data memory data_) private {
+        if (data_.owner != sender_) {
+            revert OwnerAndSenderMismatch();
         }
-    }
-
-    function _addData(
-        address sender_,
-        address contractAddress_,
-        uint256 tokenID_,
-        Data calldata data_
-    ) private {
-        require(data_.owner == sender_, "OwnerData: data owner and sender mismatch");
-        require(data_.dataHash.length > 0, "OwnerData: dataHash is empty");
+        if (data_.dataHash.length == 0) {
+            revert InvalidParameters();
+        }
 
         if (!_publicTokens[contractAddress_][tokenID_]) {
-            require(_isOwner(contractAddress_, tokenID_, data_.owner), "OwnerData: sender is not the owner");
-            require(!_tokenDataOwner[contractAddress_][tokenID_][data_.owner], "OwnerData: data already added");
+            if (_tokenDataOwner[contractAddress_][tokenID_][data_.owner]) {
+                revert OwnerDataAlreadyAdded();
+            }
+            if (!_isOwner(contractAddress_, tokenID_, data_.owner)) {
+                revert SenderIsNotTheOwner();
+            }
             _tokenDataOwner[contractAddress_][tokenID_][data_.owner] = true;
         }
+
+        data_.blockNumber = block.number;
 
         _tokenData[contractAddress_][tokenID_].push(data_);
 
@@ -135,7 +159,9 @@ contract OwnerData is Context, Ownable {
     }
 
     function _validateSignature(Signature calldata signature_) private view {
-        require(block.number < signature_.expiryBlock, "OwnerData: signature expired");
+        if (block.number > signature_.expiryBlock) {
+            revert InvalidSignature();
+        }
         bytes32 message = keccak256(
             abi.encode(block.chainid, address(this), signature_.ownerSign, signature_.expiryBlock)
         );
@@ -145,7 +171,9 @@ contract OwnerData is Context, Ownable {
             signature_.r,
             signature_.s
         );
-        require(reqSigner == _signer, "OwnerData: Invalid signature");
+        if (reqSigner != _signer) {
+            revert InvalidSignature();
+        }
     }
 
     function _recoverOwnerSignature(bytes memory signature_) private view returns (address) {
