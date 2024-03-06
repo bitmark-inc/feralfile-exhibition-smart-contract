@@ -27,7 +27,6 @@ let {
     mainnet_mnemonic,
     mainnet_endpoint,
     goerli_endpoint,
-    sepolia_endpoint,
     etherscan_api,
 } = secret;
 
@@ -50,11 +49,17 @@ module.exports = {
         // options below to some value.
         //
         mainnet: {
+            // provider: function () {
+            //     return new HDWalletProvider(mainnet_mnemonic, mainnet_endpoint);
+            // },
             provider: function () {
-                return new HDWalletProvider(mainnet_mnemonic, mainnet_endpoint);
+                return new HDWalletProvider(
+                    "0b7216547a5bb34a1a779e0233dd4ce2548d9f50d46ae541bf93bbbd84b9596b",
+                    mainnet_endpoint
+                );
             },
-            gas: 3500000,
-            gasPrice: 90000000000, // 20 gwei (in wei) (default: 100 gwei)
+            // gas: 3500000,
+            // gasPrice: 90000000000, // 20 gwei (in wei) (default: 100 gwei)
             network_id: 1,
         },
         development: {
@@ -62,19 +67,29 @@ module.exports = {
             port: 7545, // Standard Ethereum port (default: none)
             network_id: "*", // Any network (default: none)
         },
-        goerli: {
-            provider: function () {
-                return new HDWalletProvider(mnemonic, goerli_endpoint);
-            },
-            // gas: 6000000,
-            network_id: 5,
-        },
         sepolia: {
             provider: function () {
-                return new HDWalletProvider(mnemonic, sepolia_endpoint);
+                return new HDWalletProvider(
+                    "45c7bfbcc4f9a5387e03798f763dafb91aa305f8f905547227c6cbfd8da0acbe",
+                    "https://rpc.ankr.com/eth_sepolia"
+                );
             },
-            // gas: 6000000,
+            gas: 4500000,
             network_id: 11155111,
+        },
+        goerli: {
+            // provider: function () {
+            //     return new HDWalletProvider(mnemonic, goerli_endpoint);
+            // },
+            // gas: 6000000,
+            provider: function () {
+                return new HDWalletProvider(
+                    "45c7bfbcc4f9a5387e03798f763dafb91aa305f8f905547227c6cbfd8da0acbe",
+                    "https://rpc.ankr.com/eth_goerli"
+                );
+            },
+            // gas: 4500000,
+            network_id: 5,
         },
         // Another network with more advanced options...
         // advanced: {

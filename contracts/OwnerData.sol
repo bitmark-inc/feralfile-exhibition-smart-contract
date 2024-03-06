@@ -71,7 +71,7 @@ contract OwnerData is Context, Ownable {
     }
 
     function add(address contractAddress_, uint256 tokenID_, Data calldata data_) external payable {
-        if (_publicTokens[contractAddress_][tokenID_] &&  msg.value != cost) {
+        if (_publicTokens[contractAddress_][tokenID_] && msg.value < cost) {
             revert PaymentRequiredForPublicToken();
         }
         _addData(_msgSender(), contractAddress_, tokenID_, data_);
@@ -88,9 +88,27 @@ contract OwnerData is Context, Ownable {
         if (startIndex + count > data.length) {
             count = data.length - startIndex;
         }
+        _sort(data);
         Data[] memory result = new Data[](count);
         for (uint256 i = 0; i < count; i++) {
             result[i] = data[startIndex + i];
+        }
+        return result;
+    }
+
+    function getByOwner(address contractAddress_, uint256 tokenID_, address owner_) public view returns (Data[] memory) {
+        Data[] memory data = _tokenData[contractAddress_][tokenID_];
+        Data[] memory temp = new Data[](data.length);
+        uint256 count = 0;
+        for (uint256 i = 0; i < data.length; i++) {
+            if (data[i].owner == owner_) {
+                temp[count] = data[i];
+                count++;
+            }
+        }
+        Data[] memory result = new Data[](count);
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = temp[i];
         }
         return result;
     }
@@ -152,10 +170,23 @@ contract OwnerData is Context, Ownable {
         }
 
         data_.blockNumber = block.number;
-
+        
         _tokenData[contractAddress_][tokenID_].push(data_);
 
         emit DataAdded(contractAddress_, tokenID_, data_);
+    }
+
+    function _sort(Data[] memory data_) private pure {
+        bool swapped;
+        do {
+            swapped = false;
+            for (uint256 i = 0; i < data_.length - 1; i++) {
+                if (data_[i].blockNumber > data_[i + 1].blockNumber) {
+                    (data_[i], data_[i + 1]) = (data_[i + 1], data_[i]);
+                    swapped = true;
+                }
+            }
+        } while (swapped);
     }
 
     function _validateSignature(Signature calldata signature_) private view {
