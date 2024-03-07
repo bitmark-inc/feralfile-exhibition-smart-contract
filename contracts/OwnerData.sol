@@ -22,7 +22,6 @@ contract OwnerData is Context, Ownable {
     struct Data {
         address owner;
         bytes dataHash;
-        uint256 blockNumber;
         string metadata;
     }
 
@@ -84,7 +83,6 @@ contract OwnerData is Context, Ownable {
         if (startIndex + count > data.length) {
             count = data.length - startIndex;
         }
-        _sort(data);
         Data[] memory result = new Data[](count);
         for (uint256 i = 0; i < count; i++) {
             result[i] = data[startIndex + i];
@@ -115,10 +113,7 @@ contract OwnerData is Context, Ownable {
             if (indexes_[i] >= data.length) {
                 revert IndexOutOfBounds();
             }
-            if (indexes_[i] != data.length - 1) {
-                data[indexes_[i]] = data[data.length - 1];
-            }
-            data.pop();
+            data[indexes_[i]].dataHash = new bytes(0);
         }
     }
 
@@ -162,24 +157,9 @@ contract OwnerData is Context, Ownable {
             _tokenDataOwner[contractAddress_][tokenID_][data_.owner] = true;
         }
 
-        data_.blockNumber = block.number;
-        
         _tokenData[contractAddress_][tokenID_].push(data_);
 
         emit DataAdded(contractAddress_, tokenID_, data_);
-    }
-
-    function _sort(Data[] memory data_) private pure {
-        bool swapped;
-        do {
-            swapped = false;
-            for (uint256 i = 0; i < data_.length - 1; i++) {
-                if (data_[i].blockNumber > data_[i + 1].blockNumber) {
-                    (data_[i], data_[i + 1]) = (data_[i + 1], data_[i]);
-                    swapped = true;
-                }
-            }
-        } while (swapped);
     }
 
     function _validateSignature(Signature calldata signature_) private view {
