@@ -45,7 +45,6 @@ contract OwnerData is Context, Ownable {
 
     error TrusteeIsZeroAddress();
     error CostReceiverIsZeroAddress();
-    error CostIsZero();
     error PaymentRequiredForPublicToken();
     error IndexOutOfBounds();
     error InvalidParameters();
@@ -61,9 +60,6 @@ contract OwnerData is Context, Ownable {
         }
         if (costReceiver_ == address(0)) {
             revert CostReceiverIsZeroAddress();
-        }
-        if (cost_ == 0) {
-            revert CostIsZero();
         }
         _signer = signer_;
         _costReceiver = costReceiver_;
@@ -127,9 +123,6 @@ contract OwnerData is Context, Ownable {
     }
 
     function setCost(uint256 cost_) external onlyOwner {
-        if (cost_ == 0) {
-            revert CostIsZero();
-        }
         cost = cost_;
     }
 

@@ -551,4 +551,14 @@ contract("OwnerData", async (accounts) => {
 
         assert.equal(data.length, 2);
     });
+
+    it("test set cost negative value", async function () {
+        try {
+            await this.ownerDataContract.setCost(
+                web3.utils.toWei("-0.015", "ether"),
+            );
+        } catch (error) {
+            assert.equal(error.reason, "value out-of-bounds");
+        }
+    });
 });
