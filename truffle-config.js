@@ -109,6 +109,8 @@ module.exports = {
         reporter: 'eth-gas-reporter',
         reporterOptions : { 
             currency: 'USD',
+            gasPriceApi: 'https://api.etherscan.io/api?module=proxy&action=eth_gasPrice',
+            token: 'ETH',
             coinmarketcap: process.env.COINMARKETCAP_API_KEY
          }
     },
