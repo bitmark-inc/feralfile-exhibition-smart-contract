@@ -9,11 +9,26 @@ truffle-check: ; @which truffle > /dev/null
 abigen-check: ; @which abigen > /dev/null
 jq-check: ; @which jq >/dev/null
 npm-check: ;@which npm >/dev/null
+sol-merger-check: ;@which sol-merger >/dev/null
 
 check: truffle-check abigen-check jq-check npm-check
 
 clean:
 	rm -rf **/abi.go
+
+merge: sol-merger-check
+	rm -rf /tmp/sol-merger && rm -rf ./contracts/sol-merger && \
+	mkdir /tmp/sol-merger && mkdir ./contracts/sol-merger && \
+	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV2.sol /tmp/sol-merger && \
+    sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV3.sol /tmp/sol-merger && \
+    sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV4.sol /tmp/sol-merger && \
+	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileEnglishAuction.sol /tmp/sol-merger && \
+	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralFileAirdropV1.sol /tmp/sol-merger && \
+	mv /tmp/sol-merger/FeralfileArtworkV2.sol ./contracts/sol-merger/FeralfileExhibitionV2.sol && \
+    mv /tmp/sol-merger/FeralfileArtworkV3.sol ./contracts/sol-merger/FeralfileExhibitionV3.sol && \
+    mv /tmp/sol-merger/FeralfileArtworkV4.sol ./contracts/sol-merger/FeralfileExhibitionV4.sol && \
+	mv /tmp/sol-merger/FeralfileEnglishAuction.sol ./contracts/sol-merger/FeralfileEnglishAuction.sol && \
+	mv /tmp/sol-merger/FeralFileAirdropV1.sol ./contracts/sol-merger/FeralFileAirdropV1.sol 
 
 build-contract: check
 	npm install && \
