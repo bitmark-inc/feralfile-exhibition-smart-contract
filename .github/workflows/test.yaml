@@ -1,0 +1,57 @@
+name: Solidity Test
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**/*.sol'
+
+jobs:
+  solidity-lint:
+    name: Lint Solidity
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '18'
+
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v42
+
+    - name: Write secret.json file
+      env:
+        MNEMONIC: ${{ secrets.MNEMONIC }}
+        MAINNET_ENDPOINT: ${{ secrets.MAINNET_ENDPOINT }}
+        GOERLI_ENDPOINT: ${{ secrets.GOERLI_ENDPOINT }}
+        BSCTEST_ENDPOINT: ${{ secrets.BSCTEST_ENDPOINT }}
+        BSC_ENDPOINT: ${{ secrets.BSC_ENDPOINT }}
+        ETHERSCAN_API: ${{ secrets.ETHERSCAN_API }}
+        BSC_API: ${{ secrets.BSC_API }}
+      run: |
+        cat <<EOF > .secret.json
+        {
+          "mnemonic": "${MNEMONIC}",
+          "mainnet_endpoint": "${MAINNET_ENDPOINT}",
+          "goerli_endpoint": "${GOERLI_ENDPOINT}",
+          "bsctest_endpoint": "${BSCTEST_ENDPOINT}",
+          "bsc_endpoint": "${BSC_ENDPOINT}",
+          "etherscan_api": "${ETHERSCAN_API}",
+          "bsc_api": "${BSC_API}"
+        }
+        EOF
+
+    - name: Test
+      env: 
+        CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+        TARGET_BRANCH: ${{ github.base_ref }}
+      run: |
+        npm install
+        .github/scripts/detect_and_test_changes.sh
+        

@@ -22,6 +22,7 @@
   "devDependencies": {
     "@openzeppelin/test-helpers": "^0.5.16",
     "coveralls": "^3.1.1",
+    "eth-gas-reporter": "^0.2.27",
     "ganache-cli": "^6.12.2",
     "solidity-coverage": "^0.7.22",
     "truffle": "^5.9.2",
