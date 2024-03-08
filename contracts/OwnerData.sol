@@ -15,9 +15,9 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
  */
 contract OwnerData is Context, Ownable {
     string private constant SIGNED_MESSAGE = "Authorize to write your data to the contract";
-    address private immutable _signer;
-    address private immutable _costReceiver;
-    uint256 public cost;
+    address public signer;
+    address public serviceFeeReceiver;
+    uint256 public serviceFee;
 
     struct Data {
         address owner;
@@ -41,11 +41,11 @@ contract OwnerData is Context, Ownable {
     mapping(address => mapping(uint256 => bool)) private _publicTokens;
 
     event DataAdded(address indexed contractAddress, uint256 indexed tokenID, Data data);
+    event DataRemoved(address indexed contractAddress, uint256 indexed tokenID, uint256[] indexes);
 
     error TrusteeIsZeroAddress();
-    error CostReceiverIsZeroAddress();
+    error EmptyServiceFeeReceiver();
     error PaymentRequiredForPublicToken();
-    error IndexOutOfBounds();
     error InvalidParameters();
     error OwnerAndSenderMismatch();
     error SenderIsNotTheOwner();
@@ -53,28 +53,37 @@ contract OwnerData is Context, Ownable {
     error InvalidSignature();
 
 
-    constructor(address signer_, address costReceiver_, uint256 cost_) {
+    constructor(address signer_, address serviceFeeReceiver_, uint256 serviceFee_) {
         if (signer_ == address(0)) {
             revert TrusteeIsZeroAddress();
         }
-        if (costReceiver_ == address(0)) {
-            revert CostReceiverIsZeroAddress();
+        if (serviceFeeReceiver_ == address(0)) {
+            revert EmptyServiceFeeReceiver();
         }
-        _signer = signer_;
-        _costReceiver = costReceiver_;
-        cost = cost_;
+        signer = signer_;
+        serviceFeeReceiver = serviceFeeReceiver_;
+        serviceFee = serviceFee_;
     }
 
+    /// @notice add data to the token
+    /// @param contractAddress_ - the address of the contract
+    /// @param tokenID_ - the token ID
+    /// @param data_ - the data to add
     function add(address contractAddress_, uint256 tokenID_, Data calldata data_) external payable {
-        if (_publicTokens[contractAddress_][tokenID_] && msg.value < cost) {
+        if (_publicTokens[contractAddress_][tokenID_] && msg.value < serviceFee) {
             revert PaymentRequiredForPublicToken();
         }
         _addData(_msgSender(), contractAddress_, tokenID_, data_);
         if (msg.value > 0) {
-            payable(_costReceiver).transfer(msg.value);
+            payable(serviceFeeReceiver).transfer(msg.value);
         }
     }
 
+    /// @notice get data by contract address and token ID
+    /// @param contractAddress_ - the address of the contract
+    /// @param tokenID_ - the token ID
+    /// @param startIndex - the start index
+    /// @param count - the count of data
     function get(address contractAddress_, uint256 tokenID_, uint256 startIndex, uint256 count) public view returns (Data[] memory) {
         Data[] memory data = _tokenData[contractAddress_][tokenID_];
         if (startIndex > data.length) {
@@ -90,6 +99,10 @@ contract OwnerData is Context, Ownable {
         return result;
     }
 
+    /// @notice get data by contract address, token ID and owner
+    /// @param contractAddress_ - the address of the contract
+    /// @param tokenID_ - the token ID
+    /// @param owner_ - the owner address
     function getByOwner(address contractAddress_, uint256 tokenID_, address owner_) public view returns (Data[] memory) {
         Data[] memory data = _tokenData[contractAddress_][tokenID_];
         Data[] memory temp = new Data[](data.length);
@@ -107,20 +120,46 @@ contract OwnerData is Context, Ownable {
         return result;
     }
 
-    function remove(address contractAddress_, uint256 tokenID_, uint256[] calldata indexes_) external {
+    /// @notice remove data by indexes
+    /// @param contractAddress_ - the address of the contract
+    /// @param tokenID_ - the token ID
+    /// @param indexes_ - the indexes of the data to remove
+    function remove(address contractAddress_, uint256 tokenID_, uint256[] calldata indexes_) external onlyOwner {
         Data[] storage data = _tokenData[contractAddress_][tokenID_];
         for (uint256 i = 0; i < indexes_.length; i++) {
-            if (indexes_[i] >= data.length) {
-                revert IndexOutOfBounds();
-            }
             data[indexes_[i]].dataHash = new bytes(0);
         }
+        emit DataRemoved(contractAddress_, tokenID_, indexes_);
     }
 
-    function setCost(uint256 cost_) external onlyOwner {
-        cost = cost_;
+    /// @notice the service fee of adding data
+    /// @param serviceFee_ - the service fee of adding data
+    function setServiceFee(uint256 serviceFee_) external onlyOwner {
+        serviceFee = serviceFee_;
     }
 
+    /// @notice the service fee receiver address
+    /// @param serviceFeeReceiver_ - the address of service fee receiver
+    function setServiceFeeReceiver(address serviceFeeReceiver_) external onlyOwner {
+        if (serviceFeeReceiver_ == address(0)) {
+            revert EmptyServiceFeeReceiver();
+        }
+        serviceFeeReceiver = serviceFeeReceiver_;
+    }
+
+    /// @notice the address of the signer
+    /// @param signer_ - the address of the signer
+    function setSigner(address signer_) external onlyOwner {
+        if (signer_ == address(0)) {
+            revert TrusteeIsZeroAddress();
+        }
+        signer = signer_;
+    }
+
+    /// @notice set public tokens
+    /// @param contractAddresses_ - the addresses of the contracts
+    /// @param tokenIDs_ - the token IDs
+    /// @param isPublic_ - the flag of public token
     function setPublicTokens(address[] memory contractAddresses_, uint256[] memory tokenIDs_, bool isPublic_) external onlyOwner {
         if (contractAddresses_.length == 0 || contractAddresses_.length != tokenIDs_.length) {
             revert InvalidParameters();
@@ -130,6 +169,11 @@ contract OwnerData is Context, Ownable {
         }
     }
 
+    /// @notice add data with signature
+    /// @param contractAddress_ - the address of the contract
+    /// @param tokenID_ - the token ID
+    /// @param data_ - the data to add
+    /// @param signature_ - the signature
     function signedAdd(address contractAddress_, uint256 tokenID_, Data calldata data_, Signature calldata signature_) external {
         _validateSignature(signature_);
         address account = data_.owner;
@@ -175,7 +219,7 @@ contract OwnerData is Context, Ownable {
             signature_.r,
             signature_.s
         );
-        if (reqSigner != _signer) {
+        if (reqSigner != signer) {
             revert InvalidSignature();
         }
     }

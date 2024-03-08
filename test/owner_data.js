@@ -558,7 +558,7 @@ contract("OwnerData", async (accounts) => {
 
     it("test set cost negative value", async function () {
         try {
-            await this.ownerDataContract.setCost(
+            await this.ownerDataContract.setServiceFee(
                 web3.utils.toWei("-0.015", "ether"),
             );
         } catch (error) {
