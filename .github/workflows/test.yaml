@@ -8,7 +8,7 @@ on:
 
 jobs:
   solidity-lint:
-    name: Lint Solidity
+    name: Test Solidity
     runs-on: ubuntu-latest
     steps:
     - name: Check out code

@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# Fetch target branch
-TARGET_BRANCH=$1
-
-# Fetch changes
-git fetch origin $TARGET_BRANCH
-CHANGED_FILES=$(git diff --name-only FETCH_HEAD $(git merge-base FETCH_HEAD $TARGET_BRANCH) | grep '.sol$')
 echo "Changed files: $CHANGED_FILES"
 
 # Read the mapping file
@@ -15,6 +9,12 @@ declare -A MAPPING
 while IFS= read -r line; do
   contract=$(jq -r '.contract' <<< "$line")
   IFS=$'\n' read -r -d '' -a tests < <(jq -r '.tests[]' <<< "$line" && printf '\0')
+
+  # Check if tests array is empty
+  if [ ${#tests[@]} -eq 0 ]; then
+    echo "Error: No tests found for contract $contract."
+    exit 1
+  fi
   
   # Add each test to the mapping for the contract.
   for test in "${tests[@]}"; do
@@ -40,7 +40,7 @@ TEST_FILES=$(echo "$TEST_FILES" | tr ' ' '\n' | sort -u | tr '\n' ' ')
 if [ -n "$TEST_FILES" ]; then
   echo "Running tests for changed contracts:"
   echo $TEST_FILES
-  truffle test $TEST_FILES
+  COINMARKETCAP_API_KEY=$COINMARKETCAP_API_KEY truffle test $TEST_FILES
 else
   echo "No contract changes detected."
 fi
