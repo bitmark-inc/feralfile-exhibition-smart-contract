@@ -40,7 +40,8 @@ TEST_FILES=$(echo "$TEST_FILES" | tr ' ' '\n' | sort -u | tr '\n' ' ')
 if [ -n "$TEST_FILES" ]; then
   echo "Running tests for changed contracts:"
   echo $TEST_FILES
-  COINMARKETCAP_API_KEY=$COINMARKETCAP_API_KEY truffle test $TEST_FILES
+  echo $COINMARKETCAP_API_KEY
+  truffle test $TEST_FILES
 else
   echo "No contract changes detected."
 fi
