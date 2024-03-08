@@ -58,8 +58,7 @@ jobs:
 
     - name: Test
       env: 
+        COINMARKETCAP_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
         CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         TARGET_BRANCH: ${{ github.base_ref }}
-        COINMARKETCAP_API_KEY: ${{ secrets.COIN_MARKETCAP_API_KEY }}
       run: .github/scripts/detect_and_test_changes.sh
-        

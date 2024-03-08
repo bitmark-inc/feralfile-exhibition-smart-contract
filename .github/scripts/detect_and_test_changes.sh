@@ -1,7 +1,6 @@
 #!/bin/bash
 
 echo "Changed files: $CHANGED_FILES"
-echo "API KEY: $COINMARKETCAP_API_KEY"
 
 # Read the mapping file
 declare -A MAPPING
