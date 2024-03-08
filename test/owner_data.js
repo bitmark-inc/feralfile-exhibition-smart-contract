@@ -19,7 +19,7 @@ contract("OwnerData", async (accounts) => {
     before(async function () {
         this.signer = accounts[0];
         this.trustee = accounts[1];
-        this.ownerDataSigner = accounts[5];
+        this.ownerDataSigner = accounts[2];
         this.vault = await FeralfileVault.new(this.signer);
         this.ownerDataContract = await OwnerData.new(
             this.ownerDataSigner,
@@ -330,7 +330,7 @@ contract("OwnerData", async (accounts) => {
         );
 
         const hash = web3.utils.keccak256(signedParams);
-        const trusteeSignature = await web3.eth.sign(hash, accounts[5]);
+        const trusteeSignature = await web3.eth.sign(hash, this.ownerDataSigner);
         const sig = trusteeSignature.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
@@ -397,7 +397,7 @@ contract("OwnerData", async (accounts) => {
         );
 
         const hash = web3.utils.keccak256(signedParams);
-        const trusteeSignature = await web3.eth.sign(hash, accounts[5]);
+        const trusteeSignature = await web3.eth.sign(hash, this.ownerDataSigner);
         const sig = trusteeSignature.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
