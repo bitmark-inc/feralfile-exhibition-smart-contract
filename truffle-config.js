@@ -109,6 +109,7 @@ module.exports = {
         reporter: 'eth-gas-reporter',
         reporterOptions : { 
             currency: 'USD',
+            coinmarketcap: process.env.COINMARKETCAP_API_KEY
          }
     },
 
