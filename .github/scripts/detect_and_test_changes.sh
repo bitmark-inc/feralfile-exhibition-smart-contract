@@ -40,7 +40,7 @@ TEST_FILES=$(echo "$TEST_FILES" | tr ' ' '\n' | sort -u | tr '\n' ' ')
 if [ -n "$TEST_FILES" ]; then
   echo "Running tests for changed contracts:"
   echo $TEST_FILES
-  truffle test $TEST_FILES | tee test-output.txt
+  truffle test $TEST_FILES
 else
   echo "No contract changes detected."
 fi
