@@ -4,11 +4,11 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./IFeralfileSaleData.sol";
+import "./FeralfileSaleDataV2.sol";
 import "./ECDSASigner.sol";
 import "./IFeralfileVault.sol";
 
-contract IFeralfileExhibitionV4 is IFeralfileSaleData {
+contract IFeralfileExhibitionV5 is IFeralfileSaleDataV2 {
     function buyArtworks(
         bytes32 r_,
         bytes32 s_,
@@ -17,7 +17,7 @@ contract IFeralfileExhibitionV4 is IFeralfileSaleData {
     ) external payable {}
 }
 
-contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
+contract FeralfileEnglishAuction is Ownable, IFeralfileSaleDataV2, ECDSASigner {
     struct Auction {
         uint256 id;
         uint256 startAt;
@@ -107,7 +107,9 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
     function listAuctionStatus(
         uint256[] memory auctionIDs_
     ) external view returns (AuctionStatus[] memory) {
-        AuctionStatus[] memory results = new AuctionStatus[](auctionIDs_.length);
+        AuctionStatus[] memory results = new AuctionStatus[](
+            auctionIDs_.length
+        );
         for (uint i = 0; i < auctionIDs_.length; i++) {
             Auction memory auction_ = auctions[auctionIDs_[i]];
             results[i].highestBid = highestBids[auctionIDs_[i]];
@@ -253,7 +255,7 @@ contract FeralfileEnglishAuction is Ownable, IFeralfileSaleData, ECDSASigner {
 
         _settleAuctionFund(auction_, highestBid_, vaultAddr_);
 
-        IFeralfileExhibitionV4(tokenAddr_).buyArtworks(r_, s_, v_, saleData_);
+        IFeralfileExhibitionV5(tokenAddr_).buyArtworks(r_, s_, v_, saleData_);
 
         emit AuctionSettled(
             auctionID_,

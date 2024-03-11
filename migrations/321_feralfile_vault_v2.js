@@ -1,4 +1,4 @@
-var FeralfileVault = artifacts.require("FeralfileVault");
+var FeralfileVault = artifacts.require("FeralfileVaultV2");
 
 const argv = require("minimist")(process.argv.slice(2), {
     string: ["exhibition_signer"],

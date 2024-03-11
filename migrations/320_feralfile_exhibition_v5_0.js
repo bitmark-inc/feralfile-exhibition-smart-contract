@@ -1,4 +1,4 @@
-var FeralfileExhibitionV4 = artifacts.require("FeralfileExhibitionV4");
+var FeralfileExhibitionV5 = artifacts.require("FeralfileExhibitionV5");
 
 const argv = require("minimist")(process.argv.slice(2), {
     string: [
@@ -9,8 +9,6 @@ const argv = require("minimist")(process.argv.slice(2), {
 });
 
 module.exports = function (deployer) {
-    let exhibition_name = argv.exhibition_name || "FFV4 Test";
-    let exhibition_symbol = argv.exhibition_symbol || "FeralfileExhibitionV4";
     let exhibition_signer =
         argv.exhibition_signer || "0xdB33365a8730de2F7574ff1189fB9D337bF4c36d";
     let exhibition_vault =
@@ -19,24 +17,28 @@ module.exports = function (deployer) {
         argv.exhibition_cost_receiver ||
         "0xdB33365a8730de2F7574ff1189fB9D337bF4c36d";
     let burnable = argv.burnable || true;
-    let bridgeable = argv.bridgeable || true;
     let contract_uri =
         argv.contract_uri ||
         "ipfs://QmaQegRqExfFx8zuR6yscxzUwQJUc96LuNNQiAMK9BsUQe";
+    let token_uri =
+        argv.token_uri ||
+        "ipfs://QmZt5r6bU7r3BvCp6b6Z1yYK5Hd9M9WnQV2g8VfNnMmM3T/{id}";
     let series_ids = argv.series_ids || [1, 2, 3, 4];
-    let max_supplies = argv.max_supplies || [1000, 1000, 1000, 1000];
+    let series_max_supplies = argv.series_max_supplies || [10, 10, 10, 1];
+    let series_artwork_max_supplies = argv.series_artwork_max_supplies || [
+        1, 1, 1, 100,
+    ];
 
     deployer.deploy(
-        FeralfileExhibitionV4,
-        exhibition_name,
-        exhibition_symbol,
-        burnable,
-        bridgeable,
+        FeralfileExhibitionV5,
+        token_uri,
+        contract_uri,
         exhibition_signer,
         exhibition_vault,
         exhibition_cost_receiver,
-        contract_uri,
+        burnable,
         series_ids,
-        max_supplies
+        series_max_supplies,
+        series_artwork_max_supplies
     );
 };
