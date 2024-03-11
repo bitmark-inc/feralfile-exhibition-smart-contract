@@ -6,7 +6,6 @@ on:
 
 jobs:
   gen-abi:
-    if: github.event.review.state == 'APPROVED'
     runs-on: ubuntu-latest
     permissions:
       contents: write
