@@ -171,6 +171,9 @@ contract OwnerData is Context, Ownable {
         uint256 tokenID_,
         uint256[] calldata indexes_
     ) external onlyOwner {
+        if (publicToken != tokenID_) {
+            revert InvalidParameters();
+        }
         string memory key = string(
             abi.encodePacked(contractAddress_, "|", tokenID_)
         );

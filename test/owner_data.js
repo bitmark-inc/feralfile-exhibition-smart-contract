@@ -299,6 +299,46 @@ contract("OwnerData", async (accounts) => {
         assert.equal(bytesToString(res2[4].dataHash), "");
     });
 
+    it("test removing data failed because not public token", async function () {
+        const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
+        const cidBytes = web3.utils.fromAscii(cid);
+        const ownerDataContract = await OwnerData.new(
+            this.ownerDataSigner,
+            COST_RECEIVER,
+            web3.utils.toWei("0.015", "ether"),
+            300001
+        );
+        await ownerDataContract.add(
+            this.exhibitionContract.address,
+            300001,
+            [accounts[0], cidBytes, "{duration: 1000}"],
+            { from: accounts[0], value: web3.utils.toWei("0.015", "ether") }
+        );
+        await ownerDataContract.add(
+            this.exhibitionContract.address,
+            300001,
+            [accounts[1], cidBytes, "{duration: 1000}"],
+            { from: accounts[1], value: web3.utils.toWei("0.015", "ether") }
+        );
+        const res = await ownerDataContract.get(
+            this.exhibitionContract.address,
+            300001,
+            0,
+            100
+        );
+        assert.equal(res.length, 2);
+        try {
+            await ownerDataContract.remove(
+                this.exhibitionContract.address,
+                200001, // not public token
+                [0],
+                { from: accounts[0] }
+            );
+        } catch (error) {
+            assert.equal(error.reason, "Custom error (could not decode)");
+        }
+    });
+
     it("test adding with signed add function", async function () {
         const cid = "QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc";
         const cidBytes = web3.utils.fromAscii(cid);
