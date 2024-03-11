@@ -9,5 +9,6 @@ module.exports = function (deployer) {
     const costReceiver =
         argv.costReceiver || "0xdB33365a8730de2F7574ff1189fB9D337bF4c36d";
     const cost = argv.cost || "1000000000000000";
-    deployer.deploy(OwnerData, trustee, costReceiver, cost);
+    const publicToken = argv.publicToken || "10000";
+    deployer.deploy(OwnerData, trustee, costReceiver, cost, publicToken);
 };
