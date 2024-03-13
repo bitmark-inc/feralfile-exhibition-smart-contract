@@ -121,15 +121,16 @@ contract OwnerData is Context, Ownable {
             abi.encodePacked(contractAddress_, "|", tokenID_)
         );
         Data[] memory data = _tokenData[key];
-        if (startIndex > data.length) {
+        uint256 total = data.length;
+        if (startIndex > total) {
             return new Data[](0);
         }
-        if (startIndex + count > data.length) {
-            count = data.length - startIndex;
+        if (startIndex + count > total) {
+            count = total - startIndex;
         }
         Data[] memory result = new Data[](count);
         for (uint256 i = 0; i < count; i++) {
-            result[i] = data[startIndex + i];
+            result[i] = data[total - 1 - i - startIndex]; // get from end to begin
         }
         return result;
     }
@@ -157,7 +158,7 @@ contract OwnerData is Context, Ownable {
         }
         Data[] memory result = new Data[](count);
         for (uint256 i = 0; i < count; i++) {
-            result[i] = temp[i];
+            result[i] = temp[count - 1 - i]; // get from end to begin
         }
         return result;
     }

@@ -188,14 +188,14 @@ contract("OwnerData", async (accounts) => {
         );
 
         assert.equal(data.length, 3);
-        assert.equal(data[0].owner, accounts[1]);
-        assert.equal(bytesToString(data[0].dataHash), cid1);
+        assert.equal(data[0].owner, accounts[4]);
+        assert.equal(bytesToString(data[0].dataHash), cid3);
 
         assert.equal(data[1].owner, accounts[2]);
         assert.equal(bytesToString(data[1].dataHash), cid2);
 
-        assert.equal(data[2].owner, accounts[4]);
-        assert.equal(bytesToString(data[2].dataHash), cid3);
+        assert.equal(data[2].owner, accounts[1]);
+        assert.equal(bytesToString(data[2].dataHash), cid1);
     });
 
     it("test adding fail with wrong owner address", async function () {
@@ -292,11 +292,11 @@ contract("OwnerData", async (accounts) => {
             100
         );
         assert.equal(res2.length, 5);
-        assert.equal(bytesToString(res2[0].dataHash), cid);
+        assert.equal(bytesToString(res2[0].dataHash), "");
         assert.equal(bytesToString(res2[1].dataHash), cid);
         assert.equal(bytesToString(res2[2].dataHash), "");
         assert.equal(bytesToString(res2[3].dataHash), cid);
-        assert.equal(bytesToString(res2[4].dataHash), "");
+        assert.equal(bytesToString(res2[4].dataHash), cid);
     });
 
     it("test removing data failed because not public token", async function () {
@@ -552,10 +552,10 @@ contract("OwnerData", async (accounts) => {
         );
 
         assert.equal(data.length, 4);
-        assert.equal(bytesToString(data[0].dataHash), cid1);
-        assert.equal(bytesToString(data[1].dataHash), "");
-        assert.equal(bytesToString(data[2].dataHash), cid3);
-        assert.equal(bytesToString(data[3].dataHash), cid4);
+        assert.equal(bytesToString(data[0].dataHash), cid4);
+        assert.equal(bytesToString(data[1].dataHash), cid3);
+        assert.equal(bytesToString(data[2].dataHash), "");
+        assert.equal(bytesToString(data[3].dataHash), cid1);
     });
 
     it("test get data by owner", async function () {
