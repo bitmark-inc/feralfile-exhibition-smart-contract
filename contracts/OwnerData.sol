@@ -19,7 +19,7 @@ contract OwnerData is Context, Ownable {
 
     string private constant SIGNED_MESSAGE =
         "Authorize to write your data to the contract";
-    uint256 public immutable publicToken;
+    uint256 public publicToken;
     address public signer;
     address public serviceFeeReceiver;
     uint256 public serviceFee;
@@ -189,6 +189,12 @@ contract OwnerData is Context, Ownable {
     /// @param serviceFee_ - the service fee of adding data
     function setServiceFee(uint256 serviceFee_) external onlyOwner {
         serviceFee = serviceFee_;
+    }
+
+    /// @notice set the public token ID
+    /// @param publicToken_ - the token ID of public artwork
+    function setPublicToken(uint256 publicToken_) external onlyOwner {
+        publicToken = publicToken_;
     }
 
     /// @notice the service fee receiver address
