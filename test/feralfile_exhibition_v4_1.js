@@ -933,11 +933,12 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
     });
 
     it("test advance amount", async function () {
+        const costReceiver = accounts[6];
         const seriesIds = [0, 1, 2];
         const seriesMaxSupply = [100, 100, 100];
         const advanceAmounts = [
-            [accounts[3], web3.utils.toWei("0.1", "ether")],
-            [accounts[4], web3.utils.toWei("0.3", "ether")],
+            [accounts[3], web3.utils.toWei("0.3", "ether")],
+            [accounts[4], web3.utils.toWei("0.8", "ether")],
         ];
         const contract = await FeralfileExhibitionV4_1.new(
             "Feral File V4 Test",
@@ -946,7 +947,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
             true,
             this.signer,
             this.vault.address,
-            COST_RECEIVER,
+            costReceiver,
             CONTRACT_URI,
             seriesIds,
             seriesMaxSupply,
@@ -978,20 +979,30 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
                 BigInt(await web3.eth.getChainId()).toString(),
                 contract.address,
                 [
-                    BigInt(0.25 * 1e18).toString(),
+                    web3.utils.toWei("1", "ether"),
                     "0",
                     expiryTime,
                     accounts[2],
-                    [tokenID1, tokenID3],
+                    [tokenID1, tokenID2, tokenID3, tokenID4],
                     [
                         [
                             [accounts[3], 7000],
-                            [accounts[4], 2000],
-                            [accounts[5], 1000],
+                            [costReceiver, 2000],
+                            [accounts[5], 1000], // Curator
                         ],
                         [
                             [accounts[3], 7000],
-                            [accounts[4], 2000],
+                            [costReceiver, 2000],
+                            [accounts[5], 1000],
+                        ],
+                        [
+                            [accounts[4], 7000],
+                            [costReceiver, 2000],
+                            [accounts[5], 1000],
+                        ],
+                        [
+                            [accounts[4], 7000],
+                            [costReceiver, 2000],
                             [accounts[5], 1000],
                         ],
                     ],
@@ -1011,75 +1022,91 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
             const acc5BalanceBefore = await web3.eth.getBalance(accounts[5]);
             const accCostReceiverBalanceBefore = await web3.eth.getBalance(
-                COST_RECEIVER
+                costReceiver
             );
+
             await contract.startSale();
             await contract.buyArtworks(
                 r,
                 s,
                 web3.utils.toDecimal(v) + 27, // magic 27
                 [
-                    BigInt(0.25 * 1e18).toString(),
+                    web3.utils.toWei("1", "ether"),
                     "0",
                     expiryTime,
                     accounts[2],
-                    [tokenID1, tokenID3],
+                    [tokenID1, tokenID2, tokenID3, tokenID4],
                     [
                         [
                             [accounts[3], 7000],
-                            [accounts[4], 2000],
-                            [accounts[5], 1000],
+                            [costReceiver, 2000],
+                            [accounts[5], 1000], // Curator
                         ],
                         [
                             [accounts[3], 7000],
-                            [accounts[4], 2000],
+                            [costReceiver, 2000],
+                            [accounts[5], 1000],
+                        ],
+                        [
+                            [accounts[4], 7000],
+                            [costReceiver, 2000],
+                            [accounts[5], 1000],
+                        ],
+                        [
+                            [accounts[4], 7000],
+                            [costReceiver, 2000],
                             [accounts[5], 1000],
                         ],
                     ],
                     false,
                 ],
-                { from: accounts[2], value: 0.25 * 1e18 }
+                { from: accounts[2], value: 1 * 1e18 }
             );
             const ownerOfToken1 = await contract.ownerOf(tokenID1);
+            const ownerOfToken2 = await contract.ownerOf(tokenID2);
             const ownerOfToken3 = await contract.ownerOf(tokenID3);
+            const ownerOfToken4 = await contract.ownerOf(tokenID4);
             assert.equal(ownerOfToken1, accounts[2]);
+            assert.equal(ownerOfToken2, accounts[2]);
             assert.equal(ownerOfToken3, accounts[2]);
+            assert.equal(ownerOfToken4, accounts[2]);
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
             const acc5BalanceAfter = await web3.eth.getBalance(accounts[5]);
             const accCostReceiverBalanceAfter = await web3.eth.getBalance(
-                COST_RECEIVER
+                costReceiver
             );
 
-            // Revenues is 0.175 then deduct advance amount 0.1 => received 0.075
+            // Revenue per item is 1 / 4 = 0.25
+            // Revenues is 0.25 * 2 then deduct advance amount 0.3 => received 0.2 * 70% = 0.14
             assert.equal(
                 (
                     BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)
                 ).toString(),
-                BigInt(0.25 * 1e18 * 0.7 - 0.1 * 1e18).toString()
+                web3.utils.toWei("0.14", "ether")
             );
-            // Revenue is 0.175 then deduct advance amount 0.3 => received 0
+            // Revenue is 0.25 * 2 then deduct advance amount 0.8 => received 0
             assert.equal(
                 (
                     BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
                 ).toString(),
                 "0"
             );
-            // revenue is 10% of price
+            // revenue is 10% of price 0.2 * 10% = 0.02
             assert.equal(
                 (
                     BigInt(acc5BalanceAfter) - BigInt(acc5BalanceBefore)
                 ).toString(),
-                BigInt(0.25 * 1e18 * 0.1).toString()
+                web3.utils.toWei("0.02", "ether")
             );
-            // revenue is 20% of price and 0.1 advance amount
+            // revenue is 20% of price 0.2 = 0.04 and 0.8 advance amount
             assert.equal(
                 (
                     BigInt(accCostReceiverBalanceAfter) -
                     BigInt(accCostReceiverBalanceBefore)
                 ).toString(),
-                BigInt(0.25 * 1e18 * 0.2 + 0.1 * 1e18).toString()
+                web3.utils.toWei("0.84", "ether")
             );
         } catch (err) {
             console.log(err);
