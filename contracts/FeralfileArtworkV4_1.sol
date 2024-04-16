@@ -9,7 +9,7 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
         uint256 amount;
     }
 
-    mapping(address => uint256) private artistAdvancedAmounts;
+    mapping(address => uint256) public artistAdvancedAmounts;
 
     constructor(
         string memory name_,
