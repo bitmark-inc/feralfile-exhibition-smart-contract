@@ -27,7 +27,7 @@ merge: sol-merger-check
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/OwnerData.sol /tmp/sol-merger && \
 	mv /tmp/sol-merger/FeralfileArtworkV2.sol ./contracts/sol-merger/FeralfileExhibitionV2.sol && \
     mv /tmp/sol-merger/FeralfileArtworkV3.sol ./contracts/sol-merger/FeralfileExhibitionV3.sol && \
-    mv /tmp/sol-merger/FeralfileArtworkV4_1.sol ./contracts/sol-merger/FeralfileArtworkV4.sol && \
+    mv /tmp/sol-merger/FeralfileArtworkV4_1.sol ./contracts/sol-merger/FeralfileExhibitionV4.sol && \
 	mv /tmp/sol-merger/FeralfileEnglishAuction.sol ./contracts/sol-merger/FeralfileEnglishAuction.sol && \
 	mv /tmp/sol-merger/FeralFileAirdropV1.sol ./contracts/sol-merger/FeralFileAirdropV1.sol && \
 	mv /tmp/sol-merger/OwnerData.sol ./contracts/sol-merger/OwnerData.sol
