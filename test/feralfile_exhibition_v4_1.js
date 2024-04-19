@@ -12,7 +12,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         this.vault = await FeralfileVault.new(this.signer);
         this.seriesIds = [0, 1, 2, 3, 4];
         this.seriesMaxSupply = [1, 1, 100, 1000, 10000];
-        this.advanceAmounts = [];
 
         // Deploy multiple contracts
         this.contracts = [];
@@ -27,8 +26,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
                 COST_RECEIVER,
                 CONTRACT_URI,
                 this.seriesIds,
-                this.seriesMaxSupply,
-                this.advanceAmounts
+                this.seriesMaxSupply
             );
             this.contracts.push(contract);
         }
@@ -72,7 +70,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         // Deploy contract with duplicate series defined
         let seriesIds = [0, 1, 2, 3, 1];
         let seriesMaxSupply = [1, 1, 100, 1000, 10000];
-        let advanceAmounts = [];
         try {
             await FeralfileExhibitionV4_1.new(
                 "Feral File V4 Test",
@@ -84,8 +81,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
                 COST_RECEIVER,
                 CONTRACT_URI,
                 seriesIds,
-                seriesMaxSupply,
-                advanceAmounts
+                seriesMaxSupply
             );
         } catch (error) {
             assert.ok(
@@ -936,9 +932,10 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         const costReceiver = accounts[6];
         const seriesIds = [0, 1, 2];
         const seriesMaxSupply = [100, 100, 100];
+        const advanceAddresses = [accounts[3], accounts[4]];
         const advanceAmounts = [
-            [accounts[3], web3.utils.toWei("0.3", "ether")],
-            [accounts[4], web3.utils.toWei("0.8", "ether")],
+            web3.utils.toWei("0.3", "ether"),
+            web3.utils.toWei("0.8", "ether"),
         ];
         const contract = await FeralfileExhibitionV4_1.new(
             "Feral File V4 Test",
@@ -950,9 +947,11 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
             costReceiver,
             CONTRACT_URI,
             seriesIds,
-            seriesMaxSupply,
-            advanceAmounts
+            seriesMaxSupply
         );
+
+        // 0. set advance setting
+        await contract.setAdvanceSetting(advanceAddresses, advanceAmounts);
 
         // 1. mint artworks
         const tokenID1 = seriesIds[0] * 1000000 + 0;

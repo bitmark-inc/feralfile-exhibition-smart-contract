@@ -25,10 +25,6 @@ module.exports = function (deployer) {
         "ipfs://QmaQegRqExfFx8zuR6yscxzUwQJUc96LuNNQiAMK9BsUQe";
     let series_ids = argv.series_ids || [1, 2, 3, 4];
     let max_supplies = argv.max_supplies || [1000, 1000, 1000, 1000];
-    let advance_amounts = argv.advance_amounts || [
-        ["0x487bA00d91015dcc905Bb93b528c12a05FbC7A4F", `${0.2 * 1e18}`],
-        ["0xb824EDfC5dcEd3ac86B6F5816763A35c2ba66FA2", `${0.1 * 1e18}`],
-    ];
 
     deployer.deploy(
         FeralfileExhibitionV4_1,
@@ -41,7 +37,6 @@ module.exports = function (deployer) {
         exhibition_cost_receiver,
         contract_uri,
         series_ids,
-        max_supplies,
-        advance_amounts
+        max_supplies
     );
 };

@@ -4,12 +4,12 @@ pragma solidity ^0.8.13;
 import "./FeralfileArtworkV4.sol";
 
 contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
-    struct AdvancedData {
-        address artist;
-        uint256 amount;
-    }
+    mapping(address => uint256) public advances;
 
-    mapping(address => uint256) public artistAdvancedAmounts;
+    error InvalidAdvanceAddressesAndAmounts();
+    error InvalidAdvanceAddress();
+    error InvalidAdvanceAmount();
+    error InvalidSignature();
 
     constructor(
         string memory name_,
@@ -21,8 +21,7 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
         address costReceiver_,
         string memory contractURI_,
         uint256[] memory seriesIds_,
-        uint256[] memory seriesMaxSupplies_,
-        AdvancedData[] memory data_
+        uint256[] memory seriesMaxSupplies_
     )
         FeralfileExhibitionV4(
             name_,
@@ -36,9 +35,28 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
             seriesIds_,
             seriesMaxSupplies_
         )
-    {
-        for (uint256 i = 0; i < data_.length; i++) {
-            artistAdvancedAmounts[data_[i].artist] = data_[i].amount;
+    {}
+
+    /// @notice set advances setting
+    /// @param addresses_ - the addresses to set advances
+    /// @param amounts_ - the amounts to set advances
+    function setAdvanceSetting(
+        address[] calldata addresses_,
+        uint256[] calldata amounts_
+    ) external onlyOwner {
+        if (addresses_.length != amounts_.length) {
+            revert InvalidAdvanceAddressesAndAmounts();
+        }
+        for (uint256 i = 0; i < addresses_.length; i++) {
+            if (addresses_[i] == address(0)) {
+                revert InvalidAdvanceAddress();
+            }
+            if (amounts_[i] == 0 && advances[addresses_[i]] == 0) {
+                revert InvalidAdvanceAmount();
+            }
+            if (amounts_[i] > 0) {
+                advances[addresses_[i]] = amounts_[i];
+            }
         }
     }
 
@@ -68,10 +86,9 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
             abi.encode(block.chainid, address(this), saleData_)
         );
 
-        require(
-            isValidSignature(message, r_, s_, v_),
-            "FeralfileExhibitionV4: invalid signature"
-        );
+        if (!isValidSignature(message, r_, s_, v_)) {
+            revert InvalidSignature();
+        }
 
         uint256 itemRevenue;
         if (saleData_.price > saleData_.cost) {
@@ -92,30 +109,26 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
             );
             // distribute royalty
             RevenueShare[] memory revenueShares = saleData_.revenueShares[i];
-            bool isArtist = false;
-            address artistAddr;
-            for (uint256 j = 0; j < revenueShares.length; j++) {
-                if (artistAdvancedAmounts[revenueShares[j].recipient] > 0) {
-                    isArtist = true;
-                    artistAddr = revenueShares[j].recipient;
-                    break;
-                }
-            }
-
             uint256 remainingRev = itemRevenue;
 
-            // check if artist has advanced amount
-            if (isArtist && remainingRev > 0) {
-                if (artistAdvancedAmounts[artistAddr] >= remainingRev) {
-                    platformRevenue += remainingRev;
-                    artistAdvancedAmounts[artistAddr] -= remainingRev;
-                    remainingRev = 0;
-                } else {
-                    platformRevenue += artistAdvancedAmounts[artistAddr];
-                    remainingRev -= artistAdvancedAmounts[artistAddr];
-                    artistAdvancedAmounts[artistAddr] = 0;
+            // deduct advances payment from revenue
+            for (uint256 j = 0; j < revenueShares.length; j++) {
+                if (
+                    advances[revenueShares[j].recipient] > 0 && remainingRev > 0
+                ) {
+                    if (advances[revenueShares[j].recipient] >= remainingRev) {
+                        platformRevenue += remainingRev;
+                        advances[revenueShares[j].recipient] -= remainingRev;
+                        remainingRev = 0;
+                    } else {
+                        platformRevenue += advances[revenueShares[j].recipient];
+                        remainingRev -= advances[revenueShares[j].recipient];
+                        advances[revenueShares[j].recipient] = 0;
+                    }
                 }
             }
+
+            // distribute revenue
             if (remainingRev > 0) {
                 for (uint256 j = 0; j < revenueShares.length; j++) {
                     address recipient = revenueShares[j].recipient;
