@@ -10,6 +10,7 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
     error InvalidAdvanceAddress();
     error InvalidAdvanceAmount();
     error InvalidSignature();
+    error AdvanceAddressAlreadyUsed();
 
     constructor(
         string memory name_,
@@ -43,7 +44,7 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
     function setAdvanceSetting(
         address[] calldata addresses_,
         uint256[] calldata amounts_
-    ) public onlyAuthorized {
+    ) external onlyOwner {
         if (addresses_.length != amounts_.length) {
             revert InvalidAdvanceAddressesAndAmounts();
         }
@@ -51,12 +52,35 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
             if (addresses_[i] == address(0)) {
                 revert InvalidAdvanceAddress();
             }
-            if (amounts_[i] == 0 && advances[addresses_[i]] == 0) {
+            if (amounts_[i] == 0) {
                 revert InvalidAdvanceAmount();
             }
-            if (amounts_[i] > 0) {
-                advances[addresses_[i]] = amounts_[i];
+            if (advances[addresses_[i]] > 0) {
+                revert AdvanceAddressAlreadyUsed();
             }
+            advances[addresses_[i]] = amounts_[i];
+        }
+    }
+
+    /// @notice replace advance addresses
+    /// @param oldAddresses_ - the old addresses to replace
+    /// @param newAddresses_ - the new addresses to replace
+    function replaceAdvanceAddresses(
+        address[] calldata oldAddresses_,
+        address[] calldata newAddresses_
+    ) external onlyOwner {
+        if (oldAddresses_.length != newAddresses_.length) {
+            revert InvalidAdvanceAddressesAndAmounts();
+        }
+        for (uint256 i = 0; i < oldAddresses_.length; i++) {
+            if (newAddresses_[i] == address(0)) {
+                revert InvalidAdvanceAddress();
+            }
+            if (advances[newAddresses_[i]] > 0) {
+                revert AdvanceAddressAlreadyUsed();
+            }
+            advances[newAddresses_[i]] = advances[oldAddresses_[i]];
+            delete advances[oldAddresses_[i]];
         }
     }
 

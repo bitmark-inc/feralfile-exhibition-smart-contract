@@ -15,7 +15,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
 
         // Deploy multiple contracts
         this.contracts = [];
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 12; i++) {
             let contract = await FeralfileExhibitionV4_1.new(
                 "Feral File V4 Test",
                 "FFv4",
@@ -926,6 +926,87 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
 
         // 4. Transfer as approval
         // TODO add later
+    });
+
+    it("test set advance setting successfully", async function () {
+        const contract = this.contracts[7];
+        const advanceAddresses = [accounts[3], accounts[4]];
+        const advanceAmounts = [
+            web3.utils.toWei("0.3", "ether"),
+            web3.utils.toWei("0.8", "ether"),
+        ];
+
+        // 1. Set advance setting
+        try {
+            await contract.setAdvanceSetting(advanceAddresses, advanceAmounts);
+
+            const advanceAddress3 = await contract.advances(accounts[3]);
+            assert.equal(advanceAddress3, advanceAmounts[0]);
+            const advanceAddress4 = await contract.advances(accounts[4]);
+            assert.equal(advanceAddress4, advanceAmounts[1]);
+        } catch (error) {
+            console.log(error);
+            assert.fail();
+        }
+    });
+
+    it("test set advance setting failed because address in use", async function () {
+        const contract = this.contracts[8];
+        const advanceAddresses = [accounts[3], accounts[4]];
+        const advanceAmounts = [
+            web3.utils.toWei("0.3", "ether"),
+            web3.utils.toWei("0.8", "ether"),
+        ];
+
+        // 1. Set advance setting
+        await contract.setAdvanceSetting(advanceAddresses, advanceAmounts);
+
+        const advanceAddress3 = await contract.advances(accounts[3]);
+        assert.equal(advanceAddress3, advanceAmounts[0]);
+        const advanceAddress4 = await contract.advances(accounts[4]);
+        assert.equal(advanceAddress4, advanceAmounts[1]);
+
+        const updatedAddresses = [accounts[3], accounts[5]];
+        const updatedAmounts = [
+            web3.utils.toWei("0.5", "ether"),
+            web3.utils.toWei("1", "ether"),
+        ];
+
+        // 2. Update advance setting
+        try {
+            await contract.setAdvanceSetting(updatedAddresses, updatedAmounts);
+        } catch (error) {
+            console.log(error);
+            assert.equal(error.reason, "Custom error (could not decode)");
+        }
+    });
+
+    it("test replace advance addresses successfully", async function () {
+        const contract = this.contracts[9];
+        const advanceAddresses = [accounts[3], accounts[4]];
+        const advanceAmounts = [
+            web3.utils.toWei("0.3", "ether"),
+            web3.utils.toWei("0.8", "ether"),
+        ];
+
+        // 1. Set advance setting
+        await contract.setAdvanceSetting(advanceAddresses, advanceAmounts);
+
+        const advanceAddress3 = await contract.advances(accounts[3]);
+        assert.equal(advanceAddress3, advanceAmounts[0]);
+        const advanceAddress4 = await contract.advances(accounts[4]);
+        assert.equal(advanceAddress4, advanceAmounts[1]);
+
+        const oldAddresses = [accounts[3], accounts[4]];
+        const newAddresses = [accounts[7], accounts[8]];
+
+        // 2. Replace advance addresses
+        await contract.replaceAdvanceAddresses(oldAddresses, newAddresses);
+
+        const advanceAddress7 = await contract.advances(accounts[7]);
+        assert.equal(advanceAddress7, advanceAmounts[0]);
+        const advanceAddress8 = await contract.advances(accounts[8]);
+        assert.equal(advanceAddress8, advanceAmounts[1]);
     });
 
     it("test advance amount", async function () {
