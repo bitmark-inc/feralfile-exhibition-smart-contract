@@ -940,10 +940,10 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         try {
             await contract.setAdvanceSetting(advanceAddresses, advanceAmounts);
 
-            const advanceAddress3 = await contract.advances(accounts[3]);
-            assert.equal(advanceAddress3, advanceAmounts[0]);
-            const advanceAddress4 = await contract.advances(accounts[4]);
-            assert.equal(advanceAddress4, advanceAmounts[1]);
+            const advanceAmount0 = await contract.advances(advanceAddresses[0]);
+            assert.equal(advanceAmount0, advanceAmounts[0]);
+            const advanceAmount1 = await contract.advances(advanceAddresses[1]);
+            assert.equal(advanceAmount0, advanceAmounts[1]);
         } catch (error) {
             console.log(error);
             assert.fail();
@@ -961,12 +961,12 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         // 1. Set advance setting
         await contract.setAdvanceSetting(advanceAddresses, advanceAmounts);
 
-        const advanceAddress3 = await contract.advances(accounts[3]);
-        assert.equal(advanceAddress3, advanceAmounts[0]);
-        const advanceAddress4 = await contract.advances(accounts[4]);
-        assert.equal(advanceAddress4, advanceAmounts[1]);
+        const advanceAmount0 = await contract.advances(advanceAddresses[0]);
+        assert.equal(advanceAmount0, advanceAmounts[0]);
+        const advanceAmount1 = await contract.advances(advanceAddresses[1]);
+        assert.equal(advanceAmount1, advanceAmounts[1]);
 
-        const updatedAddresses = [accounts[3], accounts[5]];
+        const updatedAddresses = [advanceAddresses[0], accounts[5]];
         const updatedAmounts = [
             web3.utils.toWei("0.5", "ether"),
             web3.utils.toWei("1", "ether"),
@@ -992,21 +992,19 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         // 1. Set advance setting
         await contract.setAdvanceSetting(advanceAddresses, advanceAmounts);
 
-        const advanceAddress3 = await contract.advances(accounts[3]);
-        assert.equal(advanceAddress3, advanceAmounts[0]);
-        const advanceAddress4 = await contract.advances(accounts[4]);
-        assert.equal(advanceAddress4, advanceAmounts[1]);
+        const advanceAmount0 = await contract.advances(advanceAddresses[0]);
+        assert.equal(advanceAmount0, advanceAmounts[0]);
+        const advanceAmount1 = await contract.advances(advanceAddresses[1]);
+        assert.equal(advanceAmount1, advanceAmounts[1]);
 
-        const oldAddresses = [accounts[3], accounts[4]];
-        const newAddresses = [accounts[7], accounts[8]];
+        const oldAddresses = [advanceAddresses[0]];
+        const newAddresses = [accounts[7]];
 
         // 2. Replace advance addresses
         await contract.replaceAdvanceAddresses(oldAddresses, newAddresses);
 
-        const advanceAddress7 = await contract.advances(accounts[7]);
-        assert.equal(advanceAddress7, advanceAmounts[0]);
-        const advanceAddress8 = await contract.advances(accounts[8]);
-        assert.equal(advanceAddress8, advanceAmounts[1]);
+        const newAdvanceAmount0 = await contract.advances(newAddresses[0]);
+        assert.equal(newAdvanceAmount0, advanceAmounts[0]);
     });
 
     it("test advance amount", async function () {

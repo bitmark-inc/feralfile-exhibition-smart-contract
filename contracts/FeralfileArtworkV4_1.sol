@@ -136,20 +136,20 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
             uint256 remainingRev = itemRevenue;
 
             // deduct advances payment from revenue
-            for (uint256 j = 0; j < revenueShares.length; j++) {
-                if (
-                    advances[revenueShares[j].recipient] > 0 && remainingRev > 0
-                ) {
-                    if (advances[revenueShares[j].recipient] >= remainingRev) {
-                        platformRevenue += remainingRev;
-                        advances[revenueShares[j].recipient] -= remainingRev;
-                        remainingRev = 0;
-                    } else {
-                        platformRevenue += advances[revenueShares[j].recipient];
-                        remainingRev -= advances[revenueShares[j].recipient];
-                        advances[revenueShares[j].recipient] = 0;
-                    }
-                }
+            for (
+                uint256 j = 0;
+                j < revenueShares.length && remainingRev > 0;
+                j++
+            ) {
+                uint256 remainingAdvanceAmount = advances[
+                    revenueShares[j].recipient
+                ];
+                uint256 rev = remainingAdvanceAmount >= remainingRev
+                    ? remainingRev
+                    : remainingAdvanceAmount;
+                platformRevenue += rev;
+                advances[revenueShares[j].recipient] -= rev;
+                remainingRev -= rev;
             }
 
             // distribute revenue
