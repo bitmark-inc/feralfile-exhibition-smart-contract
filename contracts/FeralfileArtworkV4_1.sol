@@ -43,7 +43,7 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
     function setAdvanceSetting(
         address[] calldata addresses_,
         uint256[] calldata amounts_
-    ) external onlyOwner {
+    ) public onlyAuthorized {
         if (addresses_.length != amounts_.length) {
             revert InvalidAdvanceAddressesAndAmounts();
         }
