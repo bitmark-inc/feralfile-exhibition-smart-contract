@@ -21,13 +21,13 @@ merge: sol-merger-check
 	mkdir /tmp/sol-merger && mkdir ./contracts/sol-merger && \
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV2.sol /tmp/sol-merger && \
     sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV3.sol /tmp/sol-merger && \
-    sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV4.sol /tmp/sol-merger && \
+    sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV4_1.sol /tmp/sol-merger && \
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileEnglishAuction.sol /tmp/sol-merger && \
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralFileAirdropV1.sol /tmp/sol-merger && \
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/OwnerData.sol /tmp/sol-merger && \
 	mv /tmp/sol-merger/FeralfileArtworkV2.sol ./contracts/sol-merger/FeralfileExhibitionV2.sol && \
     mv /tmp/sol-merger/FeralfileArtworkV3.sol ./contracts/sol-merger/FeralfileExhibitionV3.sol && \
-    mv /tmp/sol-merger/FeralfileArtworkV4.sol ./contracts/sol-merger/FeralfileExhibitionV4.sol && \
+    mv /tmp/sol-merger/FeralfileArtworkV4_1.sol ./contracts/sol-merger/FeralfileExhibitionV4.sol && \
 	mv /tmp/sol-merger/FeralfileEnglishAuction.sol ./contracts/sol-merger/FeralfileEnglishAuction.sol && \
 	mv /tmp/sol-merger/FeralFileAirdropV1.sol ./contracts/sol-merger/FeralFileAirdropV1.sol && \
 	mv /tmp/sol-merger/OwnerData.sol ./contracts/sol-merger/OwnerData.sol
@@ -39,8 +39,8 @@ build-contract: check
 	jq -r ".abi" build/contracts/FeralfileExhibitionV2.json > ./build/FeralfileExhibitionV2.abi && \
 	jq -r ".bytecode" build/contracts/FeralfileExhibitionV3.json > ./build/FeralfileExhibitionV3.bin && \
 	jq -r ".abi" build/contracts/FeralfileExhibitionV3.json > ./build/FeralfileExhibitionV3.abi && \
-	jq -r ".bytecode" build/contracts/FeralfileExhibitionV4.json > ./build/FeralfileExhibitionV4.bin && \
-	jq -r ".abi" build/contracts/FeralfileExhibitionV4.json > ./build/FeralfileExhibitionV4.abi && \
+	jq -r ".bytecode" build/contracts/FeralfileExhibitionV4_1.json > ./build/FeralfileExhibitionV4.bin && \
+	jq -r ".abi" build/contracts/FeralfileExhibitionV4_1.json > ./build/FeralfileExhibitionV4.abi && \
 	jq -r ".bytecode" build/contracts/FeralfileEnglishAuction.json > ./build/FeralfileEnglishAuction.bin && \
 	jq -r ".abi" build/contracts/FeralfileEnglishAuction.json > ./build/FeralfileEnglishAuction.abi && \
 	jq -r ".bytecode" build/contracts/FeralFileAirdropV1.json > ./build/FeralFileAirdropV1.bin && \

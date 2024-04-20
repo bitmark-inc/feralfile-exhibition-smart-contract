@@ -50,7 +50,7 @@ contract FeralfileExhibitionV4 is
     bool public bridgeable;
 
     // selling
-    bool private _selling;
+    bool internal _selling;
 
     // mintable
     bool public mintable = true;
@@ -209,7 +209,7 @@ contract FeralfileExhibitionV4 is
         return _selling;
     }
 
-    function _checkContractOwnedToken() private view {
+    function _checkContractOwnedToken() internal view {
         uint256 balance = balanceOf(address(this));
         require(
             balance > 0,
@@ -400,7 +400,7 @@ contract FeralfileExhibitionV4 is
         bytes32 s_,
         uint8 v_,
         SaleData calldata saleData_
-    ) external payable {
+    ) external payable virtual {
         require(_selling, "FeralfileExhibitionV4: sale is not started");
         _checkContractOwnedToken();
         validateSaleData(saleData_);
