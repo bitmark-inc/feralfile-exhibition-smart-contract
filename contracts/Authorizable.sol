@@ -9,7 +9,7 @@ contract Authorizable is Ownable {
     constructor() {}
 
     modifier onlyAuthorized() {
-        require(trustees[msg.sender] || msg.sender == owner());
+        require(trustees[_msgSender()] ||_msgSender() == owner());
         _;
     }
 
