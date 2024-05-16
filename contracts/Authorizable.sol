@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Authorizable is Ownable {
     mapping(address => bool) public trustees;
 
+    // constructor
     constructor() {}
 
     modifier onlyAuthorized() {
