@@ -6,6 +6,8 @@ import { Authorizable } from "./Authorizable.sol";
 
 contract FeralfileToken is ERC20, Authorizable {
 
+     error InvalidOwnersAndAmounts();
+
     // Constructor to initialize the token with a name and symbol
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
 
@@ -20,7 +22,10 @@ contract FeralfileToken is ERC20, Authorizable {
     /// @param owners An array of addresses to receive the minted tokens
     /// @param amounts An array of amounts of tokens to mint for each respective owner
     function batchMint(address[] calldata owners, uint256[] calldata amounts) external virtual onlyAuthorized {
-        require(owners.length == amounts.length, "FeralfileToken: owners and amounts length mismatch");
+        if (owners.length != amounts.length) {
+            revert InvalidOwnersAndAmounts();
+        }
+
         for (uint256 i = 0; i < owners.length; i++) {
             _mint(owners[i], amounts[i]);
         }
