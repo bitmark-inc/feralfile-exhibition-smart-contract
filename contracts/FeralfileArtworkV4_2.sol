@@ -8,9 +8,11 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
 
     error TokenIDNotFound();
     error MintNotEnabled();
+    error FunctionNotSupported();
+    error EmptyArtworkFileURI();
 
     struct TokenInfo {
-        string thumbnail;
+        string imageURI;
         bytes parameters;
     }
 
@@ -24,8 +26,10 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
     mapping(uint256 => TokenInfo) public _tokenInfos; // tokenID => tokenInfo
     mapping(uint256 => uint256) public _tokenIndexes; // tokenID => tokenIndex
 
-    string public tokenPlaceholderURL;
-    string public tokenPlaceholderThubmnail;
+    string public tokenPlaceholderAnimationURI;
+    string public tokenPlaceholderImageURI;
+
+    string public artworkFileURI;
 
     constructor(
         string memory name_,
@@ -54,7 +58,7 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
     {}
     
     /// @notice Mint new collection of Artwork
-    /// @dev the function iterates over the array of MintDataWithIndex to call the internal function mintArtworksWithIndex
+    /// @dev the function iterates over the array of MintDataWithIndex to call the internal function _mintArtwork
     /// @param data an array of MintDataWithIndex
     function mintArtworksWithIndex(
         MintDataWithIndex[] calldata data
@@ -69,8 +73,13 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         }
     }
 
-    /// @notice Update the thumbnail & parameters of an edition to a new value
-    function updateTokenInformation(uint256 tokenId, string calldata thumbnail, bytes calldata parameters)
+    /// @notice overrdie revert mint new collection of Artwork
+    function mintArtworks(MintData[] calldata) external override view onlyAuthorized {
+        revert FunctionNotSupported();
+    }
+
+    /// @notice Update the imageURI & parameters of an edition to a new value
+    function updateTokenInformation(uint256 tokenId, string calldata imageURI, bytes calldata parameters)
         external
         onlyAuthorized
     {
@@ -78,51 +87,51 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
             revert TokenIDNotFound();
         }
 
-        _tokenInfos[tokenId] = TokenInfo(thumbnail, parameters);
+        _tokenInfos[tokenId] = TokenInfo(imageURI, parameters);
     }
 
-    /// @notice _buildArtworkData returns an object of artwork which would push to the actually artwork
-    /// @param parameters - the parameters for building artwork data
-    function _buildArtworkData(bytes memory parameters)
-        private
-        pure
-        returns (string memory)
-    {
-        return Base64.encode(parameters);
+
+    /// @notice Update the base URI for all tokens
+    function setArtworkFileURI(string memory fileURI) external virtual onlyOwner {
+        if (bytes(fileURI).length == 0) {
+            revert EmptyArtworkFileURI();
+        }
+
+        artworkFileURI = fileURI;
     }
 
-    /// @notice _buildPreviewURL returns the preview url
+    /// @notice _buildAnimationURI returns the animation url
     /// @param parameters - the token paramters
-    function _buildPreviewURL(bytes memory parameters)
+    function _buildAnimationURI(bytes memory parameters)
         private
         view
         returns (string memory)
     {
         if (parameters.length == 0) {
-            return tokenPlaceholderURL;
+            return tokenPlaceholderAnimationURI;
         }
 
-        return _buildIframe(_buildArtworkData(parameters), tokenBaseURI);
+        return _buildIframe(Base64.encode(parameters), artworkFileURI);
     }
 
-    /// @notice _buildThumbnailURL returns the preview url
-    /// @param thumbnail - the token thumbnail
-    function _buildThumbnailURL(string memory thumbnail)
+    /// @notice _buildImageURI returns the image url
+    /// @param imageURI - the token imageURI
+    function _buildImageURI(string memory imageURI)
         private
         view
         returns (string memory)
     {
-        if (bytes(thumbnail).length == 0) {
-            return tokenPlaceholderThubmnail;
+        if (bytes(imageURI).length == 0) {
+            return tokenPlaceholderImageURI;
         }
 
-        return thumbnail;
+        return imageURI;
     }
 
     /// @notice _buildIframe returns a base64 encoded data for ff-frame
-    /// @param artworkData - the artwork data which would bring into the artwork
-    /// @param iframeURI - the artwork URL to be loaded into the iframe
-    function _buildIframe(string memory artworkData, string memory iframeURI)
+    /// @param tokenParams - the paramteres which would bring into the artwork
+    /// @param artworkURI - the artwork file URI to be loaded into the iframe
+    function _buildIframe(string memory tokenParams, string memory artworkURI)
         private
         pure
         returns (string memory)
@@ -130,17 +139,13 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         return 
             Base64.encode(
                 abi.encodePacked(
-                    "<!DOCTYPE html><html lang=\"en\"><head><script> var defaultArtworkData= ",
-                    artworkData,
-                    "</script><script>",
-                    "let allowOrigins={\"https://feralfile.com\":!0};function resizeIframe(t){let e=document.getElementById(\"mainframe\");t&&(e.style.minHeight=t+\"px\")}",
-                    "function initData(){pushArtworkDataToIframe(defaultArtworkData)}function pushArtworkDataToIframe(t){t&&document.getElementById(\"mainframe\").contentWindow.postMessage(t,\"*\")}",
-                    "function updateArtworkData(t){document.getElementById(\"mainframe\").contentWindow.postMessage(t,\"*\")}",
-                    "window.addEventListener(\"message\",function(t){allowOrigins[t.origin]?\"update-artwork-data\"===t.data.type&&updateArtworkData(t.data.artworkData):\"object\"==typeof t.data&&\"resize-iframe\"===t.data.type&&resizeIframe(t.data.newHeight)});</script>",
-                    "</head><body style=\"overflow-x:hidden;padding:0;margin:0;width: 100%;\" onload=\"initData()\">",
-                    "<iframe id=\"mainframe\" style=\"display:block;padding:0;margin:0;border:none;width:100%;height:100vh;\" src=\"",
-                    iframeURI,
-                    "\"></iframe> </body></html>"
+                    "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">",
+                    "<script>var defaultArtworkData=",
+                    tokenParams,
+                    ";function initData(){document.getElementById(\"mainframe\").contentWindow.postMessage(defaultArtworkData, \"*\");}</script>",
+                    "</head><body style=\"overflow-x:hidden;padding:0;margin:0;width: 100%;\" onload=\"initData()\"><iframe id=\"mainframe\" style=\"display:block;padding:0;margin:0;border:none;width:100%;height:100vh;\" src=\"",
+                    artworkURI,
+                    "\"></iframe></body></html>"
                 )
             );
     }
@@ -158,8 +163,8 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         string memory json = string(
             abi.encodePacked(
                 "{\"name\":\"", tokenName,
-                "\", \"external_url\":\"https://feralfile.com\", \"image\":\"", _buildThumbnailURL(tokenInfo.thumbnail),
-                "\", \"animation_url\":\"data:text/html;base64,", _buildPreviewURL(tokenInfo.parameters),
+                "\", \"external_url\":\"https://feralfile.com\", \"image\":\"", _buildImageURI(tokenInfo.imageURI),
+                "\", \"animation_url\":\"data:text/html;base64,", _buildAnimationURI(tokenInfo.parameters),
                 "\"}"
             )
         );
