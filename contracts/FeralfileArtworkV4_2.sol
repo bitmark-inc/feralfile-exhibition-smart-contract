@@ -69,8 +69,8 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         }
     }
 
-    /// @notice Update the parameters of an edition to a new value
-    function updateArtworkParameters(uint256 tokenId, string calldata thumbnail, bytes calldata parameters)
+    /// @notice Update the thumbnail & parameters of an edition to a new value
+    function updateTokenInformation(uint256 tokenId, string calldata thumbnail, bytes calldata parameters)
         external
         onlyAuthorized
     {
