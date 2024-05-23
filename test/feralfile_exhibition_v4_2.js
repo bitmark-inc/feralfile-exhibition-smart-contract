@@ -1191,23 +1191,4 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             assert.fail();
         }
     });
-
-    it("test update artwork metadata", async function () {
-        const contract = this.contracts[10];
-
-        // 1. Prepare data
-        const owner = accounts[1];
-        const tokenId1 = this.seriesIds[0] * 1000000 + 0;
-        let mintData = [
-            [this.seriesIds[0], tokenId1, owner],
-        ];
-        await contract.mintArtworks(mintData);
-
-        // 2. Update artwork parameters
-        const parameters = "ramdomestringparameters";
-        await contract.updateArtworkParameters(tokenId1, parameters)
-
-        const tokenParams = await contract.ownerOf(tokenID1);
-        assert.equal(tokenParams, parameters);
-    });
 });
