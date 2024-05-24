@@ -142,7 +142,7 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
                     "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">",
                     "<script>var defaultArtworkData=",
                     tokenParams,
-                    ";function initData(){document.getElementById(\"mainframe\").contentWindow.postMessage(defaultArtworkData, \"*\");}</script>",
+                    ";let allowOrigins = {\"https://feralfile.com\": !0};function initData(){document.getElementById(\"mainframe\").contentWindow.postMessage(defaultArtworkData, \"*\");}</script>",
                     "</head><body style=\"overflow-x:hidden;padding:0;margin:0;width: 100%;\" onload=\"initData()\"><iframe id=\"mainframe\" style=\"display:block;padding:0;margin:0;border:none;width:100%;height:100vh;\" src=\"",
                     artworkURI,
                     "\"></iframe></body></html>"

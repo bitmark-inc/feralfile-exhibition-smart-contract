@@ -60,6 +60,7 @@ build: build-contract
 	mkdir -p ./go-binding/feralfile-exhibition-v2 && \
 	mkdir -p ./go-binding/feralfile-exhibition-v3 && \
 	mkdir -p ./go-binding/feralfile-exhibition-v4 && \
+	mkdir -p ./go-binding/feralfile-exhibition-v4_2 && \
 	mkdir -p ./go-binding/feralfile-english-auction && \
 	mkdir -p ./go-binding/feralfile-airdrop-v1 && \
 	mkdir -p ./go-binding/owner-data && \
