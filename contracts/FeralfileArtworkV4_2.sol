@@ -9,7 +9,7 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
     error TokenIDNotFound();
     error MintNotEnabled();
     error FunctionNotSupported();
-    error EmptyArtworkFileURI();
+    error EmptyURI();
 
     struct TokenInfo {
         string imageURI;
@@ -92,12 +92,30 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
 
 
     /// @notice Update the base URI for all tokens
-    function setArtworkFileURI(string memory fileURI) external virtual onlyOwner {
-        if (bytes(fileURI).length == 0) {
-            revert EmptyArtworkFileURI();
+    function setArtworkFileURI(string calldata uri) external virtual onlyOwner {
+        if (bytes(uri).length == 0) {
+            revert EmptyURI();
         }
 
-        artworkFileURI = fileURI;
+        artworkFileURI = uri;
+    }
+
+    /// @notice Update tokenPlaceholderImageURI
+    function setTokenPlaceholderImageURI(string calldata uri) external virtual onlyOwner {
+        if (bytes(uri).length == 0) {
+            revert EmptyURI();
+        }
+
+        tokenPlaceholderImageURI = uri;
+    }
+
+    /// @notice Update tokenPlaceholderAnimationURI
+    function setTokenPlaceholderAnimationURI(string calldata uri) external virtual onlyOwner {
+        if (bytes(uri).length == 0) {
+            revert EmptyURI();
+        }
+
+        tokenPlaceholderAnimationURI = uri;
     }
 
     /// @notice _buildAnimationURI returns the animation url
