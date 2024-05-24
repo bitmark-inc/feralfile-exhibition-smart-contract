@@ -129,7 +129,12 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
             return tokenPlaceholderAnimationURI;
         }
 
-        return _buildIframe(Base64.encode(parameters), artworkFileURI);
+        return string(
+            abi.encodePacked(
+                "data:text/html;base64,",
+                 _buildIframe(Base64.encode(parameters), artworkFileURI)
+            )
+        );
     }
 
     /// @notice _buildImageURI returns the image url
@@ -182,7 +187,7 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
             abi.encodePacked(
                 "{\"name\":\"", tokenName,
                 "\", \"external_url\":\"https://feralfile.com\", \"image\":\"", _buildImageURI(tokenInfo.imageURI),
-                "\", \"animation_url\":\"data:text/html;base64,", _buildAnimationURI(tokenInfo.parameters),
+                "\", \"animation_url\":\"", _buildAnimationURI(tokenInfo.parameters),
                 "\"}"
             )
         );
