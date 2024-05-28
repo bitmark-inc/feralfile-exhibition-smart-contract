@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol"; 
 import { Base64 } from "@openzeppelin/contracts/utils/Base64.sol";
 import { FeralfileExhibitionV4_1 } from "./FeralfileArtworkV4_1.sol";
+import { FeralfileToken } from "./FeralfileToken.sol";
 
 contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
 
@@ -15,6 +16,7 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
     struct TokenInfo {
         string imageURI;
         bytes parameters;
+        uint256 coinAmount;
     }
 
     struct MintDataWithIndex {
@@ -24,8 +26,10 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         uint256 tokenIndex;
     }
 
-    mapping(uint256 => TokenInfo) public _tokenInfos; // tokenID => tokenInfo
-    mapping(uint256 => uint256) public _tokenIndexes; // tokenID => tokenIndex
+    FeralfileToken private _erc20Token;
+
+    mapping(uint256 => TokenInfo) private _tokenInfos; // tokenID => tokenInfo
+    mapping(uint256 => uint256) private _tokenIndexes; // tokenID => tokenIndex
 
     string public tokenPlaceholderAnimationURI;
     string public tokenPlaceholderImageURI;
@@ -42,7 +46,8 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         address costReceiver_,
         string memory contractURI_,
         uint256[] memory seriesIds_,
-        uint256[] memory seriesMaxSupplies_
+        uint256[] memory seriesMaxSupplies_,
+        address erc20ContractAddress_
     )
         FeralfileExhibitionV4_1(
             name_,
@@ -56,7 +61,9 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
             seriesIds_,
             seriesMaxSupplies_
         )
-    {}
+    {
+        _erc20Token = FeralfileToken(erc20ContractAddress_);
+    }
     
     /// @notice Mint new collection of Artwork
     /// @dev the function iterates over the array of MintDataWithIndex to call the internal function _mintArtwork
@@ -74,13 +81,13 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         }
     }
 
-    /// @notice overrdie revert mint new collection of Artwork
+    /// @notice override revert mint new collection of Artwork
     function mintArtworks(MintData[] calldata) external override view onlyAuthorized {
         revert FunctionNotSupported();
     }
 
     /// @notice Update the imageURI & parameters of an edition to a new value
-    function updateTokenInformation(uint256 tokenId, string calldata imageURI, bytes calldata parameters)
+    function updateTokenInformation(uint256 tokenId, string calldata imageURI, bytes calldata parameters, uint256 coinAmount)
         external
         onlyAuthorized
     {
@@ -88,9 +95,124 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
             revert TokenIDNotFound();
         }
 
-        _tokenInfos[tokenId] = TokenInfo(imageURI, parameters);
+        TokenInfo memory tokenInfo = _tokenInfos[tokenId];
+        _tokenInfos[tokenId] = TokenInfo(imageURI, parameters, coinAmount);
+
+        // mint token for the owner
+        uint256 mintAmount = coinAmount - tokenInfo.coinAmount;
+        if (mintAmount > 0) {
+            address owner = ownerOf(tokenId);
+            _erc20Token.mint(owner, mintAmount * 10**18);
+        }
     }
 
+    /// @notice pay to get artworks to a destination address. The pricing, costs and other details is included in the saleData
+    /// @param r_ - part of signature for validating parameters integrity
+    /// @param s_ - part of signature for validating parameters integrity
+    /// @param v_ - part of signature for validating parameters integrity
+    /// @param saleData_ - the sale data
+    function buyArtworks(
+        bytes32 r_,
+        bytes32 s_,
+        uint8 v_,
+        SaleData calldata saleData_
+    ) external payable override {
+        require(_selling, "FeralfileExhibitionV4: sale is not started");
+        super._checkContractOwnedToken();
+        validateSaleData(saleData_);
+
+        saleData_.payByVaultContract
+            ? vault.payForSale(r_, s_, v_, saleData_)
+            : require(
+                saleData_.price == msg.value,
+                "FeralfileExhibitionV4: invalid payment amount"
+            );
+
+        bytes32 message = keccak256(
+            abi.encode(block.chainid, address(this), saleData_)
+        );
+
+        if (!isValidSignature(message, r_, s_, v_)) {
+            revert InvalidSignature();
+        }
+
+        uint256 itemRevenue;
+        if (saleData_.price > saleData_.cost) {
+            itemRevenue =
+                (saleData_.price - saleData_.cost) /
+                saleData_.tokenIds.length;
+        }
+
+        uint256 distributedRevenue;
+        uint256 platformRevenue;
+        uint256 coinsTransferAmount = 0;
+        for (uint256 i = 0; i < saleData_.tokenIds.length; i++) {
+            // send NFT
+            _safeTransfer(
+                address(this),
+                saleData_.destination,
+                saleData_.tokenIds[i],
+                ""
+            );
+            // distribute royalty
+            RevenueShare[] memory revenueShares = saleData_.revenueShares[i];
+            uint256 remainingRev = itemRevenue;
+
+            // deduct advances payment from revenue
+            for (
+                uint256 j = 0;
+                j < revenueShares.length && remainingRev > 0;
+                j++
+            ) {
+                uint256 remainingAdvanceAmount = advances[
+                    revenueShares[j].recipient
+                ];
+                uint256 rev = remainingAdvanceAmount >= remainingRev
+                    ? remainingRev
+                    : remainingAdvanceAmount;
+                platformRevenue += rev;
+                advances[revenueShares[j].recipient] -= rev;
+                remainingRev -= rev;
+            }
+
+            // distribute revenue
+            if (remainingRev > 0) {
+                for (uint256 j = 0; j < revenueShares.length; j++) {
+                    address recipient = revenueShares[j].recipient;
+                    uint256 rev = (remainingRev * revenueShares[j].bps) / 10000;
+                    if (recipient == costReceiver) {
+                        platformRevenue += rev;
+                        continue;
+                    }
+                    distributedRevenue += rev;
+                    payable(recipient).transfer(rev);
+                }
+            }
+
+            TokenInfo memory tokenInfo = _tokenInfos[saleData_.tokenIds[i]];
+            coinsTransferAmount += tokenInfo.coinAmount;
+
+            emit BuyArtwork(saleData_.destination, saleData_.tokenIds[i]);
+        }
+
+        // Call the transfer function of the ERC20 contract
+        if (coinsTransferAmount > 0 && _erc20Token.balanceOf(address(this)) > coinsTransferAmount * 10**18) {
+            bool success = _erc20Token.transfer(saleData_.destination, coinsTransferAmount * 10**18);
+            require(success, "FeralfileExhibitionV4: FeralfileToken transfer failed");
+        }
+
+        require(
+            saleData_.price - saleData_.cost >=
+                distributedRevenue + platformRevenue,
+            "FeralfileExhibitionV4: total bps over 10,000"
+        );
+
+        // Transfer cost, platform revenue and remaining funds
+        uint256 leftOver = saleData_.price - distributedRevenue;
+        if (leftOver > 0) {
+            payable(costReceiver).transfer(leftOver);
+        }        
+    }
 
     /// @notice Update the base URI for all tokens
     function setArtworkFileURI(string calldata uri) external virtual onlyOwner {
