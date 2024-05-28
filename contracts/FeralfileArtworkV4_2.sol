@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { FeralfileExhibitionV4_1 } from "./FeralfileArtworkV4_1.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol"; 
 import { Base64 } from "@openzeppelin/contracts/utils/Base64.sol";
+import { FeralfileExhibitionV4_1 } from "./FeralfileArtworkV4_1.sol";
 
 contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
 
@@ -163,9 +164,9 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
             Base64.encode(
                 abi.encodePacked(
                     "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">",
-                    "<script>var defaultArtworkData=",
+                    "<script>var defaultArtworkData=\"",
                     tokenParams,
-                    ";let allowOrigins = {\"https://feralfile.com\": !0};function initData(){document.getElementById(\"mainframe\").contentWindow.postMessage(defaultArtworkData, \"*\");}</script>",
+                    "\";let allowOrigins = {\"https://feralfile.com\": !0};function initData(){document.getElementById(\"mainframe\").contentWindow.postMessage(defaultArtworkData, \"*\");}</script>",
                     "</head><body style=\"overflow-x:hidden;padding:0;margin:0;width: 100%;\" onload=\"initData()\"><iframe id=\"mainframe\" style=\"display:block;padding:0;margin:0;border:none;width:100%;height:100vh;\" src=\"",
                     artworkURI,
                     "\"></iframe></body></html>"
@@ -180,7 +181,7 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         uint256 tokenIndex = _tokenIndexes[tokenID];
 
         string memory tokenName = string(
-            abi.encodePacked(name(), " #", tokenIndex+1)
+            abi.encodePacked(name(), " #", Strings.toString(tokenIndex + 1))
         );
 
         string memory json = string(
