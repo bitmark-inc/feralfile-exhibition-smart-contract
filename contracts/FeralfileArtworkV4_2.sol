@@ -102,7 +102,7 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         uint256 mintAmount = coinAmount - tokenInfo.coinAmount;
         if (mintAmount > 0) {
             address owner = ownerOf(tokenId);
-            _erc20Token.mint(owner, mintAmount * 10**18);
+            _erc20Token.mint(owner, _convertToTokenUnits(mintAmount));
         }
     }
 
@@ -196,9 +196,12 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         }
 
         // Call the transfer function of the ERC20 contract
-        if (coinsTransferAmount > 0 && _erc20Token.balanceOf(address(this)) > coinsTransferAmount * 10**18) {
-            bool success = _erc20Token.transfer(saleData_.destination, coinsTransferAmount * 10**18);
-            require(success, "FeralfileExhibitionV4: FeralfileToken transfer failed");
+        if (coinsTransferAmount > 0) {
+            uint256 coinUnits = _convertToTokenUnits(coinsTransferAmount);
+            if (_erc20Token.balanceOf(address(this)) > coinUnits) {
+                bool success = _erc20Token.transfer(saleData_.destination, coinUnits);
+                require(success, "FeralfileExhibitionV4: FeralfileToken transfer failed");
+            }
         }
 
         require(
@@ -212,6 +215,10 @@ contract FeralfileExhibitionV4_2 is FeralfileExhibitionV4_1 {
         if (leftOver > 0) {
             payable(costReceiver).transfer(leftOver);
         }        
+    }
+
+    function _convertToTokenUnits(uint256 amount) internal view returns (uint256) {
+        return amount * 10**_erc20Token.decimals();
     }
 
     /// @notice Update the base URI for all tokens
