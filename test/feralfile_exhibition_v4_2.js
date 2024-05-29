@@ -1,5 +1,6 @@
 const FeralfileExhibitionV4_2 = artifacts.require("FeralfileExhibitionV4_2");
 const FeralfileVault = artifacts.require("FeralfileVault");
+const FeralfileToken = artifacts.require("FeralfileToken");
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
@@ -10,6 +11,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
     before(async function () {
         this.signer = accounts[0];
         this.vault = await FeralfileVault.new(this.signer);
+        this.token = await FeralfileToken.new("Feralfile Token", "FFT");
         this.seriesIds = [0, 1, 2, 3, 4];
         this.seriesMaxSupply = [1, 1, 100, 1000, 10000];
 
@@ -26,8 +28,10 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
                 COST_RECEIVER,
                 CONTRACT_URI,
                 this.seriesIds,
-                this.seriesMaxSupply
+                this.seriesMaxSupply,
+                this.token.address
             );
+            await this.token.addTrustee(contract.address);
             this.contracts.push(contract);
         }
     });
@@ -81,7 +85,8 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
                 COST_RECEIVER,
                 CONTRACT_URI,
                 seriesIds,
-                seriesMaxSupply
+                seriesMaxSupply,
+                this.token.address
             );
         } catch (error) {
             assert.ok(
@@ -1026,7 +1031,8 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             costReceiver,
             CONTRACT_URI,
             seriesIds,
-            seriesMaxSupply
+            seriesMaxSupply,
+            this.token.address
         );
 
         // 0. set advance setting
@@ -1190,5 +1196,31 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             console.log(err);
             assert.fail();
         }
+    });
+
+    it("test update token information successfully", async function () {
+        const contract = this.contracts[10];
+        // Mint new tokens
+        const tokenIDs = [3001000, 3001001];
+        await contract.mintArtworks([
+            [this.seriesIds[3], tokenIDs[0], contract.address],
+            [this.seriesIds[3], tokenIDs[1], contract.address],
+        ]);
+
+        // update token infomation
+        await contract.updateTokenInformation(tokenIDs[0], "thubnail_uri1", "0x68656c6c6f", 10)
+
+        const ownerBal1 = await this.token.balanceOf(contract.address);
+        assert.equal(ownerBal1, 10 * 10**18);
+
+        // update token infomation for another token
+        await contract.updateTokenInformation(tokenIDs[1], "thubnail_uri2", "0x68656c6c6f", 20)
+        const ownerBal2 = await this.token.balanceOf(contract.address);
+        assert.equal(ownerBal2, 30 * 10**18);
+
+        // update 1 token multiple times
+        await contract.updateTokenInformation(tokenIDs[1], "thubnail_uri3", "0x68656c6c6f", 25)
+        const ownerBal3 = await this.token.balanceOf(contract.address);
+        assert.equal(ownerBal3, 35 * 10**18);
     });
 });
