@@ -94,7 +94,7 @@ contract FeralfileExhibitionV4_1 is FeralfileExhibitionV4 {
         bytes32 s_,
         uint8 v_,
         SaleData calldata saleData_
-    ) external payable override {
+    ) external payable override virtual {
         require(_selling, "FeralfileExhibitionV4: sale is not started");
         super._checkContractOwnedToken();
         validateSaleData(saleData_);
