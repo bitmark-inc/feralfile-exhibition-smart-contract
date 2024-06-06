@@ -13,11 +13,14 @@ contract FeralfileExhibitionV4_2 is
 {
     error TokenIDNotFound();
     error FunctionNotSupported();
+    error SaleNotStarted();
+    error InvalidPaymentAmount();
+    error TotalBpsOver();
 
     // vault contract instance
     IFeralfileVaultV2 public immutable VAULT_V2;
 
-    mapping(uint256 => uint256) private seriesNextSaleTokenIds; // seriesID -> tokenID
+    mapping(uint256 => uint256) private seriesNextPurchasableTokenIds; // seriesID -> tokenID
 
     constructor(
         string memory name_,
@@ -30,7 +33,7 @@ contract FeralfileExhibitionV4_2 is
         string memory contractURI_,
         uint256[] memory seriesIds_,
         uint256[] memory seriesMaxSupplies_,
-        uint256[] memory seriesNextSaleTokenIds_
+        uint256[] memory seriesNextPurchasableTokenIds_
     )
         FeralfileExhibitionV4_1(
             name_,
@@ -47,7 +50,7 @@ contract FeralfileExhibitionV4_2 is
     {
         VAULT_V2 = IFeralfileVaultV2(payable(vault_));
         for (uint256 i = 0; i < seriesIds_.length; i++) {
-            seriesNextSaleTokenIds[seriesIds_[i]] = seriesNextSaleTokenIds_[i];
+            seriesNextPurchasableTokenIds[seriesIds_[i]] = seriesNextPurchasableTokenIds_[i];
         }
     }
 
@@ -62,27 +65,31 @@ contract FeralfileExhibitionV4_2 is
         uint8 v_,
         SaleDataV2 calldata saleData_
     ) external payable {
-        require(_selling, "FeralfileExhibitionV4: sale is not started");
+        if (!_selling) {
+            revert SaleNotStarted();
+        }
+
         super._checkContractOwnedToken();
         validateSaleDataV2(saleData_);
 
-        saleData_.payByVaultContract
-            ? VAULT_V2.payForSaleV2(r_, s_, v_, saleData_)
-            : require(
-                saleData_.price == msg.value,
-                "FeralfileExhibitionV4: invalid payment amount"
-            );
+        if (saleData_.payByVaultContract) {
+            VAULT_V2.payForSaleV2(r_, s_, v_, saleData_);
+        } else {
+            if (saleData_.price != msg.value) {
+                revert InvalidPaymentAmount();
+            }
+        }
 
         bytes32 message = keccak256(
             abi.encode(block.chainid, address(this), saleData_)
         );
 
-        //check nonce
-        _useCheckedNonce(saleData_.destination, saleData_.nonce);
-
         if (!isValidSignature(message, r_, s_, v_)) {
             revert InvalidSignature();
         }
+
+        //check nonce
+        _useCheckedNonce(saleData_.destination, saleData_.nonce);
 
         uint256 itemRevenue;
         if (saleData_.price > saleData_.cost) {
@@ -91,16 +98,16 @@ contract FeralfileExhibitionV4_2 is
                 saleData_.quantity;
         }
 
-        uint256 nextSaleTokenId = seriesNextSaleTokenIds[saleData_.seriesID];
+        uint256 nextPurchasableTokenId = seriesNextPurchasableTokenIds[saleData_.seriesID];
         uint256 i = 0;
         while (i < saleData_.quantity) {
-            uint256 tokenIdForSale = nextSaleTokenId;
+            uint256 tokenIdForSale = nextPurchasableTokenId;
 
             if (!_exists(tokenIdForSale)) {
                 revert TokenIDNotFound();
             }
 
-            nextSaleTokenId++;
+            nextPurchasableTokenId++;
             if (ownerOf(tokenIdForSale) != address(this)) {
                 continue;
             }
@@ -113,12 +120,16 @@ contract FeralfileExhibitionV4_2 is
                 ""
             );
 
-            emit BuyArtworkV2(saleData_.destination, tokenIdForSale, saleData_.nonce);
+            emit BuyArtworkV2(
+                saleData_.destination,
+                tokenIdForSale,
+                saleData_.nonce
+            );
             i++;
         }
 
         // save next sale token id for seriesID
-        seriesNextSaleTokenIds[saleData_.seriesID] = nextSaleTokenId;
+        seriesNextPurchasableTokenIds[saleData_.seriesID] = nextPurchasableTokenId;
 
         // distribute royalty
         uint256 distributedRevenue;
@@ -156,11 +167,12 @@ contract FeralfileExhibitionV4_2 is
             }
         }
 
-        require(
-            saleData_.price - saleData_.cost >=
-                distributedRevenue + platformRevenue,
-            "FeralfileExhibitionV4: total bps over 10,000"
-        );
+        if (
+            saleData_.price - saleData_.cost <
+            distributedRevenue + platformRevenue
+        ) {
+            revert TotalBpsOver();
+        }
 
         // Transfer cost, platform revenue and remaining funds
         uint256 leftOver = saleData_.price - distributedRevenue;
@@ -180,5 +192,9 @@ contract FeralfileExhibitionV4_2 is
     }
 
     /// @notice Event emitted when Artwork has been sold with the additional nonce
-    event BuyArtworkV2(address indexed buyer, uint256 indexed tokenId, uint256 nonce);
+    event BuyArtworkV2(
+        address indexed buyer,
+        uint256 indexed tokenId,
+        uint256 nonce
+    );
 }
