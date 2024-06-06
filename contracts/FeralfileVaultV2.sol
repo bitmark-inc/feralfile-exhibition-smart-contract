@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./FeralfileSaleDataV2.sol";
-import "./ECDSASigner.sol";
+import {FeralfileSaleDataV2} from "./FeralfileSaleDataV2.sol";
+import {ECDSASigner} from "./ECDSASigner.sol";
 
 contract FeralfileVaultV2 is Ownable, FeralfileSaleDataV2, ECDSASigner {
     mapping(bytes32 => bool) private _paidSale;

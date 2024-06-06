@@ -15,7 +15,7 @@ contract FeralfileExhibitionV4_2 is
     error FunctionNotSupported();
 
     // vault contract instance
-    IFeralfileVaultV2 public vaultV2;
+    IFeralfileVaultV2 public immutable VAULT_V2;
 
     mapping(uint256 => uint256) private seriesNextSaleTokenIds; // seriesID -> tokenID
 
@@ -45,7 +45,7 @@ contract FeralfileExhibitionV4_2 is
             seriesMaxSupplies_
         )
     {
-        vaultV2 = IFeralfileVaultV2(payable(vault_));
+        VAULT_V2 = IFeralfileVaultV2(payable(vault_));
         for (uint256 i = 0; i < seriesIds_.length; i++) {
             seriesNextSaleTokenIds[seriesIds_[i]] = seriesNextSaleTokenIds_[i];
         }
@@ -67,7 +67,7 @@ contract FeralfileExhibitionV4_2 is
         validateSaleDataV2(saleData_);
 
         saleData_.payByVaultContract
-            ? vaultV2.payForSaleV2(r_, s_, v_, saleData_)
+            ? VAULT_V2.payForSaleV2(r_, s_, v_, saleData_)
             : require(
                 saleData_.price == msg.value,
                 "FeralfileExhibitionV4: invalid payment amount"
@@ -113,7 +113,7 @@ contract FeralfileExhibitionV4_2 is
                 ""
             );
 
-            emit BuyArtwork(saleData_.destination, tokenIdForSale);
+            emit BuyArtworkV2(saleData_.destination, tokenIdForSale, saleData_.nonce);
             i++;
         }
 
@@ -178,4 +178,7 @@ contract FeralfileExhibitionV4_2 is
     ) external payable override {
         revert FunctionNotSupported();
     }
+
+    /// @notice Event emitted when Artwork has been sold with the additional nonce
+    event BuyArtworkV2(address indexed buyer, uint256 indexed tokenId, uint256 nonce);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import { IFeralfileSaleData } from "./IFeralfileSaleData.sol";
+import {IFeralfileSaleData} from "./IFeralfileSaleData.sol";
 
 interface IFeralfileSaleDataV2 is IFeralfileSaleData {
     struct SaleDataV2 {

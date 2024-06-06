@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "./IFeralfileSaleDataV2.sol";
+import {IFeralfileSaleDataV2} from "./IFeralfileSaleDataV2.sol";
 
 contract FeralfileSaleDataV2 is IFeralfileSaleDataV2 {
     function validateSaleDataV2(SaleDataV2 calldata saleData_) internal view {

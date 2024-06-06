@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-
-import "./IFeralfileSaleDataV2.sol";
-import "./ECDSASigner.sol";
+import {IFeralfileSaleDataV2} from "./IFeralfileSaleDataV2.sol";
 
 interface IFeralfileVaultV2 is IFeralfileSaleDataV2 {
     function payForSaleV2(
