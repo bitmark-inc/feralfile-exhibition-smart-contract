@@ -16,9 +16,10 @@ contract FeralfileExhibitionV4_2 is
     error SaleNotStarted();
     error InvalidPaymentAmount();
     error TotalBpsOver();
+    error InvalidAddress();
 
     // vault contract instance
-    IFeralfileVaultV2 public immutable VAULT_V2;
+    IFeralfileVaultV2 public vaultV2;
 
     mapping(uint256 => uint256) private seriesNextPurchasableTokenIds; // seriesID -> tokenID
 
@@ -48,10 +49,20 @@ contract FeralfileExhibitionV4_2 is
             seriesMaxSupplies_
         )
     {
-        VAULT_V2 = IFeralfileVaultV2(payable(vault_));
+        vaultV2 = IFeralfileVaultV2(payable(vault_));
         for (uint256 i = 0; i < seriesIds_.length; i++) {
             seriesNextPurchasableTokenIds[seriesIds_[i]] = seriesNextPurchasableTokenIds_[i];
         }
+    }
+
+    /// @notice Set vaultV2 contract
+    /// @dev don't allow to set vaultV2 as zero address
+    function setVaultV2(address vault_) external onlyOwner {
+        if (vault_ == address(0)) {
+            revert InvalidAddress();
+        }
+
+        vaultV2 = IFeralfileVaultV2(payable(vault_));
     }
 
     /// @notice pay to get artworks to a destination address. The pricing, costs and other details is included in the saleData
@@ -73,7 +84,7 @@ contract FeralfileExhibitionV4_2 is
         validateSaleDataV2(saleData_);
 
         if (saleData_.payByVaultContract) {
-            VAULT_V2.payForSaleV2(r_, s_, v_, saleData_);
+            vaultV2.payForSaleV2(r_, s_, v_, saleData_);
         } else {
             if (saleData_.price != msg.value) {
                 revert InvalidPaymentAmount();
