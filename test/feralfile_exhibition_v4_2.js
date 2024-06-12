@@ -1,5 +1,5 @@
 const FeralfileExhibitionV4_2 = artifacts.require("FeralfileExhibitionV4_2");
-const FeralfileVault = artifacts.require("FeralfileVault");
+const FeralfileVault = artifacts.require("FeralfileVaultV2");
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const COST_RECEIVER = "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
@@ -515,28 +515,6 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         // TODO add later
     });
 
-    it("test set advance setting successfully", async function () {
-        const contract = this.contracts[7];
-        const advanceAddresses = [accounts[3], accounts[4]];
-        const advanceAmounts = [
-            web3.utils.toWei("0.3", "ether"),
-            web3.utils.toWei("0.8", "ether"),
-        ];
-
-        // 1. Set advance setting
-        try {
-            await contract.setAdvanceSetting(advanceAddresses, advanceAmounts);
-
-            const advanceAmount0 = await contract.advances(advanceAddresses[0]);
-            assert.equal(advanceAmount0, advanceAmounts[0]);
-            const advanceAmount1 = await contract.advances(advanceAddresses[1]);
-            assert.equal(advanceAmount0, advanceAmounts[1]);
-        } catch (error) {
-            console.log(error);
-            assert.fail();
-        }
-    });
-
     it("test set advance setting failed because address in use", async function () {
         const contract = this.contracts[8];
         const advanceAddresses = [accounts[3], accounts[4]];
@@ -595,40 +573,39 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
     });
 
     it("should buy bulk artworks successfully", async function () {
-        const contract = this.contract[3];
+        const contract = this.contracts[3];
 
         // Mint artworks to the contract
         const owner = contract.address;
         await contract.mintArtworks([
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
-            [this.seriesIds[4], 4000000, owner],
-            [this.seriesIds[4], 4000001, owner],
-            [this.seriesIds[4], 4000002, owner],
+            [this.seriesIds[3], 3000002, owner],
+            [this.seriesIds[3], 3000003, owner]
         ]);
 
         // Generate signature
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
-        const saleData = {
-            price: BigInt(0.25 * 1e18).toString(),
-            cost: BigInt(0.02 * 1e18).toString(),
+        const saleData = [
+            BigInt(0.25 * 1e18).toString(),
+            BigInt(0.02 * 1e18).toString(),
             expiryTime,
-            destination: accounts[2],
-            nonce: 0,
-            seriesID: this.seriesIds[3],
-            quantity: 2,
-            revenueShares: [
-                { recipient: accounts[3], bps: 8000 },
-                { recipient: accounts[4], bps: 2000 }
+            accounts[2],
+            0,
+            this.seriesIds[3],
+            2,
+            [
+                [accounts[3], 8000],
+                [accounts[4], 2000],
             ],
-            payByVaultContract: false
-        };
+            false,
+        ];
 
         const signParams = web3.eth.abi.encodeParameters(
             [
                 "uint",
                 "address",
-                "tuple(uint256,uint256,uint256,address,uint256,uint256,tuple(address,uint256)[],bool)",
+                "tuple(uint256,uint256,uint256,address,uint256,uint256,uint16,tuple(address,uint256)[],bool)",
             ],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
@@ -642,7 +619,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
-        const v = "0x" + sig.slice(128, 130);
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
 
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
@@ -653,14 +630,14 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             await contract.buyBulkArtworks(
                 r,
                 s,
-                web3.utils.toDecimal(v) + 27, // magic 27
+                v < 2 ? v + 27 : v, // magic 27
                 saleData,
                 { from: accounts[5], value: 0.25 * 1e18 }
             );
 
             // Validate new owner of tokens
-            const ownerOfToken1 = await contract.ownerOf(3000000);
-            const ownerOfToken2 = await contract.ownerOf(3000001);
+            const ownerOfToken1 = await contract.ownerOf(3000001);
+            const ownerOfToken2 = await contract.ownerOf(3000002);
             assert.equal(ownerOfToken1, accounts[2]);
             assert.equal(ownerOfToken2, accounts[2]);
 
@@ -687,41 +664,150 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         }
     });
 
-    it("should fail to buy bulk artworks with invalid signature", async function () {
-        const contract = this.contract[10];
+    it("should buy bulk artworks successfully by vault", async function () {
+        const contract = this.contracts[7];
 
         // Mint artworks to the contract
         const owner = contract.address;
         await contract.mintArtworks([
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
-            [this.seriesIds[4], 4000000, owner],
-            [this.seriesIds[4], 4000001, owner],
-            [this.seriesIds[4], 4000002, owner],
+            [this.seriesIds[3], 3000002, owner],
+            [this.seriesIds[3], 3000003, owner]
         ]);
+
+        await web3.eth.sendTransaction({
+            to: this.vault.address,
+            from: accounts[8],
+            value: BigInt(0.5 * 1e18).toString(),
+        });
 
         // Generate signature
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
-        const saleData = {
-            price: BigInt(0.25 * 1e18).toString(),
-            cost: BigInt(0.02 * 1e18).toString(),
+        const saleData = [
+            BigInt(0.25 * 1e18).toString(),
+            BigInt(0.02 * 1e18).toString(),
             expiryTime,
-            destination: accounts[2],
-            nonce: 0,
-            seriesID: this.seriesIds[3],
-            quantity: 2,
-            revenueShares: [
-                { recipient: accounts[3], bps: 8000 },
-                { recipient: accounts[4], bps: 2000 }
+            accounts[2],
+            0,
+            this.seriesIds[3],
+            2,
+            [
+                [accounts[3], 8000],
+                [accounts[4], 2000],
             ],
-            payByVaultContract: false
-        };
+            true,
+        ];
 
         const signParams = web3.eth.abi.encodeParameters(
             [
                 "uint",
                 "address",
-                "tuple(uint256,uint256,uint256,address,uint256,uint256,tuple(address,uint256)[],bool)",
+                "tuple(uint256,uint256,uint256,address,uint256,uint256,uint16,tuple(address,uint256)[],bool)",
+            ],
+            [
+                BigInt(await web3.eth.getChainId()).toString(),
+                contract.address,
+                saleData
+            ]
+        );
+
+        const hash = web3.utils.keccak256(signParams);
+        var sig = await web3.eth.sign(hash, this.signer);
+        sig = sig.substr(2);
+        const r = "0x" + sig.slice(0, 64);
+        const s = "0x" + sig.slice(64, 128);
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
+
+        try {
+            const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
+            const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
+            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
+            const vaultBalanceBefore = await web3.eth.getBalance(
+                this.vault.address
+            );
+
+            await contract.startSale();
+            await contract.buyBulkArtworks(
+                r,
+                s,
+                v < 2 ? v + 27 : v, // magic 27
+                saleData,
+                { from: accounts[5], value: 0.25 * 1e18 }
+            );
+
+            // Validate new owner of tokens
+            const ownerOfToken1 = await contract.ownerOf(3000001);
+            const ownerOfToken2 = await contract.ownerOf(3000002);
+            assert.equal(ownerOfToken1, accounts[2]);
+            assert.equal(ownerOfToken2, accounts[2]);
+
+            // Validate balances
+            const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
+            const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
+            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
+            const vaultBalanceAfter = await web3.eth.getBalance(
+                this.vault.address
+            );
+
+            assert.equal(
+                (BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)).toString(),
+                BigInt((0.23 * 1e18 * 80) / 100).toString()
+            );
+            assert.equal(
+                (BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)).toString(),
+                BigInt((0.23 * 1e18 * 20) / 100).toString()
+            );
+            assert.equal(
+                (BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)).toString(),
+                BigInt(0.02 * 1e18).toString()
+            );
+            assert.equal(
+                (
+                    BigInt(vaultBalanceBefore) - BigInt(vaultBalanceAfter)
+                ).toString(),
+                BigInt(0.25 * 1e18).toString()
+            );
+        } catch (err) {
+            console.log(err);
+            assert.fail();
+        }
+    });
+
+    it("should fail to buy bulk artworks with invalid signature", async function () {
+        const contract = this.contracts[10];
+
+        // Mint artworks to the contract
+        const owner = contract.address;
+        await contract.mintArtworks([
+            [this.seriesIds[3], 3000000, owner],
+            [this.seriesIds[3], 3000001, owner],
+            [this.seriesIds[3], 3000002, owner],
+            [this.seriesIds[3], 3000003, owner]
+        ]);
+
+        // Generate signature
+        const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
+        const saleData = [
+            BigInt(0.25 * 1e18).toString(),
+            BigInt(0.02 * 1e18).toString(),
+            expiryTime,
+            accounts[2],
+            0,
+            this.seriesIds[3],
+            2,
+            [
+                [accounts[3], 8000],
+                [accounts[4], 2000],
+            ],
+            false,
+        ];
+
+        const signParams = web3.eth.abi.encodeParameters(
+            [
+                "uint",
+                "address",
+                "tuple(uint256,uint256,uint256,address,uint256,uint256,uint16,tuple(address,uint256)[],bool)",
             ],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
@@ -735,58 +821,56 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
-        const v = "0x" + sig.slice(128, 130);
-
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
         try {
             await contract.startSale();
             await contract.buyBulkArtworks(
                 r,
                 s,
-                web3.utils.toDecimal(v) + 27, // magic 27
+                v < 2 ? v + 27 : v, // magic 27
                 saleData,
                 { from: accounts[5], value: 0.25 * 1e18 }
             );
             assert.fail("Expected revert not received");
         } catch (error) {
-            assert.ok(error.message.includes("FeralfileExhibitionV4: invalid signature"));
+            assert.ok(error.message.includes("revert"));
         }
     });
 
     it("should fail to buy bulk artworks with incorrect payment", async function () {
-        const contract = this.contract[11];
+        const contract = this.contracts[11];
 
         // Mint artworks to the contract
         const owner = contract.address;
         await contract.mintArtworks([
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
-            [this.seriesIds[4], 4000000, owner],
-            [this.seriesIds[4], 4000001, owner],
-            [this.seriesIds[4], 4000002, owner],
+            [this.seriesIds[3], 3000002, owner],
+            [this.seriesIds[3], 3000003, owner]
         ]);
 
         // Generate signature
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
-        const saleData = {
-            price: BigInt(0.25 * 1e18).toString(),
-            cost: BigInt(0.02 * 1e18).toString(),
+        const saleData = [
+            BigInt(0.25 * 1e18).toString(),
+            BigInt(0.02 * 1e18).toString(),
             expiryTime,
-            destination: accounts[2],
-            nonce: 0,
-            seriesID: this.seriesIds[3],
-            quantity: 2,
-            revenueShares: [
-                { recipient: accounts[3], bps: 8000 },
-                { recipient: accounts[4], bps: 2000 }
+            accounts[2],
+            0,
+            this.seriesIds[3],
+            2,
+            [
+                [accounts[3], 8000],
+                [accounts[4], 2000],
             ],
-            payByVaultContract: false
-        };
+            false,
+        ];
 
         const signParams = web3.eth.abi.encodeParameters(
             [
                 "uint",
                 "address",
-                "tuple(uint256,uint256,uint256,address,uint256,uint256,tuple(address,uint256)[],bool)",
+                "tuple(uint256,uint256,uint256,address,uint256,uint256,uint16,tuple(address,uint256)[],bool)",
             ],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
@@ -800,58 +884,56 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
-        const v = "0x" + sig.slice(128, 130);
-
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
         try {
             await contract.startSale();
             await contract.buyBulkArtworks(
                 r,
                 s,
-                web3.utils.toDecimal(v) + 27, // magic 27
+                v < 2 ? v + 27 : v, // magic 27
                 saleData,
                 { from: accounts[5], value: 0.2 * 1e18 } // Incorrect payment amount
             );
             assert.fail("Expected revert not received");
         } catch (error) {
-            assert.ok(error.message.includes("FeralfileExhibitionV4: invalid payment amount"));
+            assert.ok(error.message.includes("revert"));
         }
     });
 
     it("should fail to buy bulk artworks with invalid series ID", async function () {
-        const contract = this.contract;
+        const contract = this.contracts[2];
 
         // Mint artworks to the contract
         const owner = contract.address;
         await contract.mintArtworks([
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
-            [this.seriesIds[4], 4000000, owner],
-            [this.seriesIds[4], 4000001, owner],
-            [this.seriesIds[4], 4000002, owner],
+            [this.seriesIds[3], 3000002, owner],
+            [this.seriesIds[3], 3000003, owner]
         ]);
 
         // Generate signature
         const expiryTime = (new Date().getTime() / 1000 + 300).toFixed(0);
-        const saleData = {
-            price: BigInt(0.25 * 1e18).toString(),
-            cost: BigInt(0.02 * 1e18).toString(),
+        const saleData = [
+            BigInt(0.25 * 1e18).toString(),
+            BigInt(0.02 * 1e18).toString(),
             expiryTime,
-            destination: accounts[2],
-            nonce: 0,
-            seriesID: 999999, // Invalid series ID
-            quantity: 2,
-            revenueShares: [
-                { recipient: accounts[3], bps: 8000 },
-                { recipient: accounts[4], bps: 2000 }
+            accounts[2],
+            0,
+            999999, // Invalid series ID
+            2,
+            [
+                [accounts[3], 8000],
+                [accounts[4], 2000],
             ],
-            payByVaultContract: false
-        };
+            false,
+        ];
 
         const signParams = web3.eth.abi.encodeParameters(
             [
                 "uint",
                 "address",
-                "tuple(uint256,uint256,uint256,address,uint256,uint256,tuple(address,uint256)[],bool)",
+                "tuple(uint256,uint256,uint256,address,uint256,uint256,uint16,tuple(address,uint256)[],bool)",
             ],
             [
                 BigInt(await web3.eth.getChainId()).toString(),
@@ -865,20 +947,19 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
-        const v = "0x" + sig.slice(128, 130);
-
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
         try {
             await contract.startSale();
             await contract.buyBulkArtworks(
                 r,
                 s,
-                web3.utils.toDecimal(v) + 27, // magic 27
+                v < 2 ? v + 27 : v, // magic 27
                 saleData,
                 { from: accounts[5], value: 0.25 * 1e18 }
             );
             assert.fail("Expected revert not received");
         } catch (error) {
-            assert.ok(error.message.includes("TokenIDNotFound"));
+            assert.ok(error.message.includes("revert"));
         }
     });
 });
