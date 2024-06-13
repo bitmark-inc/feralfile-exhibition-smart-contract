@@ -65,6 +65,11 @@ contract FeralfileExhibitionV4_2 is
         vaultV2 = IFeralfileVaultV2(payable(vault_));
     }
 
+    /// @notice override revert setVault
+    function setVault(address) external pure override {
+        revert FunctionNotSupported();
+    }
+
     /// @notice pay to get artworks to a destination address. The pricing, costs and other details is included in the saleData
     /// @param r_ - part of signature for validating parameters integrity
     /// @param s_ - part of signature for validating parameters integrity

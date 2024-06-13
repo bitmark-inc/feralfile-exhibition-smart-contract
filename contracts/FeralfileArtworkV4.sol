@@ -196,7 +196,7 @@ contract FeralfileExhibitionV4 is
 
     /// @notice Set vault contract
     /// @dev don't allow to set vault as zero address
-    function setVault(address vault_) external onlyOwner {
+    function setVault(address vault_) external virtual onlyOwner {
         require(
             vault_ != address(0),
             "FeralfileExhibitionV4: vault_ is zero address"
