@@ -11,6 +11,7 @@ contract FeralfileExhibitionV4_2 is
     FeralfileSaleDataV2,
     Nonces
 {
+    error NotEnoughToken();
     error TokenIDNotFound();
     error FunctionNotSupported();
     error SaleNotStarted();
@@ -85,16 +86,12 @@ contract FeralfileExhibitionV4_2 is
             revert SaleNotStarted();
         }
 
-        super._checkContractOwnedToken();
-        validateSaleDataV2(saleData_);
-
-        if (saleData_.payByVaultContract) {
-            vaultV2.payForSaleV2(r_, s_, v_, saleData_);
-        } else {
-            if (saleData_.price != msg.value) {
-                revert InvalidPaymentAmount();
-            }
+        uint256 balance = balanceOf(address(this));
+        if (balance < saleData_.quantity) {
+            revert NotEnoughToken();
         }
+        
+        validateSaleDataV2(saleData_);
 
         bytes32 message = keccak256(
             abi.encode(block.chainid, address(this), saleData_)
@@ -106,6 +103,14 @@ contract FeralfileExhibitionV4_2 is
 
         //check nonce
         _useCheckedNonce(saleData_.destination, saleData_.nonce);
+
+        if (saleData_.payByVaultContract) {
+            vaultV2.payForSaleV2(r_, s_, v_, saleData_);
+        } else {
+            if (saleData_.price != msg.value) {
+                revert InvalidPaymentAmount();
+            }
+        }
 
         uint256 itemRevenue;
         if (saleData_.price > saleData_.cost) {
