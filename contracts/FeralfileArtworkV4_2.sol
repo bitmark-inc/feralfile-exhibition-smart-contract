@@ -11,6 +11,7 @@ contract FeralfileExhibitionV4_2 is
     FeralfileSaleDataV2,
     Nonces
 {
+    error SeriesLengthMismatch();
     error NotEnoughToken();
     error TokenIDNotFound();
     error FunctionNotSupported();
@@ -50,6 +51,10 @@ contract FeralfileExhibitionV4_2 is
             seriesMaxSupplies_
         )
     {
+        if(seriesIds_.length != seriesNextPurchasableTokenIds_.length) {
+            revert SeriesLengthMismatch();
+        }
+
         vaultV2 = IFeralfileVaultV2(payable(vault_));
         for (uint256 i = 0; i < seriesIds_.length; i++) {
             seriesNextPurchasableTokenIds[seriesIds_[i]] = seriesNextPurchasableTokenIds_[i];
@@ -112,10 +117,10 @@ contract FeralfileExhibitionV4_2 is
             }
         }
 
-        uint256 totalRevenue;
-        if (saleData_.price > saleData_.cost) {
-            totalRevenue = saleData_.price - saleData_.cost;
+        if (saleData_.price < saleData_.cost) {
+            revert InvalidPaymentAmount();
         }
+        uint256 totalRevenue = saleData_.price - saleData_.cost;
 
         uint256 nextPurchasableTokenId = seriesNextPurchasableTokenIds[saleData_.seriesID];
         uint256 i = 0;
