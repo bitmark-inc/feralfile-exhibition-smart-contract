@@ -112,11 +112,9 @@ contract FeralfileExhibitionV4_2 is
             }
         }
 
-        uint256 itemRevenue;
+        uint256 totalRevenue;
         if (saleData_.price > saleData_.cost) {
-            itemRevenue =
-                (saleData_.price - saleData_.cost) /
-                saleData_.quantity;
+            totalRevenue = saleData_.price - saleData_.cost;
         }
 
         uint256 nextPurchasableTokenId = seriesNextPurchasableTokenIds[saleData_.seriesID];
@@ -157,20 +155,24 @@ contract FeralfileExhibitionV4_2 is
         uint256 platformRevenue;
 
         RevenueShare[] memory revenueShares = saleData_.revenueShares;
-        uint256 remainingRev = itemRevenue;
+        uint256 remainingRev = totalRevenue;
 
         // deduct advances payment from revenue
         for (uint256 j = 0; j < revenueShares.length && remainingRev > 0; j++) {
             uint256 remainingAdvanceAmount = advances[
                 revenueShares[j].recipient
             ];
-            uint256 rev = remainingAdvanceAmount >= remainingRev
+
+            if (remainingAdvanceAmount == 0) {
+                continue;
+            }
+            
+            uint256 prePaidRev = remainingAdvanceAmount >= remainingRev
                 ? remainingRev
                 : remainingAdvanceAmount;
-            uint256 totalRev = saleData_.quantity * rev;
-            platformRevenue += totalRev;
-            advances[revenueShares[j].recipient] -= totalRev;
-            remainingRev -= totalRev;
+            platformRevenue += prePaidRev;
+            advances[revenueShares[j].recipient] -= prePaidRev;
+            remainingRev -= prePaidRev;
         }
 
         // distribute revenue
@@ -178,13 +180,12 @@ contract FeralfileExhibitionV4_2 is
             for (uint256 j = 0; j < revenueShares.length; j++) {
                 address recipient = revenueShares[j].recipient;
                 uint256 rev = (remainingRev * revenueShares[j].bps) / 10000;
-                uint256 totalRev = saleData_.quantity * rev;
                 if (recipient == costReceiver) {
-                    platformRevenue += totalRev;
+                    platformRevenue += rev;
                     continue;
                 }
-                distributedRevenue += totalRev;
-                payable(recipient).transfer(totalRev);
+                distributedRevenue += rev;
+                payable(recipient).transfer(rev);
             }
         }
 
