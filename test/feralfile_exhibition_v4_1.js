@@ -339,7 +339,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
-        const v = "0x" + sig.slice(128, 130);
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
         // Generate signature
 
         try {
@@ -353,7 +353,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
             await contract.buyArtworks(
                 r,
                 s,
-                web3.utils.toDecimal(v) + 27, // magic 27
+                v < 2 ? v + 27 : v, // magic 27
                 [
                     BigInt(0.25 * 1e18).toString(),
                     BigInt(0.02 * 1e18).toString(),
@@ -489,7 +489,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
-        const v = "0x" + sig.slice(128, 130);
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
         // Generate signature
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
@@ -505,7 +505,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
             await contract.buyArtworks(
                 r,
                 s,
-                web3.utils.toDecimal(v) + 27, // magic 27
+                v < 2 ? v + 27 : v, // magic 27
                 [
                     BigInt(0.22 * 1e18).toString(),
                     BigInt(0.02 * 1e18).toString(),
@@ -644,7 +644,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
-        const v = "0x" + sig.slice(128, 130);
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
         // Generate signature
 
         try {
@@ -652,7 +652,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
             await contract.buyArtworks(
                 r,
                 s,
-                web3.utils.toDecimal(v) + 27, // magic 27
+                v < 2 ? v + 27 : v, // magic 27
                 [
                     BigInt(0.25 * 1e18).toString(),
                     BigInt(0.02 * 1e18).toString(),
@@ -1093,7 +1093,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         sig = sig.substr(2);
         const r = "0x" + sig.slice(0, 64);
         const s = "0x" + sig.slice(64, 128);
-        const v = "0x" + sig.slice(128, 130);
+        const v = web3.utils.toDecimal("0x" + sig.slice(128, 130));
 
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
@@ -1107,7 +1107,7 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
             await contract.buyArtworks(
                 r,
                 s,
-                web3.utils.toDecimal(v) + 27, // magic 27
+                v < 2 ? v + 27 : v, // magic 27
                 [
                     web3.utils.toWei("1", "ether"),
                     "0",
