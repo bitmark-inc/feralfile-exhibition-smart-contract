@@ -131,10 +131,10 @@ contract FeralfileExhibitionV4 is
         // initialize max supply map
         for (uint256 i = 0; i < seriesIds_.length; i++) {
             require(
-                _seriesMaxSupplies[i] == 0,
+                _seriesMaxSupplies[seriesIds_[i]] == 0,
                 "FeralfileExhibitionV4: duplicate seriesId"
             );
-            
+
             require(
                 seriesMaxSupplies_[i] > 0,
                 "FeralfileExhibitionV4: zero max supply"

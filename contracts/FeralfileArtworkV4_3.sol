@@ -7,6 +7,7 @@ contract FeralfileExhibitionV4_3 is FeralfileExhibitionV4_1 {
     error InvalidOwner();
     error TokenIsNonMergeable();
     error InvalidLength();
+    error InvalidMergingStatus();
 
     struct MergeArtworkInfo {
         uint256 singleSeriesId;
@@ -14,6 +15,9 @@ contract FeralfileExhibitionV4_3 is FeralfileExhibitionV4_1 {
         uint256 nextTokenId;
     }
     MergeArtworkInfo private mergeArtworkInfo;
+
+    // merging
+    bool internal _merging;
 
     constructor(
         string memory name_,
@@ -47,6 +51,10 @@ contract FeralfileExhibitionV4_3 is FeralfileExhibitionV4_1 {
     /// @notice burns multiples mergeable artworks and mint a new artworks
     /// @param tokenIds - list of tokenIds to be burned
     function mergeArtworks(uint256[] calldata tokenIds) external {
+        if (!_merging) {
+            revert InvalidMergingStatus();
+        }
+
         if (tokenIds.length < 2) {
             revert InvalidLength();
         }
@@ -77,5 +85,23 @@ contract FeralfileExhibitionV4_3 is FeralfileExhibitionV4_1 {
             _msgSender()
         );
         mergeArtworkInfo.nextTokenId++;
+    }
+
+    /// @notice Start token merging
+    function startMerging() external onlyOwner {
+        if (_merging) {
+            revert InvalidMergingStatus();
+        }
+
+        _merging = true;
+    }
+
+    /// @notice Pause token merging
+    function pauseMerging() public onlyOwner {
+        if (!_merging) {
+            revert InvalidMergingStatus();
+        }
+
+        _merging = false;
     }
 }
