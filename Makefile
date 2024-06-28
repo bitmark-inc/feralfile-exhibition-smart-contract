@@ -23,6 +23,7 @@ merge: sol-merger-check
     sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV3.sol /tmp/sol-merger && \
     sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV4_1.sol /tmp/sol-merger && \
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV4_2.sol /tmp/sol-merger && \
+	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileArtworkV4_3.sol /tmp/sol-merger && \
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralfileEnglishAuction.sol /tmp/sol-merger && \
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/FeralFileAirdropV1.sol /tmp/sol-merger && \
 	sol-merger --export-plugin SPDXLicenseRemovePlugin ./contracts/OwnerData.sol /tmp/sol-merger && \
@@ -45,6 +46,8 @@ build-contract: check
 	jq -r ".abi" build/contracts/FeralfileExhibitionV4_1.json > ./build/FeralfileExhibitionV4.abi && \
 	jq -r ".bytecode" build/contracts/FeralfileExhibitionV4_2.json > ./build/FeralfileExhibitionV4_2.bin && \
 	jq -r ".abi" build/contracts/FeralfileExhibitionV4_2.json > ./build/FeralfileExhibitionV4_2.abi && \
+	jq -r ".bytecode" build/contracts/FeralfileExhibitionV4_3.json > ./build/FeralfileExhibitionV4_3.bin && \
+	jq -r ".abi" build/contracts/FeralfileExhibitionV4_3.json > ./build/FeralfileExhibitionV4_3.abi && \
 	jq -r ".bytecode" build/contracts/FeralfileEnglishAuction.json > ./build/FeralfileEnglishAuction.bin && \
 	jq -r ".abi" build/contracts/FeralfileEnglishAuction.json > ./build/FeralfileEnglishAuction.abi && \
 	jq -r ".bytecode" build/contracts/FeralFileAirdropV1.json > ./build/FeralFileAirdropV1.bin && \
@@ -57,6 +60,7 @@ build: build-contract
 	mkdir -p ./go-binding/feralfile-exhibition-v3 && \
 	mkdir -p ./go-binding/feralfile-exhibition-v4 && \
 	mkdir -p ./go-binding/feralfile-exhibition-v4_2 && \
+	mkdir -p ./go-binding/feralfile-exhibition-v4_3 && \
 	mkdir -p ./go-binding/feralfile-english-auction && \
 	mkdir -p ./go-binding/feralfile-airdrop-v1 && \
 	mkdir -p ./go-binding/owner-data && \
@@ -64,6 +68,7 @@ build: build-contract
 	abigen --abi ./build/FeralfileExhibitionV3.abi --bin ./build/FeralfileExhibitionV3.bin --pkg feralfilev3 -type FeralfileExhibitionV3 --out ./go-binding/feralfile-exhibition-v3/abi.go
 	abigen --abi ./build/FeralfileExhibitionV4.abi --bin ./build/FeralfileExhibitionV4.bin --pkg feralfilev4 -type FeralfileExhibitionV4 --out ./go-binding/feralfile-exhibition-v4/abi.go
 	abigen --abi ./build/FeralfileExhibitionV4_2.abi --bin ./build/FeralfileExhibitionV4_2.bin --pkg feralfilev4_2 -type FeralfileExhibitionV4_2 --out ./go-binding/feralfile-exhibition-v4_2/abi.go
+	abigen --abi ./build/FeralfileExhibitionV4_3.abi --bin ./build/FeralfileExhibitionV4_3.bin --pkg feralfilev4_2 -type FeralfileExhibitionV4_3 --out ./go-binding/feralfile-exhibition-v4_3/abi.go
 	abigen --abi ./build/FeralfileEnglishAuction.abi --bin ./build/FeralfileEnglishAuction.bin --pkg english_auction -type FeralfileEnglishAuction --out ./go-binding/feralfile-english-auction/abi.go
 	abigen --abi ./build/FeralFileAirdropV1.abi --bin ./build/FeralFileAirdropV1.bin --pkg airdropv1 -type FeralFileAirdropV1 --out ./go-binding/feralfile-airdrop-v1/abi.go && \
 	abigen --abi ./build/OwnerData.abi --bin ./build/OwnerData.bin --pkg ownerdata -type OwnerData --out ./go-binding/owner-data/abi.go
