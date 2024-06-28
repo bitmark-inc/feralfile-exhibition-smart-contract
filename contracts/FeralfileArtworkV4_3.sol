@@ -79,12 +79,15 @@ contract FeralfileExhibitionV4_3 is FeralfileExhibitionV4_1 {
         }
 
         // Mint new artwork
+        uint256 newTokenId = mergeArtworkInfo.nextTokenId;
         _mintArtwork(
             mergeArtworkInfo.mergedSeriesId,
-            mergeArtworkInfo.nextTokenId,
+            newTokenId,
             _msgSender()
         );
         mergeArtworkInfo.nextTokenId++;
+
+        emit MergedArtwork(_msgSender(), tokenIds, newTokenId);
     }
 
     /// @notice Start token merging
@@ -104,4 +107,11 @@ contract FeralfileExhibitionV4_3 is FeralfileExhibitionV4_1 {
 
         _merging = false;
     }
+
+    /// @notice Event emitted when a merged artwork has been minted
+    event MergedArtwork(
+        address indexed owner,
+        uint256[] mergingTokenIds,
+        uint256 indexed newTokenId
+    );
 }
