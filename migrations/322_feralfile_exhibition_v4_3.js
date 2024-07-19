@@ -14,22 +14,25 @@ module.exports = function (deployer) {
     let exhibition_signer =
         argv.exhibition_signer || "0xBEb9F810862c40A144925f568b1853d72Acc492F";
     let exhibition_vault =
-        argv.exhibition_vault || "0x0c51e8becb17ba3203cd04d3fc31fcb90de412a1";
+        argv.exhibition_vault || "0x455464F0d369dAC13002e81e9fAB857f6aD21795";
     let exhibition_cost_receiver =
         argv.exhibition_cost_receiver ||
-        "0x6732389c6d47d01487dcDc96e2Cc6BAf108452f2";
+        "0x080FEB125bA730D6D12789B6AAAB01f4E31D8Bd1";
     let burnable = argv.burnable || true;
     let bridgeable = argv.bridgeable || true;
     let contract_uri =
         argv.contract_uri ||
-        "ipfs://QmZuygbgeVDZ8NBBpD3oSVUAibTTgKYnKvYWikdGp7HwNb";
-        let series_ids = argv.series_ids || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        let max_supplies = argv.max_supplies || [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 512, 511];
+        "ipfs://QmUWB3RBh42qtT4aRRGiZCrvx98LPq8GmDmioE8EQi5Vm6";
+    let series_ids = argv.series_ids || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    let max_supplies = argv.max_supplies || [
+        512, 256, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    ];
     let merge_artwork_info = argv.merge_artwork_info || {
-        singleSeriesId: 11,
-        mergedSeriesId: 12,
-        nextTokenId: "65139289060393321767190134082157117717885840752315574009980337524583053413184"
-      };
+        singleSeriesId: 1,
+        mergedSeriesId: 2,
+        nextTokenId:
+            "27271357221255084324537793443996264744604553267670416617055471525879030383744",
+    };
 
     deployer.deploy(
         FeralfileExhibitionV4_3,
