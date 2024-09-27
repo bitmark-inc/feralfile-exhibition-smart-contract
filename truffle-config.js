@@ -106,6 +106,13 @@ module.exports = {
     // Set default mocha options here, use special reporters etc.
     mocha: {
         // timeout: 100000
+        reporter: 'eth-gas-reporter',
+        reporterOptions : { 
+            currency: 'USD',
+            gasPriceApi: 'https://api.etherscan.io/api?module=proxy&action=eth_gasPrice',
+            token: 'ETH',
+            coinmarketcap: process.env.COINMARKETCAP_API_KEY
+         }
     },
 
     // Configure your compilers
