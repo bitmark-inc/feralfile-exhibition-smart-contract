@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol" as Ownable;
 
-contract SeriesIndexer is Ownable {
+contract SeriesIndexer is Ownable.Ownable {
     // Counter
     uint256 private nextSeriesID = 1;
     uint256 private nextArtistID = 1;
@@ -30,7 +30,7 @@ contract SeriesIndexer is Ownable {
     mapping(uint256 => mapping(uint256 => uint256)) private artistPendingCoArtistRequestIndex;// artistID => SeriesID => Index
 
     // Events
-    event ArtistAddressUpdated(uint256 indexed artistID, address oldAddress, address newAddress);
+    event ArtistAddressUpdated(uint256 indexed artistID, address indexed oldAddress, address indexed newAddress);
     event SeriesIndexed(
         uint256 indexed seriesID,
         uint256[] artistIDs,
@@ -178,8 +178,8 @@ contract SeriesIndexer is Ownable {
     // ------------------------
 
     function addSeries(
-        string memory metadata,
-        string memory tokenIDsMapCID
+        string calldata metadata,
+        string calldata tokenIDsMapCID
     ) external returns (uint256) {
         address[] memory artistAddrs = new address[](1);
         artistAddrs[0] = msg.sender;
@@ -187,9 +187,9 @@ contract SeriesIndexer is Ownable {
     }
 
     function ownerAddSeries(
-        address[] memory artistAddrs,
-        string memory metadata,
-        string memory tokenIDsMapCID
+        address[] calldata artistAddrs,
+        string calldata metadata,
+        string calldata tokenIDsMapCID
     ) external onlyOwner returns (uint256) {
         require(artistAddrs.length > 0, "No artists");
         _checkArtistsNotRevoked(artistAddrs);
@@ -197,9 +197,9 @@ contract SeriesIndexer is Ownable {
     }
 
     function ownerBatchAddSeries(
-        address[][] memory artistsArray,
-        string[] memory metadatas,
-        string[] memory tokenIDsMapCIDs
+        address[][] calldata artistsArray,
+        string[] calldata metadatas,
+        string[] calldata tokenIDsMapCIDs
     ) external onlyOwner returns (uint256[] memory) {
         uint256 length = artistsArray.length;
         require(
@@ -221,8 +221,8 @@ contract SeriesIndexer is Ownable {
 
     function updateSeries(
         uint256 seriesID,
-        string memory metadata,
-        string memory tokenIDsMapCID
+        string calldata metadata,
+        string calldata tokenIDsMapCID
     ) external seriesExists(seriesID) onlyOwnerOrArtist(seriesID) {
         _checkMetadataAndTokenCID(metadata, tokenIDsMapCID);
 
@@ -254,7 +254,7 @@ contract SeriesIndexer is Ownable {
 
     function ownerUpdateSeriesArtists(
         uint256 seriesID,
-        address[] memory artistAddrs
+        address[] calldata artistAddrs
     ) external seriesExists(seriesID) onlyOwner {
         require(ownerCanModifySeries(seriesID), "Owner rights revoked by all artists");
         _checkArtistsNotRevoked(artistAddrs);
