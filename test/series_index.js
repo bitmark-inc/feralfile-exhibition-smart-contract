@@ -35,7 +35,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("Adding Series", () => {
         it("Non-owner (artist) can add a series with themselves as the first artist", async () => {
-            const tx = await instance.addSeries(metadataURI, tokenMapURI, {
+            const tx = await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             expectEvent(tx, "SeriesIndexed", {
@@ -60,8 +60,28 @@ contract("SeriesIndexer", (accounts) => {
             );
         });
 
+        it("Non-owner (artist) can't add a series with others as the artist", async () => {
+            await expectCustomError(
+                instance.addSeries([artistB], metadataURI, tokenMapURI, {
+                    from: artistA,
+                }),
+                seriesIndexerABI,
+                "NotAuthorizedError",
+                [artistA]
+            );
+
+            await expectCustomError(
+                instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, {
+                    from: artistA,
+                }),
+                seriesIndexerABI,
+                "NotAuthorizedError",
+                [artistA]
+            );
+        });
+
         it("Owner can add a series with multiple artists", async () => {
-            const tx = await instance.ownerAddSeries(
+            const tx = await instance.addSeries(
                 [artistA, artistB],
                 metadataURI,
                 tokenMapURI,
@@ -79,14 +99,14 @@ contract("SeriesIndexer", (accounts) => {
         it("Should revert when metadata URI or token map URI is empty", async () => {
             // Reverts with custom error EmptyMetadataURIError()
             await expectCustomError(
-                instance.addSeries("", tokenMapURI, { from: artistA }),
+                instance.addSeries([artistA], "", tokenMapURI, { from: artistA }),
                 seriesIndexerABI,
                 "EmptyMetadataURIError"
             );
 
             // Reverts with custom error EmptyTokenMapURIError()
             await expectCustomError(
-                instance.addSeries(metadataURI, "", { from: artistA }),
+                instance.addSeries([artistA], metadataURI, "", { from: artistA }),
                 seriesIndexerABI,
                 "EmptyTokenMapURIError"
             );
@@ -99,7 +119,7 @@ contract("SeriesIndexer", (accounts) => {
         const batchTokenMapURIs = ["token3001", "token3002"];
 
         it("Owner can batch add multiple series", async () => {
-            const tx = await instance.ownerBatchAddSeries(
+            const tx = await instance.batchAddSeries(
                 batchArtistsArray,
                 batchMetadataURIs,
                 batchTokenMapURIs,
@@ -126,15 +146,43 @@ contract("SeriesIndexer", (accounts) => {
             expect(seriesTokenMap2).to.equal("token3002");
         });
 
-        it("Batch add should revert if one of the artists revoked owner rights", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+        it("Non-owner (artist) can batch add multiple series of themselves", async () => {
+            const tx = await instance.batchAddSeries(
+                [[artistA], [artistA]],
+                batchMetadataURIs,
+                batchTokenMapURIs,
+                { from: owner }
+            );
+
+            expectEvent(tx, "SeriesIndexed", { seriesID: firstSeriesID });
+            expectEvent(tx, "SeriesIndexed", { seriesID: secondSeriesID });
+
+            const seriesMeta1 = await instance.getSeriesMetadataURI(firstSeriesID);
+            const seriesTokenMap1 = await instance.getSeriesContractTokenDataURI(
+                firstSeriesID
+            );
+            expect(seriesMeta1).to.equal("meta3001");
+            expect(seriesTokenMap1).to.equal("token3001");
+
+            const seriesMeta2 = await instance.getSeriesMetadataURI(
+                secondSeriesID
+            );
+            const seriesTokenMap2 = await instance.getSeriesContractTokenDataURI(
+                secondSeriesID
+            );
+            expect(seriesMeta2).to.equal("meta3002");
+            expect(seriesTokenMap2).to.equal("token3002");
+        });
+
+        it("Owner batch add should revert if one of the artists revoked owner rights", async () => {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             await instance.revokeOwnerRightsForArtist({ from: artistA });
 
             // Reverts with custom error ArtistRevokedOwnerRightsError(address artistAddr)
             await expectCustomError(
-                instance.ownerBatchAddSeries(
+                instance.batchAddSeries(
                     [[artistA]],
                     ["meta4001"],
                     ["token4001"],
@@ -146,11 +194,25 @@ contract("SeriesIndexer", (accounts) => {
             );
         });
 
+        it("Non-owner (artist) can't batch add if adding others as artists", async () => {
+            await expectCustomError(
+                instance.batchAddSeries(
+                    [[artistA], [artistB]],
+                    batchMetadataURIs,
+                    batchTokenMapURIs,
+                    { from: artistA }
+                ),
+                seriesIndexerABI,
+                "NotAuthorizedError",
+                [artistA]
+            );
+        });
+
         it("Batch add should revert on array length mismatch", async () => {
             // Reverts with custom error ArrayLengthMismatchError(uint256, uint256, uint256)
             // The first array's length = 1, while the others have length = 2
             await expectCustomError(
-                instance.ownerBatchAddSeries(
+                instance.batchAddSeries(
                     [[artistA]],
                     ["meta5001", "meta5002"],
                     ["token5001", "token5002"],
@@ -165,7 +227,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("Updating Series", () => {
         it("Series artist can update the series metadata", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const tx = await instance.updateSeries(
@@ -186,8 +248,43 @@ contract("SeriesIndexer", (accounts) => {
             expect(updatedTokenMap).to.equal(newTokenMapURI);
         });
 
+        it("Non-owner (artist) can batch update multiple series of themselves", async () => {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
+                from: artistA,
+            });
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
+                from: artistA,
+            });
+
+            const tx = await instance.batchUpdateSeries(
+                [firstSeriesID, secondSeriesID],
+                ["meta5001", "meta5002"],
+                ["token5001", "token5002"],
+                { from: artistA }
+            );
+            expectEvent(tx, "SeriesUpdated", {
+                seriesID: firstSeriesID,
+            });
+            expectEvent(tx, "SeriesUpdated", {
+                seriesID: firstSeriesID,
+            });
+
+            let updatedMeta = await instance.getSeriesMetadataURI(firstSeriesID);
+            let updatedTokenMap = await instance.getSeriesContractTokenDataURI(
+                firstSeriesID
+            );
+            expect(updatedMeta).to.equal("meta5001");
+            expect(updatedTokenMap).to.equal("token5001");
+            updatedMeta = await instance.getSeriesMetadataURI(secondSeriesID);
+            updatedTokenMap = await instance.getSeriesContractTokenDataURI(
+                secondSeriesID
+            );
+            expect(updatedMeta).to.equal("meta5002");
+            expect(updatedTokenMap).to.equal("token5002");
+        });
+
         it("Non-artist or non-owner cannot update", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Reverts with custom error: CallerNotASeriesArtistError(uint256 seriesID, address caller)
@@ -219,7 +316,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("Owner Rights Revocation", () => {
         it("Artist can revoke owner rights", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             await instance.revokeOwnerRightsForArtist({ from: artistA });
@@ -228,7 +325,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Artist can re-approve owner rights", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             await instance.revokeOwnerRightsForArtist({ from: artistA });
@@ -238,7 +335,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("When all artists revoke, owner cannot update series", async () => {
-            await instance.ownerAddSeries(
+            await instance.addSeries(
                 [artistA, artistB],
                 metadataURI,
                 tokenMapURI,
@@ -288,7 +385,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("Propose and Confirm Co-Artist", () => {
         it("Artist in a series can propose a new co-artist", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const tx = await instance.proposeCoArtist(firstSeriesID, artistC, {
@@ -305,7 +402,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Co-artist can confirm themselves", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             await instance.proposeCoArtist(firstSeriesID, artistC, {
@@ -334,10 +431,10 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Cannot confirm if not proposed", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistC], metadataURI, tokenMapURI, {
                 from: artistC,
             });
             // Reverts with custom error: NotAPendingProposalError(uint256 seriesID, address caller)
@@ -350,7 +447,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("An artist can cancel a co-artist proposal before confirmation", async () => {
-            await instance.ownerAddSeries(
+            await instance.addSeries(
                 [artistA, artistB],
                 metadataURI,
                 tokenMapURI,
@@ -408,7 +505,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Proposing the same co-artist twice for the same series should revert", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Propose artistB
@@ -428,7 +525,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Non-artist cannot propose co-artist", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Reverts with custom error: CallerNotASeriesArtistError(uint256 seriesID, address caller)
@@ -443,7 +540,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Propose co-artist with invalid (zero) address should revert", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Reverts with custom error: ZeroAddressNotAllowedError()
@@ -461,7 +558,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("Multiple Co-Artist Proposals", () => {
         it("Can propose multiple co-artists and confirm/cancel them independently", async () => {
-            await instance.ownerAddSeries(
+            await instance.addSeries(
                 [artistA, artistB],
                 metadataURI,
                 tokenMapURI,
@@ -474,7 +571,7 @@ contract("SeriesIndexer", (accounts) => {
             let artistDID = await instance.getAddressArtistID(artistD);
 
             // Add another new series
-            await instance.addSeries("meta1010", "token1010", {
+            await instance.addSeries([artistA], "meta1010", "token1010", {
                 from: artistA,
             });
 
@@ -537,7 +634,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("Updating Artist's address", () => {
         it("Artist can update their own address", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const artistAID = await instance.getAddressArtistID(artistA);
@@ -564,7 +661,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Owner can update artist address if owner rights not revoked", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const artistAID = await instance.getAddressArtistID(artistA);
@@ -586,7 +683,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Owner cannot update artist address if the artist revoked owner rights", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const artistAID = await instance.getAddressArtistID(artistA);
@@ -604,7 +701,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Random address cannot update artist address", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const artistAID = await instance.getAddressArtistID(artistA);
@@ -621,10 +718,10 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("Cannot update artist address to one already assigned to another artist", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistB], metadataURI, tokenMapURI, {
                 from: artistB,
             });
             const artistAID = await instance.getAddressArtistID(artistA);
@@ -643,7 +740,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("deleteSeries", () => {
         it("should allow owner to delete series", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const tx = await instance.deleteSeries(firstSeriesID, {
@@ -651,10 +748,9 @@ contract("SeriesIndexer", (accounts) => {
             });
 
             // Verify event emission
-            expect(tx.logs[0].event).to.equal("SeriesDeleted");
-            expect(tx.logs[0].args.seriesID.toString()).to.equal(
-                firstSeriesID.toString()
-            );
+            expectEvent(tx, "SeriesDeleted", {
+                seriesID: firstSeriesID,
+            });
 
             // Verify series is deleted
             const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
@@ -665,17 +761,60 @@ contract("SeriesIndexer", (accounts) => {
             expect(artist1Series.length).to.equal(0);
         });
 
-        it("should allow artist to delete series", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+        it("should allow owner to batch delete series", async () => {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            await instance.deleteSeries(firstSeriesID, { from: artistA });
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
+                from: artistA,
+            });
+            const tx = await instance.batchDeleteSeries([firstSeriesID, secondSeriesID], { from: owner });
+            expectEvent(tx, "SeriesDeleted", {
+                seriesID: firstSeriesID,
+            });
+            expectEvent(tx, "SeriesDeleted", {
+                seriesID: secondSeriesID,
+            });
+            let artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
+            expect(artistIDs.length).to.equal(0);
+            artistIDs = await instance.getSeriesArtistIDs(secondSeriesID);
+            expect(artistIDs.length).to.equal(0);
+        });
+
+        it("should allow artist to delete series", async () => {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
+                from: artistA,
+            });
+            const tx = await instance.deleteSeries(firstSeriesID, { from: artistA });
+            expectEvent(tx, "SeriesDeleted", {
+                seriesID: firstSeriesID,
+            });
             const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
             expect(artistIDs.length).to.equal(0);
         });
 
+        it("should allow artist to batch delete series", async () => {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
+                from: artistA,
+            });
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
+                from: artistA,
+            });
+            const tx = await instance.batchDeleteSeries([firstSeriesID, secondSeriesID], { from: artistA });
+            expectEvent(tx, "SeriesDeleted", {
+                seriesID: firstSeriesID,
+            });
+            expectEvent(tx, "SeriesDeleted", {
+                seriesID: secondSeriesID,
+            });
+            let artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
+            expect(artistIDs.length).to.equal(0);
+            artistIDs = await instance.getSeriesArtistIDs(secondSeriesID);
+            expect(artistIDs.length).to.equal(0);
+        });
+
         it("should not allow non-artist to delete series", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Reverts with custom error: CallerNotASeriesArtistError(...)
@@ -701,7 +840,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("removeSelfFromSeries", () => {
         it("should allow artist to remove themselves", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const tx = await instance.removeSelfFromSeries(firstSeriesID, {
@@ -726,7 +865,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("should not allow non-artist to remove themselves", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Reverts with custom error: CallerNotASeriesArtistError(...)
@@ -739,7 +878,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("should maintain other artists in series after removal", async () => {
-            await instance.ownerAddSeries(
+            await instance.addSeries(
                 [artistA, artistB],
                 metadataURI,
                 tokenMapURI,
@@ -759,7 +898,7 @@ contract("SeriesIndexer", (accounts) => {
 
     describe("ownerUpdateSeriesArtists", () => {
         it("should allow owner to update artists", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             const newArtists = [artistB, artistC]; // remove A, add B & C
@@ -787,7 +926,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("should not allow non-owner to update artists", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // This fails with "Ownable: caller is not the owner", which is a standard OpenZeppelin revert,
@@ -803,7 +942,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("should not allow update if all artists revoked owner rights", async () => {
-            await instance.ownerAddSeries(
+            await instance.addSeries(
                 [artistA, artistB],
                 metadataURI,
                 tokenMapURI,
@@ -827,13 +966,13 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("should not allow adding artists who revoked owner rights", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Revoke rights for artistA
             await instance.revokeOwnerRightsForArtist({ from: artistA });
 
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistB], metadataURI, tokenMapURI, {
                 from: artistB,
             });
             // Fails with custom error: ArtistRevokedOwnerRightsError(address artistAddr)
@@ -850,7 +989,7 @@ contract("SeriesIndexer", (accounts) => {
         });
 
         it("should properly update artists' series lists", async () => {
-            await instance.addSeries(metadataURI, tokenMapURI, {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             await instance.ownerUpdateSeriesArtists(
