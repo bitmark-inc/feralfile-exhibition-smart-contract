@@ -114,13 +114,13 @@ contract SeriesIndexer is Ownable.Ownable {
             }
         } else {
             // Otherwise, must be a valid artist in this series
-            requireIsSeriesArtist(seriesID);
+            _requireIsSeriesArtist(seriesID);
         }
         _;
     }
 
     modifier onlyArtist(uint256 seriesID) {
-        requireIsSeriesArtist(seriesID);
+        _requireIsSeriesArtist(seriesID);
         _;
     }
 
@@ -157,7 +157,7 @@ contract SeriesIndexer is Ownable.Ownable {
         if (artistAddrs.length == 0) {
             revert NoArtistsProvidedError();
         }
-        validateArtistsNotRevoked(artistAddrs);
+        _validateArtistsNotRevoked(artistAddrs);
         return _createSeries(artistAddrs, metadataURI, tokenIDsMapURI);
     }
 
@@ -169,7 +169,7 @@ contract SeriesIndexer is Ownable.Ownable {
         string[] calldata metadataURIs,
         string[] calldata tokenIDsMapURIs
     ) external onlyOwner returns (uint256[] memory) {
-        validateBatchParameters(artistsArray, metadataURIs, tokenIDsMapURIs);
+        _validateBatchParameters(artistsArray, metadataURIs, tokenIDsMapURIs);
 
         uint256[] memory createdSeriesIDs = new uint256[](artistsArray.length);
         for (uint256 i = 0; i < artistsArray.length; i++) {
@@ -177,7 +177,7 @@ contract SeriesIndexer is Ownable.Ownable {
                 // We know which index in the batch is invalid
                 revert NoArtistsForSeriesError(i);
             }
-            validateArtistsNotRevoked(artistsArray[i]);
+            _validateArtistsNotRevoked(artistsArray[i]);
             createdSeriesIDs[i] = _createSeries(
                 artistsArray[i],
                 metadataURIs[i],
@@ -195,7 +195,7 @@ contract SeriesIndexer is Ownable.Ownable {
         string calldata metadataURI,
         string calldata tokenIDsMapURI
     ) external seriesExists(seriesID) onlyOwnerOrArtist(seriesID) {
-        validateMetadataAndTokenURI(metadataURI, tokenIDsMapURI);
+        _validateMetadataAndTokenURI(metadataURI, tokenIDsMapURI);
 
         Series storage series = seriesDetails[seriesID];
         series.metadataURI = metadataURI;
@@ -216,7 +216,7 @@ contract SeriesIndexer is Ownable.Ownable {
         
         // Remove series from all artists
         for (uint256 i = 0; i < series.artistIDs.length; i++) {
-            removeSeriesFromArtist(series.artistIDs[i], seriesID);
+            _removeSeriesFromArtist(series.artistIDs[i], seriesID);
         }
 
         delete seriesDetails[seriesID];
@@ -230,7 +230,7 @@ contract SeriesIndexer is Ownable.Ownable {
      */
     function removeSelfFromSeries(uint256 seriesID) external onlyArtist(seriesID) {
         uint256 artistID = addressToArtistID[msg.sender];
-        removeArtistFromSeries(seriesID, artistID);
+        _removeArtistFromSeries(seriesID, artistID);
     }
 
     /**
@@ -243,19 +243,19 @@ contract SeriesIndexer is Ownable.Ownable {
         if (!ownerCanModifySeries(seriesID)) {
             revert AllArtistsRevokedOwnerRightsError(seriesID);
         }
-        validateArtistsNotRevoked(artistAddrs);
+        _validateArtistsNotRevoked(artistAddrs);
 
         // Remove current artists
         Series storage series = seriesDetails[seriesID];
         for (uint256 i = 0; i < series.artistIDs.length; i++) {
             uint256 artistID = series.artistIDs[i];
             isArtistIDInSeries[seriesID][artistID] = false;
-            removeSeriesFromArtist(artistID, seriesID);
+            _removeSeriesFromArtist(artistID, seriesID);
         }
         delete series.artistIDs;
 
         // Add new artists
-        addArtistsToSeries(seriesID, artistAddrs);
+        _addArtistsToSeries(seriesID, artistAddrs);
 
         emit SeriesUpdated(
             seriesID,
@@ -278,7 +278,7 @@ contract SeriesIndexer is Ownable.Ownable {
             revert ZeroAddressNotAllowedError();
         }
         
-        ensureArtistHasID(proposedArtistAddr);
+        _ensureArtistHasID(proposedArtistAddr);
         uint256 proposedArtistID = addressToArtistID[proposedArtistAddr];
 
         if (seriesPendingCoArtist[seriesID][proposedArtistID]) {
@@ -286,7 +286,7 @@ contract SeriesIndexer is Ownable.Ownable {
         }
 
         seriesPendingCoArtist[seriesID][proposedArtistID] = true;
-        addPendingRequest(proposedArtistID, seriesID);
+        _addPendingRequest(proposedArtistID, seriesID);
 
         emit CoArtistProposed(seriesID, proposedArtistID);
     }
@@ -304,7 +304,7 @@ contract SeriesIndexer is Ownable.Ownable {
         }
 
         seriesPendingCoArtist[seriesID][proposedArtistID] = false;
-        removePendingRequest(proposedArtistID, seriesID);
+        _removePendingRequest(proposedArtistID, seriesID);
 
         uint256 artistID = addressToArtistID[msg.sender];
         emit CoArtistProposalCancelled(seriesID, artistID, proposedArtistID);
@@ -328,7 +328,7 @@ contract SeriesIndexer is Ownable.Ownable {
         artistIDSeriesIDs[artistID].push(seriesID);
 
         seriesPendingCoArtist[seriesID][artistID] = false;
-        removePendingRequest(artistID, seriesID);
+        _removePendingRequest(artistID, seriesID);
 
         emit CoArtistConfirmed(seriesID, artistID);
     }
@@ -367,7 +367,7 @@ contract SeriesIndexer is Ownable.Ownable {
      * @dev Updates an artist's address
      */
     function updateArtistAddress(uint256 artistID, address newAddress) external {
-        validateAddressUpdate(artistID, newAddress);
+        _validateAddressUpdate(artistID, newAddress);
 
         address oldAddress = artistIDToAddress[artistID];
         addressToArtistID[oldAddress] = 0;
@@ -476,13 +476,13 @@ contract SeriesIndexer is Ownable.Ownable {
         string memory tokenIDsMapURI
     ) internal returns (uint256) {
         uint256 seriesID = nextSeriesID++;
-        validateMetadataAndTokenURI(metadataURI, tokenIDsMapURI);
+        _validateMetadataAndTokenURI(metadataURI, tokenIDsMapURI);
 
         Series storage series = seriesDetails[seriesID];
         series.metadataURI = metadataURI;
         series.contractTokenDataURI = tokenIDsMapURI;
 
-        uint256[] memory artistIDs = addArtistsToSeries(seriesID, artistAddrs);
+        uint256[] memory artistIDs = _addArtistsToSeries(seriesID, artistAddrs);
 
         emit SeriesIndexed(seriesID, artistIDs, metadataURI, tokenIDsMapURI);
         return seriesID;
@@ -491,7 +491,7 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Removes an artist from a series and updates related mappings
      */
-    function removeArtistFromSeries(uint256 seriesID, uint256 artistID) internal {
+    function _removeArtistFromSeries(uint256 seriesID, uint256 artistID) internal {
         Series storage series = seriesDetails[seriesID];
         uint256[] storage artistIDs = series.artistIDs;
         
@@ -505,7 +505,7 @@ contract SeriesIndexer is Ownable.Ownable {
         }
 
         // Remove series from artist's list
-        removeSeriesFromArtist(artistID, seriesID);
+        _removeSeriesFromArtist(artistID, seriesID);
 
         emit SeriesUpdated(
             seriesID, 
@@ -515,15 +515,30 @@ contract SeriesIndexer is Ownable.Ownable {
         );
     }
 
-    // ============ Private Functions ============
+    /**
+     * @dev Removes a series from an artist's list
+     */
+    function _removeSeriesFromArtist(uint256 artistID, uint256 seriesID) private {
+        uint256[] storage seriesIDs = artistIDSeriesIDs[artistID];
+        
+        for (uint256 i = 0; i < seriesIDs.length; i++) {
+            if (seriesIDs[i] == seriesID) {
+                seriesIDs[i] = seriesIDs[seriesIDs.length - 1];
+                seriesIDs.pop();
+                break;
+            }
+        }
+        
+        isArtistIDInSeries[seriesID][artistID] = false;
+    }
 
     /**
      * @dev Validates that metadataURI and token URI are not empty
      */
-    function validateMetadataAndTokenURI(
+    function _validateMetadataAndTokenURI(
         string memory metadataURI,
         string memory tokenIDsMapURI
-    ) private pure {
+    ) internal pure {
         if (bytes(metadataURI).length == 0) {
             revert EmptyMetadataURIError();
         }
@@ -535,11 +550,11 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Validates batch parameters for series creation
      */
-    function validateBatchParameters(
+    function _validateBatchParameters(
         address[][] calldata artistsArray,
         string[] calldata metadataURIs,
         string[] calldata tokenIDsMapURIs
-    ) private pure {
+    ) internal pure {
         uint256 length = artistsArray.length;
         if (length != metadataURIs.length || length != tokenIDsMapURIs.length) {
             revert ArrayLengthMismatchError(
@@ -559,7 +574,7 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Checks if the caller is a series artist
      */
-    function requireIsSeriesArtist(uint256 seriesID) private view {
+    function _requireIsSeriesArtist(uint256 seriesID) internal view {
         uint256 artistID = addressToArtistID[msg.sender];
         if (artistID == 0 || !isArtistIDInSeries[seriesID][artistID]) {
             revert CallerNotASeriesArtistError(seriesID, msg.sender);
@@ -569,7 +584,7 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Validates an address update request
      */
-    function validateAddressUpdate(uint256 artistID, address newAddress) private view {
+    function _validateAddressUpdate(uint256 artistID, address newAddress) internal view {
         if (newAddress == address(0)) {
             revert InvalidNewAddressError(newAddress);
         }
@@ -592,7 +607,7 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Ensures all provided artist addresses have not revoked owner rights
      */
-    function validateArtistsNotRevoked(address[] memory artistAddrs) private view {
+    function _validateArtistsNotRevoked(address[] memory artistAddrs) internal view {
         for (uint256 i = 0; i < artistAddrs.length; i++) {
             uint256 artistID = addressToArtistID[artistAddrs[i]];
             if (artistID != 0 && ownerRightsRevokedForArtistID[artistID]) {
@@ -604,7 +619,7 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Ensures an address is assigned an artist ID. If not, creates one.
      */
-    function ensureArtistHasID(address artistAddr) private {
+    function _ensureArtistHasID(address artistAddr) internal {
         if (artistAddr == address(0)) {
             revert ZeroAddressNotAllowedError();
         }
@@ -618,7 +633,7 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Adds a pending co-artist request
      */
-    function addPendingRequest(uint256 artistID, uint256 seriesID) private {
+    function _addPendingRequest(uint256 artistID, uint256 seriesID) internal {
         artistPendingCoArtistRequests[artistID].push(seriesID);
         artistPendingCoArtistRequestIndex[artistID][seriesID] =
             artistPendingCoArtistRequests[artistID].length - 1;
@@ -627,7 +642,7 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Removes a pending co-artist request
      */
-    function removePendingRequest(uint256 artistID, uint256 seriesID) private {
+    function _removePendingRequest(uint256 artistID, uint256 seriesID) internal {
         uint256[] storage requests = artistPendingCoArtistRequests[artistID];
         uint256 index = artistPendingCoArtistRequestIndex[artistID][seriesID];
         uint256 lastIndex = requests.length - 1;
@@ -645,14 +660,14 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Adds multiple artists to a series
      */
-    function addArtistsToSeries(
+    function _addArtistsToSeries(
         uint256 seriesID,
         address[] memory artistAddrs
-    ) private returns (uint256[] memory) {
+    ) internal returns (uint256[] memory) {
         uint256[] memory artistIDs = new uint256[](artistAddrs.length);
         
         for (uint256 i = 0; i < artistAddrs.length; i++) {
-            ensureArtistHasID(artistAddrs[i]);
+            _ensureArtistHasID(artistAddrs[i]);
             uint256 artistID = addressToArtistID[artistAddrs[i]];
             artistIDs[i] = artistID;
 
@@ -662,22 +677,5 @@ contract SeriesIndexer is Ownable.Ownable {
         }
 
         return artistIDs;
-    }
-
-    /**
-     * @dev Removes a series from an artist's list
-     */
-    function removeSeriesFromArtist(uint256 artistID, uint256 seriesID) private {
-        uint256[] storage seriesIDs = artistIDSeriesIDs[artistID];
-        
-        for (uint256 i = 0; i < seriesIDs.length; i++) {
-            if (seriesIDs[i] == seriesID) {
-                seriesIDs[i] = seriesIDs[seriesIDs.length - 1];
-                seriesIDs.pop();
-                break;
-            }
-        }
-        
-        isArtistIDInSeries[seriesID][artistID] = false;
     }
 }
