@@ -135,7 +135,7 @@ contract SeriesIndexer is Ownable.Ownable {
     // ============ Public/External Functions: Series Management ============
 
     /**
-     * @dev Creates a new series with the caller as the artist
+     * @dev Creates a new series
      */
     function addSeries(
         address[] calldata artistAddrs,
@@ -146,7 +146,7 @@ contract SeriesIndexer is Ownable.Ownable {
     }
 
     /**
-     * @dev Batch creation of series by owner
+     * @dev Batch creation of series
      */
     function batchAddSeries(
         address[][] calldata artistsArray,
@@ -199,7 +199,7 @@ contract SeriesIndexer is Ownable.Ownable {
     }
 
     /**
-     * @dev Deletes series and cleans up related data
+     * @dev Batch deletes series and cleans up related data
      */
     function batchDeleteSeries(uint256[] calldata seriesIDs) external {
         for (uint256 i = 0; i < seriesIDs.length; i++) {
