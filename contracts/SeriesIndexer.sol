@@ -214,7 +214,28 @@ contract SeriesIndexer is Ownable.Ownable {
      */
     function removeSelfFromSeries(uint256 seriesID) external onlyArtist(seriesID) {
         uint256 artistID = addressToArtistID[msg.sender];
-        _removeArtistFromSeries(seriesID, artistID);
+
+        Series storage series = seriesDetails[seriesID];
+        uint256[] storage artistIDs = series.artistIDs;
+        
+        // Find and remove artistID from series' artist list
+        for (uint256 i = 0; i < artistIDs.length; i++) {
+            if (artistIDs[i] == artistID) {
+                artistIDs[i] = artistIDs[artistIDs.length - 1];
+                artistIDs.pop();
+                break;
+            }
+        }
+
+        // Remove series from artist's list
+        _removeSeriesFromArtist(artistID, seriesID);
+
+        emit SeriesUpdated(
+            seriesID, 
+            series.artistIDs, 
+            series.metadataURI, 
+            series.contractTokenDataURI
+        );
     }
 
     /**
@@ -511,33 +532,6 @@ contract SeriesIndexer is Ownable.Ownable {
         series.contractTokenDataURI = tokenIDsMapURI;
 
         emit SeriesUpdated(seriesID, series.artistIDs, metadataURI, tokenIDsMapURI);
-    }
-
-    /**
-     * @dev Removes an artist from a series and updates related mappings
-     */
-    function _removeArtistFromSeries(uint256 seriesID, uint256 artistID) internal {
-        Series storage series = seriesDetails[seriesID];
-        uint256[] storage artistIDs = series.artistIDs;
-        
-        // Find and remove artistID from series' artist list
-        for (uint256 i = 0; i < artistIDs.length; i++) {
-            if (artistIDs[i] == artistID) {
-                artistIDs[i] = artistIDs[artistIDs.length - 1];
-                artistIDs.pop();
-                break;
-            }
-        }
-
-        // Remove series from artist's list
-        _removeSeriesFromArtist(artistID, seriesID);
-
-        emit SeriesUpdated(
-            seriesID, 
-            series.artistIDs, 
-            series.metadataURI, 
-            series.contractTokenDataURI
-        );
     }
 
     /**
