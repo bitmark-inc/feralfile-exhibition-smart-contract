@@ -279,10 +279,6 @@ contract SeriesIndexer is Ownable.Ownable {
         uint256 seriesID,
         address proposedArtistAddr
     ) external seriesExists(seriesID) onlyOwnerOrArtist(seriesID) {
-        if (proposedArtistAddr == address(0)) {
-            revert ZeroAddressNotAllowedError();
-        }
-        
         _ensureArtistHasID(proposedArtistAddr);
         uint256 proposedArtistID = addressToArtistID[proposedArtistAddr];
 
