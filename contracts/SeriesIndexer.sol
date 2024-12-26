@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol" as Ownable;
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
 /**
  * @title SeriesIndexer
  * @dev A contract for managing series and artists in a collaborative art platform.
  *      This contract allows artists to create series, manage co-artists, and control owner rights.
  */
-contract SeriesIndexer is Ownable.Ownable {
+contract SeriesIndexer is Ownable {
+    using BitMaps for BitMaps.BitMap;
+
     // ============ Custom Errors ============
 
     error OwnerRightsRevokedForThisSeries(uint256 seriesID);
@@ -39,6 +42,13 @@ contract SeriesIndexer is Ownable.Ownable {
         string metadataURI;              // IPFS hash or similar identifier for series metadata
         string contractTokenDataURI;     // Token-related data for the series
         uint256[] artistIDs;          // List of artists associated with this series
+        uint256[] pendingCoArtists;   // List of pending co-artists
+    }
+
+    struct Artist {
+        address artistAddress;           // Artist's wallet address
+        uint256[] seriesIDs;            // List of series associated with this artist
+        uint256[] pendingCoArtistSeries; // List of pending co-artist series
     }
 
     // ============ State Variables ============
@@ -48,22 +58,20 @@ contract SeriesIndexer is Ownable.Ownable {
     uint256 private nextArtistID = 1;
 
     // Artist Management
-    mapping(uint256 => address) private artistIDToAddress;
+    mapping(uint256 => Artist) private artists;
     mapping(address => uint256) private addressToArtistID;
-    mapping(uint256 => bool) private ownerRightsRevokedForArtistID;
+    mapping(uint256 => BitMaps.BitMap) private artistOwnerRightsRevokedBitMap;
 
     // Series Management
     mapping(uint256 => Series) private seriesDetails;
-    mapping(uint256 => uint256[]) private artistIDSeriesIDs;
-    mapping(uint256 => mapping(uint256 => bool)) private isArtistIDInSeries;
-    
+
+    // Series - Artist Relationship
+    mapping(uint256 => mapping(uint256 => bool)) private seriesArtistExist;
+
     // Co-Artist Management
     mapping(uint256 => mapping(uint256 => bool)) private seriesPendingCoArtist;
-    mapping(uint256 => uint256[]) private artistPendingCoArtistRequests;
-    mapping(uint256 => mapping(uint256 => uint256)) private artistPendingCoArtistRequestIndex;
-    mapping(uint256 => uint256[]) private seriesPendingCoArtistRequests;
-    mapping(uint256 => mapping(uint256 => uint256)) private seriesPendingCoArtistRequestIndex;
-
+    mapping(uint256 => mapping(uint256 => uint256)) private seriesPendingCoArtistIndex;
+    mapping(uint256 => mapping(uint256 => uint256)) private artistPendingCoArtistSeriesIndex;
 
     // ============ Events ============
 
@@ -282,7 +290,7 @@ contract SeriesIndexer is Ownable.Ownable {
         _ensureArtistHasID(proposedArtistAddr);
         uint256 proposedArtistID = addressToArtistID[proposedArtistAddr];
 
-        if (isArtistIDInSeries[seriesID][proposedArtistID]) {
+        if (seriesArtistExist[seriesID][proposedArtistID]) {
             revert ArtistAlreadyInSeriesError(seriesID, proposedArtistAddr);
         }
         if (seriesPendingCoArtist[seriesID][proposedArtistID]) {
@@ -290,7 +298,7 @@ contract SeriesIndexer is Ownable.Ownable {
         }
 
         seriesPendingCoArtist[seriesID][proposedArtistID] = true;
-        _addPendingRequest(proposedArtistID, seriesID);
+        _addPendingCoArtistRequest(proposedArtistID, seriesID);
 
         emit CoArtistProposed(seriesID, proposedArtistID);
     }
@@ -308,7 +316,7 @@ contract SeriesIndexer is Ownable.Ownable {
         }
 
         seriesPendingCoArtist[seriesID][proposedArtistID] = false;
-        _removePendingRequest(proposedArtistID, seriesID);
+        _removePendingCoArtistRequest(proposedArtistID, seriesID);
 
         uint256 artistID = addressToArtistID[msg.sender];
         emit CoArtistProposalCancelled(seriesID, artistID, proposedArtistID);
@@ -330,7 +338,7 @@ contract SeriesIndexer is Ownable.Ownable {
         artistAddrs[0] = msg.sender;
 
         seriesPendingCoArtist[seriesID][artistID] = false;
-        _removePendingRequest(artistID, seriesID);
+        _removePendingCoArtistRequest(artistID, seriesID);
         _addArtistsToSeries(seriesID, artistAddrs);
 
         emit CoArtistConfirmed(seriesID, artistID);
@@ -346,10 +354,10 @@ contract SeriesIndexer is Ownable.Ownable {
         if (artistID == 0) {
             revert NotAnArtistError(msg.sender);
         }
-        if (ownerRightsRevokedForArtistID[artistID]) {
+        if (_isArtistOwnerRightRevoked(artistID)) {
             return;
         }
-        ownerRightsRevokedForArtistID[artistID] = true;
+        _setArtistOwnerRightRevokedBool(artistID, true);
     }
 
     /**
@@ -360,10 +368,10 @@ contract SeriesIndexer is Ownable.Ownable {
         if (artistID == 0) {
             revert NotAnArtistError(msg.sender);
         }
-        if (!ownerRightsRevokedForArtistID[artistID]) {
+        if (!_isArtistOwnerRightRevoked(artistID)) {
             return;
         }
-        ownerRightsRevokedForArtistID[artistID] = false;
+        _setArtistOwnerRightRevokedBool(artistID, false);
     }
 
     /**
@@ -376,21 +384,21 @@ contract SeriesIndexer is Ownable.Ownable {
         if (addressToArtistID[newAddress] != 0) {
             revert AddressAlreadyAssignedError(newAddress);
         }
-        if (artistIDToAddress[artistID] == address(0)) {
+        if (artists[artistID].artistAddress == address(0)) {
             revert InvalidArtistIDError(artistID);
         }
 
         uint256 callerID = addressToArtistID[msg.sender];
         bool isCallerArtist = (callerID == artistID && callerID != 0);
-        bool isOwnerWithRights = (msg.sender == owner() && !ownerRightsRevokedForArtistID[artistID]);
+        bool isOwnerWithRights = (msg.sender == owner() && !_isArtistOwnerRightRevoked(artistID));
 
         if (!isCallerArtist && !isOwnerWithRights) {
             revert NotAuthorizedError(msg.sender);
         }
 
-        address oldAddress = artistIDToAddress[artistID];
+        address oldAddress = artists[artistID].artistAddress;
         addressToArtistID[oldAddress] = 0;
-        artistIDToAddress[artistID] = newAddress;
+        artists[artistID].artistAddress = newAddress;
         addressToArtistID[newAddress] = artistID;
 
         emit ArtistAddressUpdated(artistID, oldAddress, newAddress);
@@ -410,7 +418,7 @@ contract SeriesIndexer is Ownable.Ownable {
         }
         for (uint256 i = 0; i < ids.length; i++) {
             // If any artist has not revoked, return true
-            if (!ownerRightsRevokedForArtistID[ids[i]]) {
+            if (!_isArtistOwnerRightRevoked(ids[i])) {
                 return true;
             }
         }
@@ -422,7 +430,7 @@ contract SeriesIndexer is Ownable.Ownable {
      */
     function ownerRightsRevoked(address artistAddr) external view returns (bool) {
         uint256 artistID = addressToArtistID[artistAddr];
-        return ownerRightsRevokedForArtistID[artistID];
+        return _isArtistOwnerRightRevoked(artistID);
     }
 
     /**
@@ -439,7 +447,7 @@ contract SeriesIndexer is Ownable.Ownable {
         uint256[] memory ids = seriesDetails[seriesID].artistIDs;
         address[] memory artistAddrs = new address[](ids.length);
         for (uint256 i = 0; i < ids.length; i++) {
-            artistAddrs[i] = artistIDToAddress[ids[i]];
+            artistAddrs[i] = artists[ids[i]].artistAddress;
         }
         return artistAddrs;
     }
@@ -449,7 +457,7 @@ contract SeriesIndexer is Ownable.Ownable {
      */
     function getArtistSeriesIDs(address artistAddr) external view returns (uint256[] memory) {
         uint256 artistID = addressToArtistID[artistAddr];
-        return artistIDSeriesIDs[artistID];
+        return artists[artistID].seriesIDs;
     }
 
     /**
@@ -471,17 +479,17 @@ contract SeriesIndexer is Ownable.Ownable {
      */
     function getArtistPendingCoArtistSeries(address artistAddr) external view returns (uint256[] memory) {
         uint256 artistID = addressToArtistID[artistAddr];
-        return artistPendingCoArtistRequests[artistID];
+        return artists[artistID].pendingCoArtistSeries;
     }
 
     /**
      * @notice Returns the pending co-artist list for a given series
      */
     function getSeriesPendingCoArtists(uint256 seriesID) external view returns (address[] memory) {
-        uint256[] memory artistIDs = seriesPendingCoArtistRequests[seriesID];
+        uint256[] memory artistIDs = seriesDetails[seriesID].pendingCoArtists;
         address[] memory artistAddrs = new address[](artistIDs.length);
         for (uint256 i = 0; i < artistIDs.length; i++) {
-            artistAddrs[i] = artistIDToAddress[artistIDs[i]];
+            artistAddrs[i] = artists[artistIDs[i]].artistAddress;
         }
         return artistAddrs;
     }
@@ -490,7 +498,7 @@ contract SeriesIndexer is Ownable.Ownable {
      * @notice Returns the address associated with a given artist ID
      */
     function getArtistAddress(uint256 artistID) external view returns (address) {
-        return artistIDToAddress[artistID];
+        return artists[artistID].artistAddress;
     }
 
     /**
@@ -557,13 +565,12 @@ contract SeriesIndexer is Ownable.Ownable {
         onlyOwnerOrArtist(seriesID) 
     {
         // Clean up all pending co-artist requests for this series in one loop
-        uint256[] memory pendingCoArtists = seriesPendingCoArtistRequests[seriesID];
+        uint256[] memory pendingCoArtists = seriesDetails[seriesID].pendingCoArtists;
         for (uint256 i = 0; i < pendingCoArtists.length; i++) {
             uint256 artistID = pendingCoArtists[i];
             seriesPendingCoArtist[seriesID][artistID] = false;
-            _removeArtistPendingCoArtistRequest(artistID, seriesID);
+            _removeArtistPendingCoArtistSeries(artistID, seriesID);
         }
-        delete seriesPendingCoArtistRequests[seriesID];
 
         Series memory series = seriesDetails[seriesID];
         
@@ -573,7 +580,6 @@ contract SeriesIndexer is Ownable.Ownable {
         }
 
         delete seriesDetails[seriesID];
-        delete seriesPendingCoArtistRequests[seriesID];
 
         emit SeriesDeleted(seriesID);
     }
@@ -582,7 +588,7 @@ contract SeriesIndexer is Ownable.Ownable {
      * @dev Removes a series from an artist's list
      */
     function _removeSeriesFromArtist(uint256 artistID, uint256 seriesID) internal {
-        uint256[] storage seriesIDs = artistIDSeriesIDs[artistID];
+        uint256[] storage seriesIDs = artists[artistID].seriesIDs;
         
         for (uint256 i = 0; i < seriesIDs.length; i++) {
             if (seriesIDs[i] == seriesID) {
@@ -592,7 +598,7 @@ contract SeriesIndexer is Ownable.Ownable {
             }
         }
         
-        isArtistIDInSeries[seriesID][artistID] = false;
+        seriesArtistExist[seriesID][artistID] = false;
     }
 
     /**
@@ -649,7 +655,7 @@ contract SeriesIndexer is Ownable.Ownable {
      */
     function _requireIsSeriesArtist(uint256 seriesID) internal view {
         uint256 artistID = addressToArtistID[msg.sender];
-        if (artistID == 0 || !isArtistIDInSeries[seriesID][artistID]) {
+        if (artistID == 0 || !seriesArtistExist[seriesID][artistID]) {
             revert CallerNotASeriesArtistError(seriesID, msg.sender);
         }
     }
@@ -660,7 +666,7 @@ contract SeriesIndexer is Ownable.Ownable {
     function _validateArtistsNotRevoked(address[] memory artistAddrs) internal view {
         for (uint256 i = 0; i < artistAddrs.length; i++) {
             uint256 artistID = addressToArtistID[artistAddrs[i]];
-            if (artistID != 0 && ownerRightsRevokedForArtistID[artistID]) {
+            if (artistID != 0 && _isArtistOwnerRightRevoked(artistID)) {
                 revert ArtistRevokedOwnerRightsError(artistAddrs[i]);
             }
         }
@@ -675,7 +681,7 @@ contract SeriesIndexer is Ownable.Ownable {
         }
         if (addressToArtistID[artistAddr] == 0) {
             uint256 artistID = nextArtistID++;
-            artistIDToAddress[artistID] = artistAddr;
+            artists[artistID].artistAddress = artistAddr;
             addressToArtistID[artistAddr] = artistID;
         }
     }
@@ -683,62 +689,60 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Adds a pending co-artist request
      */
-    function _addPendingRequest(uint256 artistID, uint256 seriesID) internal {
+    function _addPendingCoArtistRequest(uint256 artistID, uint256 seriesID) internal {
         // Add to artist tracking
-        artistPendingCoArtistRequests[artistID].push(seriesID);
-        artistPendingCoArtistRequestIndex[artistID][seriesID] =
-            artistPendingCoArtistRequests[artistID].length - 1;
+        artists[artistID].pendingCoArtistSeries.push(seriesID);
+        artistPendingCoArtistSeriesIndex[artistID][seriesID] =
+            artists[artistID].pendingCoArtistSeries.length - 1;
         
         // Add to series tracking
-        seriesPendingCoArtistRequests[seriesID].push(artistID);
-        seriesPendingCoArtistRequestIndex[seriesID][artistID] =
-            seriesPendingCoArtistRequests[seriesID].length - 1;
+        seriesDetails[seriesID].pendingCoArtists.push(artistID);
+        seriesPendingCoArtistIndex[seriesID][artistID] =
+            seriesDetails[seriesID].pendingCoArtists.length - 1;
     }
 
     /**
      * @dev Removes a pending co-artist request
      */
-    function _removePendingRequest(uint256 artistID, uint256 seriesID) internal {
-        _removeArtistPendingCoArtistRequest(artistID, seriesID);
+    function _removePendingCoArtistRequest(uint256 artistID, uint256 seriesID) internal {
+        _removeArtistPendingCoArtistSeries(artistID, seriesID);
         _removeSeriesPendingCoArtist(seriesID, artistID);
     }
 
     /**
      * @dev Removes a pending co-artist request from artist
      */
-    function _removeArtistPendingCoArtistRequest(uint256 artistID, uint256 seriesID) private {
-        // artist requests status tracking
-        uint256[] storage artistRequests = artistPendingCoArtistRequests[artistID];
-        uint256 artistRequestIndex = artistPendingCoArtistRequestIndex[artistID][seriesID];
-        uint256 lastArtistRequestIndex = artistRequests.length - 1;
+    function _removeArtistPendingCoArtistSeries(uint256 artistID, uint256 seriesID) private {
+        uint256[] storage artistCoArtistSeries = artists[artistID].pendingCoArtistSeries;
+        uint256 artistCoArtistSeriesIndex = artistPendingCoArtistSeriesIndex[artistID][seriesID];
+        uint256 lastArtistCoArtistSeriesIndex = artistCoArtistSeries.length - 1;
         
-        if (artistRequestIndex != lastArtistRequestIndex) {
-            uint256 lastValue = artistRequests[lastArtistRequestIndex];
-            artistRequests[artistRequestIndex] = lastValue;
-            artistPendingCoArtistRequestIndex[artistID][lastValue] = artistRequestIndex;
+        if (artistCoArtistSeriesIndex != lastArtistCoArtistSeriesIndex) {
+            uint256 lastValue = artistCoArtistSeries[lastArtistCoArtistSeriesIndex];
+            artistCoArtistSeries[artistCoArtistSeriesIndex] = lastValue;
+            artistPendingCoArtistSeriesIndex[artistID][lastValue] = artistCoArtistSeriesIndex;
         }
         
-        artistRequests.pop();
-        delete artistPendingCoArtistRequestIndex[artistID][seriesID];
+        artistCoArtistSeries.pop();
+        delete artistPendingCoArtistSeriesIndex[artistID][seriesID];
     }
 
     /**
      * @dev Removes a pending co-artist request from series
      */
-    function _removeSeriesPendingCoArtist(uint256 seriesID,uint256 artistID) private {
-        // series requests status tracking
-        uint256[] storage seriesRequests = seriesPendingCoArtistRequests[seriesID];
-        uint256 seriesRequestIndex = seriesPendingCoArtistRequestIndex[seriesID][artistID];
-        uint256 lastSeriesRequestIndex = seriesRequests.length - 1;
+    function _removeSeriesPendingCoArtist(uint256 seriesID, uint256 artistID) private {
+        uint256[] storage seriesPendingCoArtists = seriesDetails[seriesID].pendingCoArtists;
+        uint256 seriesPendingArtistIndex = seriesPendingCoArtistIndex[seriesID][artistID];
+        uint256 lastSeriesPendingArtistIndex = seriesPendingCoArtists.length - 1;
         
-        if (seriesRequestIndex != lastSeriesRequestIndex) {
-            uint256 lastValue = seriesRequests[lastSeriesRequestIndex];
-            seriesRequests[seriesRequestIndex] = lastValue;
-            seriesPendingCoArtistRequestIndex[seriesID][lastValue] = seriesRequestIndex;
+        if (seriesPendingArtistIndex != lastSeriesPendingArtistIndex) {
+            uint256 lastValue = seriesPendingCoArtists[lastSeriesPendingArtistIndex];
+            seriesPendingCoArtists[seriesPendingArtistIndex] = lastValue;
+            seriesPendingCoArtistIndex[seriesID][lastValue] = seriesPendingArtistIndex;
         }
         
-        seriesRequests.pop();
-        delete seriesPendingCoArtistRequestIndex[seriesID][artistID];
+        seriesPendingCoArtists.pop();
+        delete seriesPendingCoArtistIndex[seriesID][artistID];
     }
 
     /**
@@ -756,10 +760,33 @@ contract SeriesIndexer is Ownable.Ownable {
             artistIDs[i] = artistID;
 
             seriesDetails[seriesID].artistIDs.push(artistID);
-            isArtistIDInSeries[seriesID][artistID] = true;
-            artistIDSeriesIDs[artistID].push(seriesID);
+            seriesArtistExist[seriesID][artistID] = true;
+            artists[artistID].seriesIDs.push(seriesID);
         }
 
         return artistIDs;
+    }
+
+    // ============ BitMap Management Functions ============
+    
+    // Helper function to get bitmap position of seriesID-artistID pair.
+    function _getArtistOwnerRightRevokedBitMapPosition(uint256 artistID)
+        private
+        pure
+        returns (uint256 chunkKey, uint8 bitIndex)
+    {
+        chunkKey = artistID / 256;
+        bitIndex = uint8(artistID % 256);
+    }
+    
+    function _isArtistOwnerRightRevoked(uint256 artistID) internal view returns (bool) {
+        (uint256 chunk, uint8 bitIndex) = _getArtistOwnerRightRevokedBitMapPosition(artistID);
+        return artistOwnerRightsRevokedBitMap[chunk].get(bitIndex);
+    }
+
+    // Artist in series functions
+    function _setArtistOwnerRightRevokedBool(uint256 artistID, bool boolean) internal {
+        (uint256 chunk, uint8 bitIndex) = _getArtistOwnerRightRevokedBitMapPosition(artistID);
+        artistOwnerRightsRevokedBitMap[chunk].setTo(bitIndex, boolean);
     }
 }

@@ -844,7 +844,8 @@ contract("SeriesIndexer", (accounts) => {
             });
             const artistAID = await instance.getAddressArtistID(artistA);
             await instance.revokeOwnerRightsForArtist({ from: artistA });
-
+            const revoked = await instance.ownerRightsRevoked(artistA);
+            expect(revoked).to.be.true;
             // Reverts with custom error: NotAuthorizedError(address caller)
             await expectCustomError(
                 instance.updateArtistAddress(artistAID, artistB, {
