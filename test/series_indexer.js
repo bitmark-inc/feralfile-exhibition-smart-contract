@@ -33,7 +33,55 @@ contract("SeriesIndexer", (accounts) => {
         });
     });
 
+    describe("ownerCanModifySeries", () => {
+        it("should return true if the series has no artists", async () => {
+          await instance.addSeries([artistA], metadataURI, tokenMapURI, { from: artistA });
+          await instance.removeSelfFromSeries(firstSeriesID, { from: artistA });
+      
+          // Now the series has zero artists. The function should return true for an empty artist list.
+          const canModify = await instance.ownerCanModifySeries(firstSeriesID);
+          expect(canModify).to.equal(true, "Expected true since no artists exist in the series");
+        });
+      
+        it("should return true if at least one artist in the series has NOT revoked owner", async () => {
+          await instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, { from: owner });
+          await instance.revokeOwnerRightsForArtist({ from: artistA });
+          // We expect that at least one artist (B) has not revoked, so result = true
+          const canModify = await instance.ownerCanModifySeries(firstSeriesID);
+          expect(canModify).to.equal(true, "Expected true because artistB has not revoked");
+        });
+      
+        it("should return false if all artists in the series revoked owner", async () => {
+          await instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, { from: owner });
+          await instance.revokeOwnerRightsForArtist({ from: artistA });
+          await instance.revokeOwnerRightsForArtist({ from: artistB });
+      
+          // 3) Now every artist in the series has revoked the owner, so expect false
+          const canModify = await instance.ownerCanModifySeries(firstSeriesID);
+          expect(canModify).to.equal(false, "Expected false because both artistA and artistB revoked");
+        });
+    });
+
     describe("Adding Series", () => {
+        it("should revert when adding a series with no artists", async () => {
+            // Reverts with custom error: NoArtistsForSeriesError()
+            await expectCustomError(
+              instance.addSeries([], metadataURI, tokenMapURI, { from: owner }),
+              seriesIndexerABI,
+              "NoArtistsForSeriesError"
+            );
+        });
+
+        it("should revert when trying to create a series with the zero address in artist list", async () => {
+            const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+            // Reverts with custom error: ZeroAddressNotAllowedError()
+            await expectCustomError(
+              instance.addSeries([ZERO_ADDRESS], metadataURI, tokenMapURI, { from: owner }),
+              seriesIndexerABI,
+              "ZeroAddressNotAllowedError"
+            );
+          });
+
         it("Non-owner (artist) can add a series with themselves as the first artist", async () => {
             const tx = await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
@@ -223,6 +271,26 @@ contract("SeriesIndexer", (accounts) => {
                 ["1", "2", "2"] // must pass as strings or BN if we want to match decode
             );
         });
+
+        it("should revert when batchAddSeries is called with more than 50 series in one batch", async () => {
+            // Make an array of length 51 for artists, metadata, and tokens
+            const bigArray = [];
+            const metaArray = [];
+            const tokenArray = [];
+            for (let i = 0; i < 51; i++) {
+              bigArray.push([artistA]);   // or [accounts[i+1]] if you want variation
+              metaArray.push(`meta-${i}`);
+              tokenArray.push(`token-${i}`);
+            }
+          
+            // Reverts with custom error: BatchSizeTooLargeError(51)
+            await expectCustomError(
+              instance.batchAddSeries(bigArray, metaArray, tokenArray, { from: owner }),
+              seriesIndexerABI,
+              "BatchSizeTooLargeError",
+              ["51"]
+            );
+          });
     });
 
     describe("Updating Series", () => {
@@ -283,6 +351,31 @@ contract("SeriesIndexer", (accounts) => {
             expect(updatedTokenMap).to.equal("token5002");
         });
 
+        it("Owner can batch update multiple existing series", async () => {
+            // Create two series for which the owner still has rights
+            await instance.addSeries([artistA], "origMeta1", "origToken1", { from: owner });
+            await instance.addSeries([artistA], "origMeta2", "origToken2", { from: owner });
+          
+            const tx = await instance.batchUpdateSeries(
+              [firstSeriesID, secondSeriesID],
+              ["newMeta1", "newMeta2"],
+              ["newToken1", "newToken2"],
+              { from: owner }
+            );
+          
+            expectEvent(tx, "SeriesUpdated", { seriesID: firstSeriesID });
+            expectEvent(tx, "SeriesUpdated", { seriesID: secondSeriesID });
+          
+            const meta1 = await instance.getSeriesMetadataURI(firstSeriesID);
+            const token1 = await instance.getSeriesContractTokenDataURI(firstSeriesID);
+            expect(meta1).to.equal("newMeta1");
+            expect(token1).to.equal("newToken1");
+            const meta2 = await instance.getSeriesMetadataURI(secondSeriesID);
+            const token2 = await instance.getSeriesContractTokenDataURI(secondSeriesID);
+            expect(meta2).to.equal("newMeta2");
+            expect(token2).to.equal("newToken2");
+        });
+
         it("Non-artist or non-owner cannot update", async () => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
@@ -310,6 +403,24 @@ contract("SeriesIndexer", (accounts) => {
                 seriesIndexerABI,
                 "SeriesDoesNotExistError",
                 ["9999"] // pass as a string
+            );
+        });
+
+        it("Owner batch update should revert if one of the series is non-existent", async () => {
+            await instance.addSeries([artistA], "origMeta1", "origToken1", { from: owner });
+            const nonExistent = new BN("9999");
+          
+            // Reverts with SeriesDoesNotExistError(9999) on the second series
+            await expectCustomError(
+              instance.batchUpdateSeries(
+                [firstSeriesID, nonExistent],
+                ["newMeta1", "newMeta9999"],
+                ["newToken1", "newToken9999"],
+                { from: owner }
+              ),
+              seriesIndexerABI,
+              "SeriesDoesNotExistError",
+              [nonExistent.toString()]
             );
         });
     });
@@ -395,9 +506,13 @@ contract("SeriesIndexer", (accounts) => {
                 seriesID: firstSeriesID,
             });
 
-            const pending = await instance.getPendingRequests(artistC);
+            let pending = await instance.getArtistPendingCoArtistSeries(artistC);
             expect(pending.map((e) => e.toString())).to.include(
                 firstSeriesID.toString()
+            );
+            pending = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            expect(pending.map((e) => e.toString())).to.include(
+                artistC.toString()
             );
         });
 
@@ -423,10 +538,15 @@ contract("SeriesIndexer", (accounts) => {
                 artistURI.toString()
             );
 
-            const pendingAfter = await instance.getPendingRequests(artistC);
+            let pendingAfter = await instance.getArtistPendingCoArtistSeries(artistC);
             expect(pendingAfter.length).to.equal(
                 0,
-                "Pending requests should be cleared after confirmation"
+                "Pending artist requests should be cleared after confirmation"
+            );
+            pendingAfter = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            expect(pendingAfter.length).to.equal(
+                0,
+                "Pending series requests should be cleared after confirmation"
             );
         });
 
@@ -458,9 +578,13 @@ contract("SeriesIndexer", (accounts) => {
             });
             let artistURI = await instance.getAddressArtistID(artistC);
 
-            let pendingBefore = await instance.getPendingRequests(artistC);
+            let pendingBefore = await instance.getArtistPendingCoArtistSeries(artistC);
             expect(pendingBefore.map((e) => e.toString())).to.include(
                 firstSeriesID.toString()
+            );
+            pendingBefore = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            expect(pendingBefore.map((e) => e.toString())).to.include(
+                artistC.toString()
             );
 
             const tx = await instance.cancelProposeCoArtist(
@@ -483,12 +607,17 @@ contract("SeriesIndexer", (accounts) => {
                 [firstSeriesID.toString(), artistC]
             );
 
-            const pendingAfterCancel = await instance.getPendingRequests(
+            let pendingAfterCancel = await instance.getArtistPendingCoArtistSeries(
                 artistC
             );
             expect(pendingAfterCancel.length).to.equal(
                 0,
-                "Pending requests should be cleared after cancellation"
+                "Pending artist requests should be cleared after cancellation"
+            );
+            pendingAfterCancel = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            expect(pendingAfterCancel.length).to.equal(
+                0,
+                "Pending series requests should be cleared after cancellation"
             );
         });
 
@@ -581,23 +710,40 @@ contract("SeriesIndexer", (accounts) => {
             });
 
             // Now artistD should have 2 pending requests
-            let pendingD = await instance.getPendingRequests(artistD);
+            let pendingD = await instance.getArtistPendingCoArtistSeries(artistD);
             expect(pendingD.map((e) => e.toString())).to.have.members([
                 firstSeriesID.toString(),
                 secondSeriesID.toString(),
             ]);
+            pendingD = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            expect(pendingD.map((e) => e.toString())).to.include(
+                artistD.toString()
+            );
+            pendingD = await instance.getSeriesPendingCoArtists(secondSeriesID);
+            expect(pendingD.map((e) => e.toString())).to.include(
+                artistD.toString()
+            );
 
             // Confirm artistD for secondSeriesID first
             await instance.confirmAsCoArtist(secondSeriesID, { from: artistD });
 
             // Now pending should only have firstSeriesID
-            let pendingDAfterOneConfirm = await instance.getPendingRequests(
+            let pendingDAfterOneConfirm = await instance.getArtistPendingCoArtistSeries(
                 artistD
             );
             expect(pendingDAfterOneConfirm.map((e) => e.toString())).to.include(
                 firstSeriesID.toString()
             );
             expect(pendingDAfterOneConfirm.length).to.equal(1);
+            pendingDAfterOneConfirm = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            expect(pendingDAfterOneConfirm.map((e) => e.toString())).to.include(
+                artistD.toString()
+            );
+            pendingDAfterOneConfirm = await instance.getSeriesPendingCoArtists(secondSeriesID);
+            expect(pendingDAfterOneConfirm.length).to.equal(
+                0,
+                "All secondSeriesID pending requests cleared after confirm/cancel operations"
+            );
 
             // Cancel the remaining proposal on firstSeriesID
             const artistAID = await instance.getAddressArtistID(artistA);
@@ -622,12 +768,22 @@ contract("SeriesIndexer", (accounts) => {
             );
 
             // Pending should now be empty
-            let pendingDAfterCancel = await instance.getPendingRequests(
+            let pendingDAfterCancel = await instance.getArtistPendingCoArtistSeries(
                 artistD
             );
             expect(pendingDAfterCancel.length).to.equal(
                 0,
                 "All pending requests cleared after confirm/cancel operations"
+            );
+            pendingDAfterCancel = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            expect(pendingDAfterCancel.length).to.equal(
+                0,
+                "All firstSeriesID pending requests cleared after confirm/cancel operations"
+            );
+            pendingDAfterCancel = await instance.getSeriesPendingCoArtists(secondSeriesID);
+            expect(pendingDAfterCancel.length).to.equal(
+                0,
+                "All secondSeriesID pending requests cleared after confirm/cancel operations"
             );
         });
     });
@@ -836,6 +992,49 @@ contract("SeriesIndexer", (accounts) => {
                 [nonExistentSeriesID.toString()]
             );
         });
+
+        it("should remove co-artist proposals data upon deleting a series", async () => {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
+                from: artistA,
+            });
+            await instance.proposeCoArtist(firstSeriesID, artistC, { from: artistA });
+            let pendingForC = await instance.getArtistPendingCoArtistSeries(artistC);
+            expect(pendingForC.map((x) => x.toString())).to.include(
+                firstSeriesID.toString()
+            );
+            let seriesPendingArtists = await instance.getSeriesPendingCoArtists(
+                firstSeriesID
+            );
+            expect(seriesPendingArtists).to.include(artistC);
+        
+            const tx = await instance.deleteSeries(firstSeriesID, { from: artistA });
+            expectEvent(tx, "SeriesDeleted", {
+                seriesID: firstSeriesID,
+            });
+        
+            // Verify that the pending requests were removed
+            //  - The co-artist's pending list should no longer contain this series
+            //  - The series's pending list should be empty
+            pendingForC = await instance.getArtistPendingCoArtistSeries(artistC);
+            expect(pendingForC.length).to.equal(0);
+        
+            seriesPendingArtists = await instance.getSeriesPendingCoArtists(
+                firstSeriesID
+            );
+            expect(seriesPendingArtists.length).to.equal(0);
+        });
+
+        it("should revert if batchDeleteSeries includes a non-existent series", async () => {
+            await instance.addSeries([artistA], metadataURI, tokenMapURI, { from: owner });
+            const nonExistent = new BN("9999");
+
+            await expectCustomError(
+              instance.batchDeleteSeries([firstSeriesID, nonExistent], { from: owner }),
+              seriesIndexerABI,
+              "SeriesDoesNotExistError",
+              [nonExistent.toString()]
+            );
+        });
     });
 
     describe("removeSelfFromSeries", () => {
@@ -892,6 +1091,16 @@ contract("SeriesIndexer", (accounts) => {
             const artistBID = await instance.getAddressArtistID(artistB);
             expect(artistIDs.map((id) => id.toNumber())).to.include(
                 artistBID.toNumber()
+            );
+        });
+
+        it("should revert if artist tries to remove themselves from a non-existent series", async () => {
+            const nonExistent = new BN("9999");
+            await expectCustomError(
+              instance.removeSelfFromSeries(nonExistent, { from: artistA }),
+              seriesIndexerABI,
+              "SeriesDoesNotExistError",
+              [nonExistent.toString()]
             );
         });
     });
@@ -952,7 +1161,7 @@ contract("SeriesIndexer", (accounts) => {
             await instance.revokeOwnerRightsForArtist({ from: artistA });
             await instance.revokeOwnerRightsForArtist({ from: artistB });
 
-            // Reverts with custom error: AllArtistsRevokedOwnerRightsError(uint256 seriesID)
+            // Reverts with custom error: OwnerRightsRevokedForThisSeries(uint256 seriesID)
             await expectCustomError(
                 instance.ownerUpdateSeriesArtists(
                     firstSeriesID,
@@ -960,7 +1169,7 @@ contract("SeriesIndexer", (accounts) => {
                     { from: owner }
                 ),
                 seriesIndexerABI,
-                "AllArtistsRevokedOwnerRightsError",
+                "OwnerRightsRevokedForThisSeries",
                 [firstSeriesID.toString()]
             );
         });

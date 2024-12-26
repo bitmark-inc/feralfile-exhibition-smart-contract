@@ -12,7 +12,6 @@ contract SeriesIndexer is Ownable.Ownable {
     // ============ Custom Errors ============
 
     error OwnerRightsRevokedForThisSeries(uint256 seriesID);
-    error AllArtistsRevokedOwnerRightsError(uint256 seriesID);
     error SeriesDoesNotExistError(uint256 seriesID);
     error CallerNotASeriesArtistError(uint256 seriesID, address caller);
     error NoArtistsProvidedError();
@@ -62,6 +61,9 @@ contract SeriesIndexer is Ownable.Ownable {
     mapping(uint256 => mapping(uint256 => bool)) private seriesPendingCoArtist;
     mapping(uint256 => uint256[]) private artistPendingCoArtistRequests;
     mapping(uint256 => mapping(uint256 => uint256)) private artistPendingCoArtistRequestIndex;
+    mapping(uint256 => uint256[]) private seriesPendingCoArtistRequests;
+    mapping(uint256 => mapping(uint256 => uint256)) private seriesPendingCoArtistRequestIndex;
+
 
     // ============ Events ============
 
@@ -211,7 +213,7 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @dev Allows an artist to remove themselves from a series
      */
-    function removeSelfFromSeries(uint256 seriesID) external onlyArtist(seriesID) {
+    function removeSelfFromSeries(uint256 seriesID) external seriesExists(seriesID) onlyArtist(seriesID) {
         uint256 artistID = addressToArtistID[msg.sender];
 
         Series storage series = seriesDetails[seriesID];
@@ -245,7 +247,7 @@ contract SeriesIndexer is Ownable.Ownable {
         address[] calldata artistAddrs
     ) external seriesExists(seriesID) onlyOwner {
         if (!ownerCanModifySeries(seriesID)) {
-            revert AllArtistsRevokedOwnerRightsError(seriesID);
+            revert OwnerRightsRevokedForThisSeries(seriesID);
         }
         _validateArtistsNotRevoked(artistAddrs);
 
@@ -402,6 +404,10 @@ contract SeriesIndexer is Ownable.Ownable {
      */
     function ownerCanModifySeries(uint256 seriesID) public view returns (bool) {
         uint256[] memory ids = seriesDetails[seriesID].artistIDs;
+        if (ids.length == 0) {
+            // If no artists, owner can modify the series
+            return true;
+        }
         for (uint256 i = 0; i < ids.length; i++) {
             // If any artist has not revoked, return true
             if (!ownerRightsRevokedForArtistID[ids[i]]) {
@@ -463,9 +469,21 @@ contract SeriesIndexer is Ownable.Ownable {
     /**
      * @notice Returns the pending co-artist requests for a given artist address
      */
-    function getPendingRequests(address artistAddr) external view returns (uint256[] memory) {
+    function getArtistPendingCoArtistSeries(address artistAddr) external view returns (uint256[] memory) {
         uint256 artistID = addressToArtistID[artistAddr];
         return artistPendingCoArtistRequests[artistID];
+    }
+
+    /**
+     * @notice Returns the pending co-artist list for a given series
+     */
+    function getSeriesPendingCoArtists(uint256 seriesID) external view returns (address[] memory) {
+        uint256[] memory artistIDs = seriesPendingCoArtistRequests[seriesID];
+        address[] memory artistAddrs = new address[](artistIDs.length);
+        for (uint256 i = 0; i < artistIDs.length; i++) {
+            artistAddrs[i] = artistIDToAddress[artistIDs[i]];
+        }
+        return artistAddrs;
     }
 
     /**
@@ -531,6 +549,36 @@ contract SeriesIndexer is Ownable.Ownable {
     }
 
     /**
+     * @dev Deletes a series and cleans up related data
+     */
+    function _deleteSeries(uint256 seriesID) 
+        internal 
+        seriesExists(seriesID) 
+        onlyOwnerOrArtist(seriesID) 
+    {
+        // Clean up all pending co-artist requests for this series in one loop
+        uint256[] memory pendingCoArtists = seriesPendingCoArtistRequests[seriesID];
+        for (uint256 i = 0; i < pendingCoArtists.length; i++) {
+            uint256 artistID = pendingCoArtists[i];
+            seriesPendingCoArtist[seriesID][artistID] = false;
+            _removeArtistPendingCoArtistRequest(artistID, seriesID);
+        }
+        delete seriesPendingCoArtistRequests[seriesID];
+
+        Series memory series = seriesDetails[seriesID];
+        
+        // Remove series from all artists
+        for (uint256 i = 0; i < series.artistIDs.length; i++) {
+            _removeSeriesFromArtist(series.artistIDs[i], seriesID);
+        }
+
+        delete seriesDetails[seriesID];
+        delete seriesPendingCoArtistRequests[seriesID];
+
+        emit SeriesDeleted(seriesID);
+    }
+
+    /**
      * @dev Removes a series from an artist's list
      */
     function _removeSeriesFromArtist(uint256 artistID, uint256 seriesID) internal {
@@ -545,25 +593,6 @@ contract SeriesIndexer is Ownable.Ownable {
         }
         
         isArtistIDInSeries[seriesID][artistID] = false;
-    }
-
-    /**
-     * @dev Deletes a series and cleans up related data
-     */
-    function _deleteSeries(uint256 seriesID) 
-        internal 
-        seriesExists(seriesID) 
-        onlyOwnerOrArtist(seriesID) 
-    {
-        Series memory series = seriesDetails[seriesID];
-        
-        // Remove series from all artists
-        for (uint256 i = 0; i < series.artistIDs.length; i++) {
-            _removeSeriesFromArtist(series.artistIDs[i], seriesID);
-        }
-
-        delete seriesDetails[seriesID];
-        emit SeriesDeleted(seriesID);
     }
 
     /**
@@ -655,27 +684,61 @@ contract SeriesIndexer is Ownable.Ownable {
      * @dev Adds a pending co-artist request
      */
     function _addPendingRequest(uint256 artistID, uint256 seriesID) internal {
+        // Add to artist tracking
         artistPendingCoArtistRequests[artistID].push(seriesID);
         artistPendingCoArtistRequestIndex[artistID][seriesID] =
             artistPendingCoArtistRequests[artistID].length - 1;
+        
+        // Add to series tracking
+        seriesPendingCoArtistRequests[seriesID].push(artistID);
+        seriesPendingCoArtistRequestIndex[seriesID][artistID] =
+            seriesPendingCoArtistRequests[seriesID].length - 1;
     }
 
     /**
      * @dev Removes a pending co-artist request
      */
     function _removePendingRequest(uint256 artistID, uint256 seriesID) internal {
-        uint256[] storage requests = artistPendingCoArtistRequests[artistID];
-        uint256 index = artistPendingCoArtistRequestIndex[artistID][seriesID];
-        uint256 lastIndex = requests.length - 1;
+        _removeArtistPendingCoArtistRequest(artistID, seriesID);
+        _removeSeriesPendingCoArtist(seriesID, artistID);
+    }
+
+    /**
+     * @dev Removes a pending co-artist request from artist
+     */
+    function _removeArtistPendingCoArtistRequest(uint256 artistID, uint256 seriesID) private {
+        // artist requests status tracking
+        uint256[] storage artistRequests = artistPendingCoArtistRequests[artistID];
+        uint256 artistRequestIndex = artistPendingCoArtistRequestIndex[artistID][seriesID];
+        uint256 lastArtistRequestIndex = artistRequests.length - 1;
         
-        if (index != lastIndex) {
-            uint256 lastValue = requests[lastIndex];
-            requests[index] = lastValue;
-            artistPendingCoArtistRequestIndex[artistID][lastValue] = index;
+        if (artistRequestIndex != lastArtistRequestIndex) {
+            uint256 lastValue = artistRequests[lastArtistRequestIndex];
+            artistRequests[artistRequestIndex] = lastValue;
+            artistPendingCoArtistRequestIndex[artistID][lastValue] = artistRequestIndex;
         }
         
-        requests.pop();
+        artistRequests.pop();
         delete artistPendingCoArtistRequestIndex[artistID][seriesID];
+    }
+
+    /**
+     * @dev Removes a pending co-artist request from series
+     */
+    function _removeSeriesPendingCoArtist(uint256 seriesID,uint256 artistID) private {
+        // series requests status tracking
+        uint256[] storage seriesRequests = seriesPendingCoArtistRequests[seriesID];
+        uint256 seriesRequestIndex = seriesPendingCoArtistRequestIndex[seriesID][artistID];
+        uint256 lastSeriesRequestIndex = seriesRequests.length - 1;
+        
+        if (seriesRequestIndex != lastSeriesRequestIndex) {
+            uint256 lastValue = seriesRequests[lastSeriesRequestIndex];
+            seriesRequests[seriesRequestIndex] = lastValue;
+            seriesPendingCoArtistRequestIndex[seriesID][lastValue] = seriesRequestIndex;
+        }
+        
+        seriesRequests.pop();
+        delete seriesPendingCoArtistRequestIndex[seriesID][artistID];
     }
 
     /**
