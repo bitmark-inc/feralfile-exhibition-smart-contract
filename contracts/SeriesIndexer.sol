@@ -17,8 +17,6 @@ contract SeriesIndexer is Ownable.Ownable {
     error CallerNotASeriesArtistError(uint256 seriesID, address caller);
     error NoArtistsProvidedError();
     error NoArtistsForSeriesError();
-    error AlreadyRevokedError(uint256 artistID);
-    error NotRevokedError(uint256 artistID);
     error InvalidNewAddressError(address newAddress);
     error AddressAlreadyAssignedError(address newAddress);
     error InvalidArtistIDError(uint256 artistID);
@@ -31,6 +29,7 @@ contract SeriesIndexer is Ownable.Ownable {
     error BatchSizeTooLargeError(uint256 size);
     error ArrayLengthMismatchError(uint256 lenArtists, uint256 lenMetas, uint256 lenTokens);
     error AlreadyProposedError(uint256 seriesID, address proposedArtistAddr);
+    error ArtistAlreadyInSeriesError(uint256 seriesID, address proposedArtistAddr);
     error NotAnArtistError(address caller);
     error EmptyMetadataURIError();
     error EmptyTokenMapURIError();
@@ -254,7 +253,6 @@ contract SeriesIndexer is Ownable.Ownable {
         Series storage series = seriesDetails[seriesID];
         for (uint256 i = 0; i < series.artistIDs.length; i++) {
             uint256 artistID = series.artistIDs[i];
-            isArtistIDInSeries[seriesID][artistID] = false;
             _removeSeriesFromArtist(artistID, seriesID);
         }
         delete series.artistIDs;
@@ -282,6 +280,9 @@ contract SeriesIndexer is Ownable.Ownable {
         _ensureArtistHasID(proposedArtistAddr);
         uint256 proposedArtistID = addressToArtistID[proposedArtistAddr];
 
+        if (isArtistIDInSeries[seriesID][proposedArtistID]) {
+            revert ArtistAlreadyInSeriesError(seriesID, proposedArtistAddr);
+        }
         if (seriesPendingCoArtist[seriesID][proposedArtistID]) {
             revert AlreadyProposedError(seriesID, proposedArtistAddr);
         }
@@ -323,13 +324,12 @@ contract SeriesIndexer is Ownable.Ownable {
             revert NotAPendingProposalError(seriesID, msg.sender);
         }
 
-        Series storage series = seriesDetails[seriesID];
-        series.artistIDs.push(artistID);
-        isArtistIDInSeries[seriesID][artistID] = true;
-        artistIDSeriesIDs[artistID].push(seriesID);
+        address[] memory artistAddrs = new address[](1);
+        artistAddrs[0] = msg.sender;
 
         seriesPendingCoArtist[seriesID][artistID] = false;
         _removePendingRequest(artistID, seriesID);
+        _addArtistsToSeries(seriesID, artistAddrs);
 
         emit CoArtistConfirmed(seriesID, artistID);
     }
@@ -345,7 +345,7 @@ contract SeriesIndexer is Ownable.Ownable {
             revert NotAnArtistError(msg.sender);
         }
         if (ownerRightsRevokedForArtistID[artistID]) {
-            revert AlreadyRevokedError(artistID);
+            return;
         }
         ownerRightsRevokedForArtistID[artistID] = true;
     }
@@ -359,7 +359,7 @@ contract SeriesIndexer is Ownable.Ownable {
             revert NotAnArtistError(msg.sender);
         }
         if (!ownerRightsRevokedForArtistID[artistID]) {
-            revert NotRevokedError(artistID);
+            return;
         }
         ownerRightsRevokedForArtistID[artistID] = false;
     }
@@ -547,7 +547,7 @@ contract SeriesIndexer is Ownable.Ownable {
         isArtistIDInSeries[seriesID][artistID] = false;
     }
 
-        /**
+    /**
      * @dev Deletes a series and cleans up related data
      */
     function _deleteSeries(uint256 seriesID) 
@@ -555,7 +555,7 @@ contract SeriesIndexer is Ownable.Ownable {
         seriesExists(seriesID) 
         onlyOwnerOrArtist(seriesID) 
     {
-        Series storage series = seriesDetails[seriesID];
+        Series memory series = seriesDetails[seriesID];
         
         // Remove series from all artists
         for (uint256 i = 0; i < series.artistIDs.length; i++) {
