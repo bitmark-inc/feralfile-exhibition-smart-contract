@@ -769,7 +769,7 @@ contract SeriesIndexer is Ownable {
 
     // ============ BitMap Management Functions ============
     
-    // Helper function to get bitmap position of seriesID-artistID pair.
+    // Helper function to get OwnerRightRevoked bitmap position of artistID.
     function _getArtistOwnerRightRevokedBitMapPosition(uint256 artistID)
         private
         pure
