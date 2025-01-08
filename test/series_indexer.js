@@ -33,31 +33,31 @@ contract("SeriesIndexer", (accounts) => {
         });
     });
 
-    describe("ownerCanModifySeries", () => {
+    describe("hasUnrevokedArtist", () => {
         it("should return true if the series has no artists", async () => {
           await instance.addSeries([artistA], metadataURI, tokenMapURI, { from: artistA });
-          await instance.removeSelfFromSeries(firstSeriesID, { from: artistA });
+          await instance.resignFromSeries(firstSeriesID, { from: artistA });
       
           // Now the series has zero artists. The function should return true for an empty artist list.
-          const canModify = await instance.ownerCanModifySeries(firstSeriesID);
+          const canModify = await instance.hasUnrevokedArtist(firstSeriesID);
           expect(canModify).to.equal(true, "Expected true since no artists exist in the series");
         });
       
         it("should return true if at least one artist in the series has NOT revoked owner", async () => {
           await instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, { from: owner });
-          await instance.revokeOwnerRightsForArtist({ from: artistA });
+          await instance.revokeContractOwnerRights({ from: artistA });
           // We expect that at least one artist (B) has not revoked, so result = true
-          const canModify = await instance.ownerCanModifySeries(firstSeriesID);
+          const canModify = await instance.hasUnrevokedArtist(firstSeriesID);
           expect(canModify).to.equal(true, "Expected true because artistB has not revoked");
         });
       
         it("should return false if all artists in the series revoked owner", async () => {
           await instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, { from: owner });
-          await instance.revokeOwnerRightsForArtist({ from: artistA });
-          await instance.revokeOwnerRightsForArtist({ from: artistB });
+          await instance.revokeContractOwnerRights({ from: artistA });
+          await instance.revokeContractOwnerRights({ from: artistB });
       
           // 3) Now every artist in the series has revoked the owner, so expect false
-          const canModify = await instance.ownerCanModifySeries(firstSeriesID);
+          const canModify = await instance.hasUnrevokedArtist(firstSeriesID);
           expect(canModify).to.equal(false, "Expected false because both artistA and artistB revoked");
         });
     });
@@ -226,7 +226,7 @@ contract("SeriesIndexer", (accounts) => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            await instance.revokeOwnerRightsForArtist({ from: artistA });
+            await instance.revokeContractOwnerRights({ from: artistA });
 
             // Reverts with custom error ArtistRevokedOwnerRightsError(address artistAddr)
             await expectCustomError(
@@ -430,8 +430,8 @@ contract("SeriesIndexer", (accounts) => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            await instance.revokeOwnerRightsForArtist({ from: artistA });
-            const revoked = await instance.ownerRightsRevoked(artistA);
+            await instance.revokeContractOwnerRights({ from: artistA });
+            const revoked = await instance.hasArtistRevokedOwnerRights(artistA);
             expect(revoked).to.be.true;
         });
 
@@ -439,9 +439,9 @@ contract("SeriesIndexer", (accounts) => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            await instance.revokeOwnerRightsForArtist({ from: artistA });
-            await instance.approveOwnerRightsForArtist({ from: artistA });
-            const revoked = await instance.ownerRightsRevoked(artistA);
+            await instance.revokeContractOwnerRights({ from: artistA });
+            await instance.approveContractOwnerRights({ from: artistA });
+            const revoked = await instance.hasArtistRevokedOwnerRights(artistA);
             expect(revoked).to.be.false;
         });
 
@@ -452,8 +452,8 @@ contract("SeriesIndexer", (accounts) => {
                 tokenMapURI,
                 { from: owner }
             );
-            await instance.revokeOwnerRightsForArtist({ from: artistA });
-            await instance.revokeOwnerRightsForArtist({ from: artistB });
+            await instance.revokeContractOwnerRights({ from: artistA });
+            await instance.revokeContractOwnerRights({ from: artistB });
 
             // Reverts with custom error: OwnerRightsRevokedForThisSeries(uint256 seriesID)
             await expectCustomError(
@@ -463,7 +463,7 @@ contract("SeriesIndexer", (accounts) => {
                 [firstSeriesID.toString()]
             );
 
-            await instance.approveOwnerRightsForArtist({ from: artistA });
+            await instance.approveContractOwnerRights({ from: artistA });
             const tx = await instance.updateSeries(
                 firstSeriesID,
                 "metaNew",
@@ -478,7 +478,7 @@ contract("SeriesIndexer", (accounts) => {
         it("Non-artist tries to revoke/approve owner rights should revert", async () => {
             // Reverts with custom error: NotAnArtistError(address caller)
             await expectCustomError(
-                instance.revokeOwnerRightsForArtist({ from: nonArtist }),
+                instance.revokeContractOwnerRights({ from: nonArtist }),
                 seriesIndexerABI,
                 "NotAnArtistError",
                 [nonArtist]
@@ -486,7 +486,7 @@ contract("SeriesIndexer", (accounts) => {
 
             // Reverts with custom error: NotAnArtistError(address caller)
             await expectCustomError(
-                instance.approveOwnerRightsForArtist({ from: nonArtist }),
+                instance.approveContractOwnerRights({ from: nonArtist }),
                 seriesIndexerABI,
                 "NotAnArtistError",
                 [nonArtist]
@@ -843,8 +843,8 @@ contract("SeriesIndexer", (accounts) => {
                 from: artistA,
             });
             const artistAID = await instance.getAddressArtistID(artistA);
-            await instance.revokeOwnerRightsForArtist({ from: artistA });
-            const revoked = await instance.ownerRightsRevoked(artistA);
+            await instance.revokeContractOwnerRights({ from: artistA });
+            const revoked = await instance.hasArtistRevokedOwnerRights(artistA);
             expect(revoked).to.be.true;
             // Reverts with custom error: NotAuthorizedError(address caller)
             await expectCustomError(
@@ -1038,12 +1038,12 @@ contract("SeriesIndexer", (accounts) => {
         });
     });
 
-    describe("removeSelfFromSeries", () => {
+    describe("resignFromSeries", () => {
         it("should allow artist to remove themselves", async () => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            const tx = await instance.removeSelfFromSeries(firstSeriesID, {
+            const tx = await instance.resignFromSeries(firstSeriesID, {
                 from: artistA,
             });
 
@@ -1070,7 +1070,7 @@ contract("SeriesIndexer", (accounts) => {
             });
             // Reverts with custom error: CallerNotASeriesArtistError(...)
             await expectCustomError(
-                instance.removeSelfFromSeries(firstSeriesID, { from: artistB }),
+                instance.resignFromSeries(firstSeriesID, { from: artistB }),
                 seriesIndexerABI,
                 "CallerNotASeriesArtistError",
                 [firstSeriesID.toString(), artistB]
@@ -1084,7 +1084,7 @@ contract("SeriesIndexer", (accounts) => {
                 tokenMapURI,
                 { from: owner }
             );
-            await instance.removeSelfFromSeries(firstSeriesID, {
+            await instance.resignFromSeries(firstSeriesID, {
                 from: artistA,
             });
 
@@ -1098,7 +1098,7 @@ contract("SeriesIndexer", (accounts) => {
         it("should revert if artist tries to remove themselves from a non-existent series", async () => {
             const nonExistent = new BN("9999");
             await expectCustomError(
-              instance.removeSelfFromSeries(nonExistent, { from: artistA }),
+              instance.resignFromSeries(nonExistent, { from: artistA }),
               seriesIndexerABI,
               "SeriesDoesNotExistError",
               [nonExistent.toString()]
@@ -1159,8 +1159,8 @@ contract("SeriesIndexer", (accounts) => {
                 { from: owner }
             );
             // Revoke rights for all current artists
-            await instance.revokeOwnerRightsForArtist({ from: artistA });
-            await instance.revokeOwnerRightsForArtist({ from: artistB });
+            await instance.revokeContractOwnerRights({ from: artistA });
+            await instance.revokeContractOwnerRights({ from: artistB });
 
             // Reverts with custom error: OwnerRightsRevokedForThisSeries(uint256 seriesID)
             await expectCustomError(
@@ -1180,7 +1180,7 @@ contract("SeriesIndexer", (accounts) => {
                 from: artistA,
             });
             // Revoke rights for artistA
-            await instance.revokeOwnerRightsForArtist({ from: artistA });
+            await instance.revokeContractOwnerRights({ from: artistA });
 
             await instance.addSeries([artistB], metadataURI, tokenMapURI, {
                 from: artistB,
