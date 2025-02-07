@@ -23,6 +23,8 @@
     "@openzeppelin/test-helpers": "^0.5.16",
     "coveralls": "^3.1.1",
     "ganache-cli": "^6.12.2",
+    "prettier": "^3.4.2",
+    "prettier-plugin-solidity": "^1.4.2",
     "solidity-coverage": "^0.7.22",
     "truffle": "^5.9.2",
     "truffle-flattener": "^1.6.0",

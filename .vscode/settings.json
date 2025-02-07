@@ -1,6 +1,9 @@
 {
     "solidity.defaultCompiler": "localNodeModule",
-    "solidity.remappingsUnix": [
-        "@openzeppelin/=node_modules/@openzeppelin/"
-    ]
+    "solidity.remappingsUnix": ["@openzeppelin/=node_modules/@openzeppelin/"],
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "files.associations": {
+        "*.sol": "solidity"
+    },
+    "prettier.resolveGlobalModules": false
 }
