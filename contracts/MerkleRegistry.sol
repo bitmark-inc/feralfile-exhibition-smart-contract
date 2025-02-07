@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
  * @title MerkleRegistry
@@ -119,9 +119,9 @@ contract MerkleRegistry {
      * @param _metadataURIs Array of metadata URIs
      */
     function batchRegisterMerkleRoots(
-        bytes32[] memory _merkleRoots,
-        string[] memory _proofURIs,
-        string[] memory _metadataURIs
+        bytes32[] calldata _merkleRoots,
+        string[] calldata _proofURIs,
+        string[] calldata _metadataURIs
     ) external {
         // Check if the arrays are of the same length
         if (
@@ -148,8 +148,8 @@ contract MerkleRegistry {
      */
     function registerMerkleRoot(
         bytes32 _merkleRoot,
-        string memory _proofURI,
-        string memory _metadataURI
+        string calldata _proofURI,
+        string calldata _metadataURI
     ) external {
         _registerMerkleRoot(_merkleRoot, _proofURI, _metadataURI);
     }
@@ -223,7 +223,7 @@ contract MerkleRegistry {
      */
     function updateMerkleRootProofURI(
         bytes32 _merkleRoot,
-        string memory _proofURI
+        string calldata _proofURI
     ) external onlySubmitter(_merkleRoot) {
         // Check if the _proofURI is empty
         if (bytes(_proofURI).length == 0) {
@@ -248,7 +248,7 @@ contract MerkleRegistry {
      */
     function updateMerkleRootMetadataURI(
         bytes32 _merkleRoot,
-        string memory _metadataURI
+        string calldata _metadataURI
     ) external onlySubmitter(_merkleRoot) {
         // Check if the _metadataURI is empty
         if (bytes(_metadataURI).length == 0) {
