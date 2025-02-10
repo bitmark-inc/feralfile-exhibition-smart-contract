@@ -1,4 +1,3 @@
-
 /**
  * Generic helper: expects a revert with a specific custom error name.
  * It automatically finds that error in the ABI, checks the name, and
@@ -19,8 +18,15 @@ async function expectCustomError(
             expect.fail(`No error.data found. Got error:\n${error}`);
         }
 
-        // The first 4 bytes (8 hex chars after '0x') is the selector
-        const selector = error.data.result.slice(2, 10);
+        // check if the data is string or an object to get the selector
+        let rawData;
+        if (typeof error.data === "string") {
+            rawData = error.data;
+        } else {
+            // assume this is an object
+            rawData = error.data.result;
+        }
+        const selector = rawData.slice(2, 10);
 
         // Try to find which custom error in the ABI matches this selector
         const errorEntry = findErrorBySelector(contractABI, selector);
@@ -38,7 +44,7 @@ async function expectCustomError(
         ).to.equal(expectedErrorName);
 
         // Decode the parameters
-        const encodedParams = error.data.result.slice(10); // skip the selector
+        const encodedParams = rawData.slice(10); // skip the selector
         const paramTypes = errorEntry.inputs.map((input) => input.type);
         const decoded = web3.eth.abi.decodeParameters(
             paramTypes,
@@ -88,5 +94,5 @@ function findErrorBySelector(contractABI, selectorHex) {
 }
 
 module.exports = {
-    expectCustomError
+    expectCustomError,
 };
