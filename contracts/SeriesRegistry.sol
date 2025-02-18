@@ -130,7 +130,11 @@ contract SeriesRegistry is Ownable {
     // ============ Public/External Functions: Series Management ============
 
     /**
-     * @dev Creates a new series
+     * @notice Adds a new series
+     * @param artistAddresses The addresses of the artists associated with the series
+     * @param metadataURI The metadata URI of the series
+     * @param tokenIDsMapURI The token IDs map URI of the series
+     * @return The ID of the newly created series
      */
     function addSeries(
         address[] calldata artistAddresses,
@@ -141,7 +145,11 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Batch creation of series
+     * @notice Batch adds new series
+     * @param seriesArtists The addresses of the artists associated with the series
+     * @param metadataURIs The metadata URIs of the series
+     * @param tokenIDsMapURIs The token IDs map URIs of the series
+     * @return The IDs of the newly created series
      */
     function batchAddSeries(
         address[][] calldata seriesArtists,
@@ -162,7 +170,10 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Updates an existing series' metadata and token data
+     * @notice Updates an existing series' metadata and token data
+     * @param seriesID The ID of the series to update
+     * @param metadataURI The metadata URI of the series
+     * @param tokenIDsMapURI The token IDs map URI of the series
      */
     function updateSeries(
         uint256 seriesID,
@@ -173,7 +184,10 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Updates an existing series' metadata and token data
+     * @notice Batch updates existing series' metadata and token data
+     * @param seriesIDs The IDs of the series to update
+     * @param metadataURIs The metadata URIs of the series
+     * @param tokenIDsMapURIs The token IDs map URIs of the series
      */
     function batchUpdateSeries(
         uint256[] calldata seriesIDs,
@@ -187,14 +201,16 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Deletes series and cleans up related data
+     * @notice Deletes a series
+     * @param seriesID The ID of the series to delete
      */
     function deleteSeries(uint256 seriesID) external {
         _deleteSeries(seriesID);
     }
 
     /**
-     * @dev Batch deletes series and cleans up related data
+     * @notice Batch deletes series
+     * @param seriesIDs The IDs of the series to delete
      */
     function batchDeleteSeries(uint256[] calldata seriesIDs) external {
         for (uint256 i = 0; i < seriesIDs.length; i++) {
@@ -205,7 +221,8 @@ contract SeriesRegistry is Ownable {
     // ============ Public/External Functions: Series Artist Management ============
 
     /**
-     * @dev Allows an artist to remove themselves from a series
+     * @notice Allows an artist to remove themselves from a series
+     * @param seriesID The ID of the series to resign from
      */
     function resignFromSeries(uint256 seriesID) external seriesExists(seriesID) onlyArtist(seriesID) {
         uint256 artistID = artistAddressToID[msg.sender];
@@ -217,7 +234,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Updates artist list for a series (owner only)
+     * @notice Updates the artist list for a series (owner only)
+     * @param seriesID The ID of the series to update
+     * @param artistAddresses The addresses of the artists to add to the series
      */
     function ownerUpdateSeriesArtists(
         uint256 seriesID,
@@ -245,7 +264,9 @@ contract SeriesRegistry is Ownable {
     // ============ Public/External Functions: Collaborator Management ============
 
     /**
-     * @dev Proposes a new collaborator for a series
+     * @notice Proposes a new collaborator for a series
+     * @param seriesID The ID of the series to propose a collaborator for
+     * @param proposedArtistAddress The address of the proposed collaborator
      */
     function proposeCollaborator(
         uint256 seriesID,
@@ -268,7 +289,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Cancels a collaborator proposal
+     * @notice Cancels a collaborator proposal
+     * @param seriesID The ID of the series to cancel the proposal for
+     * @param proposedArtistAddress The address of the proposed collaborator
      */
     function cancelProposeCollaborator(
         uint256 seriesID,
@@ -287,7 +310,8 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Confirms participation as a collaborator
+     * @notice Confirms participation as a collaborator
+     * @param seriesID The ID of the series to confirm participation for
      */
     function confirmAsCollaborator(uint256 seriesID) external seriesExists(seriesID) {
         uint256 artistID = artistAddressToID[msg.sender];
@@ -311,7 +335,7 @@ contract SeriesRegistry is Ownable {
     // ============ Public/External Functions: Artist Management ============
 
     /**
-     * @dev Revokes owner rights for the calling artist
+     * @notice Allow artist to revoke their contract owner rights
      */
     function revokeContractOwnerRights() external {
         uint256 artistID = artistAddressToID[msg.sender];
@@ -325,7 +349,7 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Approves owner rights for the calling artist
+     * @notice Allow artist to approve their contract owner rights
      */
     function approveContractOwnerRights() external {
         uint256 artistID = artistAddressToID[msg.sender];
@@ -339,7 +363,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Updates an artist's address
+     * @notice Updates an artist's address
+     * @param artistID The ID of the artist to update
+     * @param newAddress The new address of the artist
      */
     function updateArtistAddress(uint256 artistID, address newAddress) external {
         if (newAddress == address(0)) {
@@ -371,8 +397,9 @@ contract SeriesRegistry is Ownable {
     // ============ Public/External View Functions ============
 
     /**
-     * @notice Returns `true` if at least one artist in the series
-     *         has not revoked the owner's right to modify the series.
+     * @notice Checks if at least one artist in the series has not revoked the owner's right to modify the series
+     * @param seriesID The ID of the series to check
+     * @return `true` if at least one artist has not revoked the owner's right to modify the series, `false` otherwise
      */
     function hasUnrevokedArtist(uint256 seriesID) public view returns (bool) {
         uint256[] memory ids = seriesRegistry[seriesID].artistIDs;
@@ -390,7 +417,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @notice Checks if the given `artistAddress` has revoked owner rights
+     * @notice Checks if an artist has revoked their contract owner rights
+     * @param artistAddress The address of the artist to check
+     * @return `true` if the artist has revoked their contract owner rights, `false` otherwise
      */
     function hasArtistRevokedOwnerRights(address artistAddress) external view returns (bool) {
         uint256 artistID = artistAddressToID[artistAddress];
@@ -399,13 +428,17 @@ contract SeriesRegistry is Ownable {
 
     /**
      * @notice Returns all artist IDs for a given series
+     * @param seriesID The ID of the series to get the artist IDs for
+     * @return An array of artist IDs associated with the series
      */
     function getSeriesArtistIDs(uint256 seriesID) external view returns (uint256[] memory) {
         return seriesRegistry[seriesID].artistIDs;
     }
 
     /**
-     * @notice Returns the artist addresses for a given series
+     * @notice Returns all artist addresses for a given series
+     * @param seriesID The ID of the series to get the artist addresses for
+     * @return An array of artist addresses associated with the series
      */
     function getSeriesArtistAddresses(uint256 seriesID) external view returns (address[] memory) {
         uint256[] memory ids = seriesRegistry[seriesID].artistIDs;
@@ -417,7 +450,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @notice Returns all series IDs associated with a given artist address
+     * @notice Returns all series IDs associated with an artist address
+     * @param artistAddress The address of the artist to get the series IDs for
+     * @return An array of series IDs associated with the artist
      */
     function getArtistSeriesIDs(address artistAddress) external view returns (uint256[] memory) {
         uint256 artistID = artistAddressToID[artistAddress];
@@ -425,21 +460,27 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @notice Returns metadataURI of a given series
+     * @notice Returns the metadata URI of a given series
+     * @param seriesID The ID of the series to get the metadata URI for
+     * @return The metadata URI of the series
      */
     function getSeriesMetadataURI(uint256 seriesID) external view returns (string memory) {
         return seriesRegistry[seriesID].metadataURI;
     }
 
     /**
-     * @notice Returns contract-level token data (e.g., IPFS CID) of a given series
+     * @notice Returns the contract-level token data (e.g., IPFS CID) of a given series
+     * @param seriesID The ID of the series to get the contract-level token data for
+     * @return The contract-level token data of the series
      */
     function getSeriesContractTokenDataURI(uint256 seriesID) external view returns (string memory) {
         return seriesRegistry[seriesID].contractTokenDataURI;
     }
 
     /**
-     * @notice Returns the pending collaborator requests for a given artist address
+     * @notice Returns the pending collaborator requests for an artist address
+     * @param artistAddress The address of the artist to get the pending collaborator requests for
+     * @return An array of series IDs associated with the artist's pending collaborator requests
      */
     function getArtistPendingCollaboratorSeries(address artistAddress) external view returns (uint256[] memory) {
         uint256 artistID = artistAddressToID[artistAddress];
@@ -448,6 +489,8 @@ contract SeriesRegistry is Ownable {
 
     /**
      * @notice Returns the pending collaborator list for a given series
+     * @param seriesID The ID of the series to get the pending collaborator list for
+     * @return An array of addresses associated with the series' pending collaborators
      */
     function getSeriesPendingCollaborators(uint256 seriesID) external view returns (address[] memory) {
         uint256[] memory artistIDs = seriesPendingCollaborators[seriesID];
@@ -460,13 +503,17 @@ contract SeriesRegistry is Ownable {
 
     /**
      * @notice Returns the address associated with a given artist ID
+     * @param artistID The ID of the artist to get the address for
+     * @return The address of the artist
      */
     function getArtistAddress(uint256 artistID) external view returns (address) {
         return artists[artistID].artistAddress;
     }
 
     /**
-     * @notice Returns the artist ID associated with a given address
+     * @notice Returns the artist ID associated with an address
+     * @param artistAddress The address of the artist to get the ID for
+     * @return The ID of the artist
      */
     function getAddressArtistID(address artistAddress) external view returns (uint256) {
         return artistAddressToID[artistAddress];
@@ -475,7 +522,11 @@ contract SeriesRegistry is Ownable {
     // ============ Internal Functions ============
 
     /**
-     * @dev Creates a new series with the specified artists
+     * @notice Creates a new series with the specified artists
+     * @param artistAddresses The addresses of the artists associated with the series
+     * @param metadataURI The metadata URI of the series
+     * @param tokenIDsMapURI The token IDs map URI of the series
+     * @return The ID of the newly created series
      */
     function _createSeries(
         address[] memory artistAddresses,
@@ -504,7 +555,10 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Update existing series' metadata and token data
+     * @notice Updates an existing series' metadata and token data
+     * @param seriesID The ID of the series to update
+     * @param metadataURI The metadata URI of the series
+     * @param tokenIDsMapURI The token IDs map URI of the series
      */
     function _updateSeries(
         uint256 seriesID,
@@ -521,7 +575,8 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Deletes a series and cleans up related data
+     * @notice Deletes a series and cleans up related data
+     * @param seriesID The ID of the series to delete
      */
     function _deleteSeries(uint256 seriesID) 
         internal 
@@ -550,7 +605,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Removes a series from an artist's list
+     * @notice Removes a series from an artist's list
+     * @param artistID The ID of the artist to remove the series from
+     * @param seriesID The ID of the series to remove
      */
     function _unlinkSeriesFromArtist(uint256 artistID, uint256 seriesID) internal {
         uint256[] storage seriesIDs = artists[artistID].seriesIDs;
@@ -567,7 +624,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Removes an artist from a series
+     * @notice Removes an artist from a series
+     * @param seriesID The ID of the series to remove the artist from
+     * @param artistID The ID of the artist to remove
      */
     function _unlinkArtistFromSeries(uint256 seriesID, uint256 artistID) internal {
         uint256[] storage artistIDs = seriesRegistry[seriesID].artistIDs;
@@ -583,7 +642,8 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Validates that artists can only add series that only have themselves as artist
+     * @notice Validates that artists can only add series that only have themselves as artist
+     * @param artistAddresses The addresses of the artists
      */
     function _ensureCallerIsOnlyArtist(
         address[] memory artistAddresses
@@ -594,7 +654,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Validates that metadataURI and token URI are not empty
+     * @notice Validates that metadataURI and token URI are not empty
+     * @param metadataURI The metadata URI of the series
+     * @param tokenIDsMapURI The token IDs map URI of the series
      */
     function _validateMetadataAndTokenURI(
         string memory metadataURI,
@@ -609,7 +671,10 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Validates batch parameters for series creation
+     * @notice Validates batch parameters for series creation
+     * @param seriesCount The number of series
+     * @param metadataURIs The metadata URIs of the series
+     * @param tokenIDsMapURIs The token IDs map URIs of the series
      */
     function _validateSeriesWriteBatch(
         uint256 seriesCount,
@@ -632,14 +697,16 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Checks if the caller is contract owner
+     * @notice Checks if the caller is contract owner
+     * @return `true` if the caller is the contract owner, `false` otherwise
      */
     function _isCallerOwner() internal view returns (bool) {
         return msg.sender == owner();
     }
 
     /**
-     * @dev Checks if the caller is a series artist
+     * @notice Checks if the caller is a series artist
+     * @param seriesID The ID of the series to check
      */
     function _requireCallerIsSeriesArtist(uint256 seriesID) internal view {
         uint256 artistID = artistAddressToID[msg.sender];
@@ -649,7 +716,8 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Ensures all provided artist addresses have not revoked owner rights
+     * @notice Ensures all provided artist addresses have not revoked contract owner rights
+     * @param artistAddresses The addresses of the artists
      */
     function _ensureNoArtistsRevokedOwnerRights(address[] memory artistAddresses) internal view {
         for (uint256 i = 0; i < artistAddresses.length; i++) {
@@ -661,7 +729,8 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Ensures an address is assigned an artist ID. If not, creates one.
+     * @notice Ensures an address is assigned an artist ID. If not, creates one.
+     * @param artistAddress The address of the artist to ensure has an ID
      */
     function _ensureArtistHasID(address artistAddress) internal {
         if (artistAddress == address(0)) {
@@ -675,7 +744,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Adds a pending collaborator request
+     * @notice Adds a pending collaborator request
+     * @param artistID The ID of the artist to add the pending collaborator request for
+     * @param seriesID The ID of the series to add the pending collaborator request for
      */
     function _addCollaboratorProposal(uint256 artistID, uint256 seriesID) internal {
         // Add to artist tracking
@@ -686,7 +757,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Removes a pending collaborator request
+     * @notice Removes a pending collaborator request
+     * @param artistID The ID of the artist to remove the pending collaborator request for
+     * @param seriesID The ID of the series to remove the pending collaborator request for
      */
     function _removeCollaboratorProposal(uint256 artistID, uint256 seriesID) internal {
         _removeArtistPendingCollaboratorSeries(artistID, seriesID);
@@ -694,7 +767,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Removes a pending collaborator request from artist
+     * @notice Removes a pending collaborator request from artist
+     * @param artistID The ID of the artist to remove the pending collaborator request for
+     * @param seriesID The ID of the series to remove the pending collaborator request for
      */
     function _removeArtistPendingCollaboratorSeries(uint256 artistID, uint256 seriesID) internal {
         uint256[] storage pendingSeries = artistPendingCollaboratorSeries[artistID];
@@ -711,7 +786,9 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Removes a pending collaborator request from series
+     * @notice Removes a pending collaborator request from series
+     * @param seriesID The ID of the series to remove the pending collaborator request for
+     * @param artistID The ID of the artist to remove the pending collaborator request for
      */
     function _removeSeriesPendingCollaborator(uint256 seriesID, uint256 artistID) internal {
         uint256[] storage pendingArtists = seriesPendingCollaborators[seriesID];
@@ -728,7 +805,10 @@ contract SeriesRegistry is Ownable {
     }
 
     /**
-     * @dev Adds multiple artists to a series
+     * @notice Adds multiple artists to a series
+     * @param seriesID The ID of the series to add the artists to
+     * @param artistAddresses The addresses of the artists to add to the series
+     * @return An array of artist IDs
      */
     function _addArtistsToSeries(
         uint256 seriesID,
