@@ -1,16 +1,16 @@
 const { expect } = require("chai");
 const { BN, expectRevert, expectEvent } = require("@openzeppelin/test-helpers");
-const SeriesIndexer = artifacts.require("SeriesIndexer");
+const SeriesRegistry = artifacts.require("SeriesRegistry");
 // NOTE: We have to build the abi before running the test
-const SeriesIndexerArtifact = require("../build/contracts/SeriesIndexer.json");
+const SeriesRegistryArtifact = require("../build/contracts/SeriesRegistry.json");
 const { expectCustomError } = require("./helper/expectCustomError.js");
-const seriesIndexerABI = SeriesIndexerArtifact.abi;
+const seriesRegistryABI = SeriesRegistryArtifact.abi;
 
-contract("SeriesIndexer", (accounts) => {
+contract("SeriesRegistry", (accounts) => {
     const owner = accounts[0];
     const artistA = accounts[1];
     const artistB = accounts[2];
-    const artistC = accounts[3]; // will be proposed as co-artist
+    const artistC = accounts[3]; // will be proposed as collaborator
     const artistD = accounts[5]; // for multiple proposals scenario
     const nonArtist = accounts[4]; // never added as an artist
     const firstSeriesID = new BN("1");
@@ -23,7 +23,7 @@ contract("SeriesIndexer", (accounts) => {
     let instance;
 
     beforeEach(async () => {
-        instance = await SeriesIndexer.new({ from: owner });
+        instance = await SeriesRegistry.new({ from: owner });
     });
 
     describe("Initial State", () => {
@@ -67,7 +67,7 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: NoArtistsForSeriesError()
             await expectCustomError(
               instance.addSeries([], metadataURI, tokenMapURI, { from: owner }),
-              seriesIndexerABI,
+              seriesRegistryABI,
               "NoArtistsForSeriesError"
             );
         });
@@ -77,7 +77,7 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: ZeroAddressNotAllowedError()
             await expectCustomError(
               instance.addSeries([ZERO_ADDRESS], metadataURI, tokenMapURI, { from: owner }),
-              seriesIndexerABI,
+              seriesRegistryABI,
               "ZeroAddressNotAllowedError"
             );
           });
@@ -86,7 +86,7 @@ contract("SeriesIndexer", (accounts) => {
             const tx = await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            expectEvent(tx, "SeriesIndexed", {
+            expectEvent(tx, "SeriesRegistered", {
                 seriesID: firstSeriesID,
             });
 
@@ -113,7 +113,7 @@ contract("SeriesIndexer", (accounts) => {
                 instance.addSeries([artistB], metadataURI, tokenMapURI, {
                     from: artistA,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "NotAuthorizedError",
                 [artistA]
             );
@@ -122,7 +122,7 @@ contract("SeriesIndexer", (accounts) => {
                 instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, {
                     from: artistA,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "NotAuthorizedError",
                 [artistA]
             );
@@ -136,7 +136,7 @@ contract("SeriesIndexer", (accounts) => {
                 { from: owner }
             );
 
-            expectEvent(tx, "SeriesIndexed", {
+            expectEvent(tx, "SeriesRegistered", {
                 seriesID: firstSeriesID,
             });
 
@@ -148,14 +148,14 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error EmptyMetadataURIError()
             await expectCustomError(
                 instance.addSeries([artistA], "", tokenMapURI, { from: artistA }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "EmptyMetadataURIError"
             );
 
             // Reverts with custom error EmptyTokenMapURIError()
             await expectCustomError(
                 instance.addSeries([artistA], metadataURI, "", { from: artistA }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "EmptyTokenMapURIError"
             );
         });
@@ -174,8 +174,8 @@ contract("SeriesIndexer", (accounts) => {
                 { from: owner }
             );
 
-            expectEvent(tx, "SeriesIndexed", { seriesID: firstSeriesID });
-            expectEvent(tx, "SeriesIndexed", { seriesID: secondSeriesID });
+            expectEvent(tx, "SeriesRegistered", { seriesID: firstSeriesID });
+            expectEvent(tx, "SeriesRegistered", { seriesID: secondSeriesID });
 
             const seriesMeta1 = await instance.getSeriesMetadataURI(firstSeriesID);
             const seriesTokenMap1 = await instance.getSeriesContractTokenDataURI(
@@ -202,8 +202,8 @@ contract("SeriesIndexer", (accounts) => {
                 { from: owner }
             );
 
-            expectEvent(tx, "SeriesIndexed", { seriesID: firstSeriesID });
-            expectEvent(tx, "SeriesIndexed", { seriesID: secondSeriesID });
+            expectEvent(tx, "SeriesRegistered", { seriesID: firstSeriesID });
+            expectEvent(tx, "SeriesRegistered", { seriesID: secondSeriesID });
 
             const seriesMeta1 = await instance.getSeriesMetadataURI(firstSeriesID);
             const seriesTokenMap1 = await instance.getSeriesContractTokenDataURI(
@@ -236,7 +236,7 @@ contract("SeriesIndexer", (accounts) => {
                     ["token4001"],
                     { from: owner }
                 ),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "ArtistRevokedOwnerRightsError",
                 [artistA]
             );
@@ -250,7 +250,7 @@ contract("SeriesIndexer", (accounts) => {
                     batchTokenMapURIs,
                     { from: artistA }
                 ),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "NotAuthorizedError",
                 [artistA]
             );
@@ -266,7 +266,7 @@ contract("SeriesIndexer", (accounts) => {
                     ["token5001", "token5002"],
                     { from: owner }
                 ),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "ArrayLengthMismatchError",
                 ["1", "2", "2"] // must pass as strings or BN if we want to match decode
             );
@@ -286,7 +286,7 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: BatchSizeTooLargeError(51)
             await expectCustomError(
               instance.batchAddSeries(bigArray, metaArray, tokenArray, { from: owner }),
-              seriesIndexerABI,
+              seriesRegistryABI,
               "BatchSizeTooLargeError",
               ["51"]
             );
@@ -385,7 +385,7 @@ contract("SeriesIndexer", (accounts) => {
                 instance.updateSeries(firstSeriesID, metadataURI, tokenMapURI, {
                     from: nonArtist,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "CallerNotASeriesArtistError",
                 [firstSeriesID.toString(), nonArtist] // (seriesID, caller)
             );
@@ -400,7 +400,7 @@ contract("SeriesIndexer", (accounts) => {
                     tokenMapURI,
                     { from: artistA }
                 ),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "SeriesDoesNotExistError",
                 ["9999"] // pass as a string
             );
@@ -418,7 +418,7 @@ contract("SeriesIndexer", (accounts) => {
                 ["newToken1", "newToken9999"],
                 { from: owner }
               ),
-              seriesIndexerABI,
+              seriesRegistryABI,
               "SeriesDoesNotExistError",
               [nonExistent.toString()]
             );
@@ -458,7 +458,7 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: OwnerRightsRevokedForThisSeries(uint256 seriesID)
             await expectCustomError(
                 instance.updateSeries(firstSeriesID, "x", "y", { from: owner }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "OwnerRightsRevokedForThisSeries",
                 [firstSeriesID.toString()]
             );
@@ -479,7 +479,7 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: NotAnArtistError(address caller)
             await expectCustomError(
                 instance.revokeContractOwnerRights({ from: nonArtist }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "NotAnArtistError",
                 [nonArtist]
             );
@@ -487,48 +487,48 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: NotAnArtistError(address caller)
             await expectCustomError(
                 instance.approveContractOwnerRights({ from: nonArtist }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "NotAnArtistError",
                 [nonArtist]
             );
         });
     });
 
-    describe("Propose and Confirm Co-Artist", () => {
-        it("Artist in a series can propose a new co-artist", async () => {
+    describe("Propose and Confirm Collaborator", () => {
+        it("Artist in a series can propose a new collaborator", async () => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            const tx = await instance.proposeCoArtist(firstSeriesID, artistC, {
+            const tx = await instance.proposeCollaborator(firstSeriesID, artistC, {
                 from: artistA,
             });
-            expectEvent(tx, "CoArtistProposed", {
+            expectEvent(tx, "CollaboratorProposed", {
                 seriesID: firstSeriesID,
             });
 
-            let pending = await instance.getArtistPendingCoArtistSeries(artistC);
+            let pending = await instance.getArtistPendingCollaboratorSeries(artistC);
             expect(pending.map((e) => e.toString())).to.include(
                 firstSeriesID.toString()
             );
-            pending = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            pending = await instance.getSeriesPendingCollaborators(firstSeriesID);
             expect(pending.map((e) => e.toString())).to.include(
                 artistC.toString()
             );
         });
 
-        it("Co-artist can confirm themselves", async () => {
+        it("Collaborator can confirm themselves", async () => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            await instance.proposeCoArtist(firstSeriesID, artistC, {
+            await instance.proposeCollaborator(firstSeriesID, artistC, {
                 from: artistA,
             });
             let artistURI = await instance.getAddressArtistID(artistC);
 
-            const tx = await instance.confirmAsCoArtist(firstSeriesID, {
+            const tx = await instance.confirmAsCollaborator(firstSeriesID, {
                 from: artistC,
             });
-            expectEvent(tx, "CoArtistConfirmed", {
+            expectEvent(tx, "CollaboratorConfirmed", {
                 seriesID: firstSeriesID,
                 confirmedArtistID: artistURI,
             });
@@ -538,12 +538,12 @@ contract("SeriesIndexer", (accounts) => {
                 artistURI.toString()
             );
 
-            let pendingAfter = await instance.getArtistPendingCoArtistSeries(artistC);
+            let pendingAfter = await instance.getArtistPendingCollaboratorSeries(artistC);
             expect(pendingAfter.length).to.equal(
                 0,
                 "Pending artist requests should be cleared after confirmation"
             );
-            pendingAfter = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            pendingAfter = await instance.getSeriesPendingCollaborators(firstSeriesID);
             expect(pendingAfter.length).to.equal(
                 0,
                 "Pending series requests should be cleared after confirmation"
@@ -559,40 +559,40 @@ contract("SeriesIndexer", (accounts) => {
             });
             // Reverts with custom error: NotAPendingProposalError(uint256 seriesID, address caller)
             await expectCustomError(
-                instance.confirmAsCoArtist(firstSeriesID, { from: artistC }),
-                seriesIndexerABI,
+                instance.confirmAsCollaborator(firstSeriesID, { from: artistC }),
+                seriesRegistryABI,
                 "NotAPendingProposalError",
                 [firstSeriesID.toString(), artistC]
             );
         });
 
-        it("An artist can cancel a co-artist proposal before confirmation", async () => {
+        it("An artist can cancel a collaborator proposal before confirmation", async () => {
             await instance.addSeries(
                 [artistA, artistB],
                 metadataURI,
                 tokenMapURI,
                 { from: owner }
             );
-            await instance.proposeCoArtist(firstSeriesID, artistC, {
+            await instance.proposeCollaborator(firstSeriesID, artistC, {
                 from: artistA,
             });
             let artistURI = await instance.getAddressArtistID(artistC);
 
-            let pendingBefore = await instance.getArtistPendingCoArtistSeries(artistC);
+            let pendingBefore = await instance.getArtistPendingCollaboratorSeries(artistC);
             expect(pendingBefore.map((e) => e.toString())).to.include(
                 firstSeriesID.toString()
             );
-            pendingBefore = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            pendingBefore = await instance.getSeriesPendingCollaborators(firstSeriesID);
             expect(pendingBefore.map((e) => e.toString())).to.include(
                 artistC.toString()
             );
 
-            const tx = await instance.cancelProposeCoArtist(
+            const tx = await instance.cancelProposeCollaborator(
                 firstSeriesID,
                 artistC,
                 { from: artistB }
             );
-            expectEvent(tx, "CoArtistProposalCancelled", {
+            expectEvent(tx, "CollaboratorProposalCancelled", {
                 seriesID: firstSeriesID,
                 proposerArtistID: await instance.getAddressArtistID(artistB),
                 cancelledArtistID: artistURI,
@@ -601,92 +601,92 @@ contract("SeriesIndexer", (accounts) => {
             // Now the proposal is canceled, confirming should revert
             // Reverts with custom error: NotAPendingProposalError(...)
             await expectCustomError(
-                instance.confirmAsCoArtist(firstSeriesID, { from: artistC }),
-                seriesIndexerABI,
+                instance.confirmAsCollaborator(firstSeriesID, { from: artistC }),
+                seriesRegistryABI,
                 "NotAPendingProposalError",
                 [firstSeriesID.toString(), artistC]
             );
 
-            let pendingAfterCancel = await instance.getArtistPendingCoArtistSeries(
+            let pendingAfterCancel = await instance.getArtistPendingCollaboratorSeries(
                 artistC
             );
             expect(pendingAfterCancel.length).to.equal(
                 0,
                 "Pending artist requests should be cleared after cancellation"
             );
-            pendingAfterCancel = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            pendingAfterCancel = await instance.getSeriesPendingCollaborators(firstSeriesID);
             expect(pendingAfterCancel.length).to.equal(
                 0,
                 "Pending series requests should be cleared after cancellation"
             );
         });
 
-        it("Proposing a co-artist for a non-existent series should revert", async () => {
+        it("Proposing a collaborator for a non-existent series should revert", async () => {
             // Reverts with custom error: SeriesDoesNotExistError(seriesID)
             await expectCustomError(
-                instance.proposeCoArtist(new BN("9999"), artistC, {
+                instance.proposeCollaborator(new BN("9999"), artistC, {
                     from: artistA,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "SeriesDoesNotExistError",
                 ["9999"]
             );
         });
 
-        it("Proposing the same co-artist twice for the same series should revert", async () => {
+        it("Proposing the same collaborator twice for the same series should revert", async () => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Propose artistB
-            await instance.proposeCoArtist(firstSeriesID, artistB, {
+            await instance.proposeCollaborator(firstSeriesID, artistB, {
                 from: artistA,
             });
-            // Attempt to propose the same co-artist again
+            // Attempt to propose the same collaborator again
             // Reverts with custom error: AlreadyProposedError(uint256 seriesID, address proposedArtistAddr)
             await expectCustomError(
-                instance.proposeCoArtist(firstSeriesID, artistB, {
+                instance.proposeCollaborator(firstSeriesID, artistB, {
                     from: artistA,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "AlreadyProposedError",
                 [firstSeriesID.toString(), artistB]
             );
         });
 
-        it("Non-artist cannot propose co-artist", async () => {
+        it("Non-artist cannot propose collaborator", async () => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Reverts with custom error: CallerNotASeriesArtistError(uint256 seriesID, address caller)
             await expectCustomError(
-                instance.proposeCoArtist(firstSeriesID, artistB, {
+                instance.proposeCollaborator(firstSeriesID, artistB, {
                     from: nonArtist,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "CallerNotASeriesArtistError",
                 [firstSeriesID.toString(), nonArtist]
             );
         });
 
-        it("Propose co-artist with invalid (zero) address should revert", async () => {
+        it("Propose collaborator with invalid (zero) address should revert", async () => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
             // Reverts with custom error: ZeroAddressNotAllowedError()
             await expectCustomError(
-                instance.proposeCoArtist(
+                instance.proposeCollaborator(
                     firstSeriesID,
                     "0x0000000000000000000000000000000000000000",
                     { from: artistA }
                 ),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "ZeroAddressNotAllowedError"
             );
         });
     });
 
-    describe("Multiple Co-Artist Proposals", () => {
-        it("Can propose multiple co-artists and confirm/cancel them independently", async () => {
+    describe("Multiple Collaborator Proposals", () => {
+        it("Can propose multiple collaborators and confirm/cancel them independently", async () => {
             await instance.addSeries(
                 [artistA, artistB],
                 metadataURI,
@@ -694,7 +694,7 @@ contract("SeriesIndexer", (accounts) => {
                 { from: owner }
             );
             // Propose artistD for firstSeriesID
-            await instance.proposeCoArtist(firstSeriesID, artistD, {
+            await instance.proposeCollaborator(firstSeriesID, artistD, {
                 from: artistA,
             });
             let artistDID = await instance.getAddressArtistID(artistD);
@@ -705,41 +705,41 @@ contract("SeriesIndexer", (accounts) => {
             });
 
             // Propose artistD for secondSeriesID
-            await instance.proposeCoArtist(secondSeriesID, artistD, {
+            await instance.proposeCollaborator(secondSeriesID, artistD, {
                 from: artistA,
             });
 
             // Now artistD should have 2 pending requests
-            let pendingD = await instance.getArtistPendingCoArtistSeries(artistD);
+            let pendingD = await instance.getArtistPendingCollaboratorSeries(artistD);
             expect(pendingD.map((e) => e.toString())).to.have.members([
                 firstSeriesID.toString(),
                 secondSeriesID.toString(),
             ]);
-            pendingD = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            pendingD = await instance.getSeriesPendingCollaborators(firstSeriesID);
             expect(pendingD.map((e) => e.toString())).to.include(
                 artistD.toString()
             );
-            pendingD = await instance.getSeriesPendingCoArtists(secondSeriesID);
+            pendingD = await instance.getSeriesPendingCollaborators(secondSeriesID);
             expect(pendingD.map((e) => e.toString())).to.include(
                 artistD.toString()
             );
 
             // Confirm artistD for secondSeriesID first
-            await instance.confirmAsCoArtist(secondSeriesID, { from: artistD });
+            await instance.confirmAsCollaborator(secondSeriesID, { from: artistD });
 
             // Now pending should only have firstSeriesID
-            let pendingDAfterOneConfirm = await instance.getArtistPendingCoArtistSeries(
+            let pendingDAfterOneConfirm = await instance.getArtistPendingCollaboratorSeries(
                 artistD
             );
             expect(pendingDAfterOneConfirm.map((e) => e.toString())).to.include(
                 firstSeriesID.toString()
             );
             expect(pendingDAfterOneConfirm.length).to.equal(1);
-            pendingDAfterOneConfirm = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            pendingDAfterOneConfirm = await instance.getSeriesPendingCollaborators(firstSeriesID);
             expect(pendingDAfterOneConfirm.map((e) => e.toString())).to.include(
                 artistD.toString()
             );
-            pendingDAfterOneConfirm = await instance.getSeriesPendingCoArtists(secondSeriesID);
+            pendingDAfterOneConfirm = await instance.getSeriesPendingCollaborators(secondSeriesID);
             expect(pendingDAfterOneConfirm.length).to.equal(
                 0,
                 "All secondSeriesID pending requests cleared after confirm/cancel operations"
@@ -747,12 +747,12 @@ contract("SeriesIndexer", (accounts) => {
 
             // Cancel the remaining proposal on firstSeriesID
             const artistAID = await instance.getAddressArtistID(artistA);
-            const tx = await instance.cancelProposeCoArtist(
+            const tx = await instance.cancelProposeCollaborator(
                 firstSeriesID,
                 artistD,
                 { from: artistA }
             );
-            expectEvent(tx, "CoArtistProposalCancelled", {
+            expectEvent(tx, "CollaboratorProposalCancelled", {
                 seriesID: firstSeriesID,
                 proposerArtistID: artistAID,
                 cancelledArtistID: artistDID,
@@ -761,26 +761,26 @@ contract("SeriesIndexer", (accounts) => {
             // Attempting to confirm the canceled proposal should fail
             // Reverts with custom error: NotAPendingProposalError(...)
             await expectCustomError(
-                instance.confirmAsCoArtist(firstSeriesID, { from: artistD }),
-                seriesIndexerABI,
+                instance.confirmAsCollaborator(firstSeriesID, { from: artistD }),
+                seriesRegistryABI,
                 "NotAPendingProposalError",
                 [firstSeriesID.toString(), artistD]
             );
 
             // Pending should now be empty
-            let pendingDAfterCancel = await instance.getArtistPendingCoArtistSeries(
+            let pendingDAfterCancel = await instance.getArtistPendingCollaboratorSeries(
                 artistD
             );
             expect(pendingDAfterCancel.length).to.equal(
                 0,
                 "All pending requests cleared after confirm/cancel operations"
             );
-            pendingDAfterCancel = await instance.getSeriesPendingCoArtists(firstSeriesID);
+            pendingDAfterCancel = await instance.getSeriesPendingCollaborators(firstSeriesID);
             expect(pendingDAfterCancel.length).to.equal(
                 0,
                 "All firstSeriesID pending requests cleared after confirm/cancel operations"
             );
-            pendingDAfterCancel = await instance.getSeriesPendingCoArtists(secondSeriesID);
+            pendingDAfterCancel = await instance.getSeriesPendingCollaborators(secondSeriesID);
             expect(pendingDAfterCancel.length).to.equal(
                 0,
                 "All secondSeriesID pending requests cleared after confirm/cancel operations"
@@ -851,7 +851,7 @@ contract("SeriesIndexer", (accounts) => {
                 instance.updateArtistAddress(artistAID, artistB, {
                     from: owner,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "NotAuthorizedError",
                 [owner]
             );
@@ -868,7 +868,7 @@ contract("SeriesIndexer", (accounts) => {
                 instance.updateArtistAddress(artistAID, artistB, {
                     from: nonArtist,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "NotAuthorizedError",
                 [nonArtist]
             );
@@ -888,7 +888,7 @@ contract("SeriesIndexer", (accounts) => {
                 instance.updateArtistAddress(artistAID, artistB, {
                     from: owner,
                 }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "AddressAlreadyAssignedError",
                 [artistB]
             );
@@ -977,7 +977,7 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: CallerNotASeriesArtistError(...)
             await expectCustomError(
                 instance.deleteSeries(firstSeriesID, { from: artistB }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "CallerNotASeriesArtistError",
                 [firstSeriesID.toString(), artistB]
             );
@@ -988,22 +988,22 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: SeriesDoesNotExistError(uint256 seriesID)
             await expectCustomError(
                 instance.deleteSeries(nonExistentSeriesID, { from: owner }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "SeriesDoesNotExistError",
                 [nonExistentSeriesID.toString()]
             );
         });
 
-        it("should remove co-artist proposals data upon deleting a series", async () => {
+        it("should remove collaborator proposals data upon deleting a series", async () => {
             await instance.addSeries([artistA], metadataURI, tokenMapURI, {
                 from: artistA,
             });
-            await instance.proposeCoArtist(firstSeriesID, artistC, { from: artistA });
-            let pendingForC = await instance.getArtistPendingCoArtistSeries(artistC);
+            await instance.proposeCollaborator(firstSeriesID, artistC, { from: artistA });
+            let pendingForC = await instance.getArtistPendingCollaboratorSeries(artistC);
             expect(pendingForC.map((x) => x.toString())).to.include(
                 firstSeriesID.toString()
             );
-            let seriesPendingArtists = await instance.getSeriesPendingCoArtists(
+            let seriesPendingArtists = await instance.getSeriesPendingCollaborators(
                 firstSeriesID
             );
             expect(seriesPendingArtists).to.include(artistC);
@@ -1014,12 +1014,12 @@ contract("SeriesIndexer", (accounts) => {
             });
         
             // Verify that the pending requests were removed
-            //  - The co-artist's pending list should no longer contain this series
+            //  - The collaborator's pending list should no longer contain this series
             //  - The series's pending list should be empty
-            pendingForC = await instance.getArtistPendingCoArtistSeries(artistC);
+            pendingForC = await instance.getArtistPendingCollaboratorSeries(artistC);
             expect(pendingForC.length).to.equal(0);
         
-            seriesPendingArtists = await instance.getSeriesPendingCoArtists(
+            seriesPendingArtists = await instance.getSeriesPendingCollaborators(
                 firstSeriesID
             );
             expect(seriesPendingArtists.length).to.equal(0);
@@ -1031,7 +1031,7 @@ contract("SeriesIndexer", (accounts) => {
 
             await expectCustomError(
               instance.batchDeleteSeries([firstSeriesID, nonExistent], { from: owner }),
-              seriesIndexerABI,
+              seriesRegistryABI,
               "SeriesDoesNotExistError",
               [nonExistent.toString()]
             );
@@ -1071,7 +1071,7 @@ contract("SeriesIndexer", (accounts) => {
             // Reverts with custom error: CallerNotASeriesArtistError(...)
             await expectCustomError(
                 instance.resignFromSeries(firstSeriesID, { from: artistB }),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "CallerNotASeriesArtistError",
                 [firstSeriesID.toString(), artistB]
             );
@@ -1099,7 +1099,7 @@ contract("SeriesIndexer", (accounts) => {
             const nonExistent = new BN("9999");
             await expectCustomError(
               instance.resignFromSeries(nonExistent, { from: artistA }),
-              seriesIndexerABI,
+              seriesRegistryABI,
               "SeriesDoesNotExistError",
               [nonExistent.toString()]
             );
@@ -1169,7 +1169,7 @@ contract("SeriesIndexer", (accounts) => {
                     [artistC, artistD],
                     { from: owner }
                 ),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "OwnerRightsRevokedForThisSeries",
                 [firstSeriesID.toString()]
             );
@@ -1192,7 +1192,7 @@ contract("SeriesIndexer", (accounts) => {
                     [artistA, artistB],
                     { from: owner }
                 ),
-                seriesIndexerABI,
+                seriesRegistryABI,
                 "ArtistRevokedOwnerRightsError",
                 [artistA]
             );

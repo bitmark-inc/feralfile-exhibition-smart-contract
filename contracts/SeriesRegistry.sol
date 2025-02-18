@@ -5,11 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
 /**
- * @title SeriesIndexer
+ * @title SeriesRegistry
  * @dev A contract for managing series and artists in a collaborative art platform.
- *      This contract allows artists to create series, manage co-artists, and control owner rights.
+ *      This contract allows artists to create series, manage collaborators, and control owner rights.
  */
-contract SeriesIndexer is Ownable {
+contract SeriesRegistry is Ownable {
     using BitMaps for BitMaps.BitMap;
 
     // ============ Custom Errors ============
@@ -66,10 +66,10 @@ contract SeriesIndexer is Ownable {
     // Series - Artist Relationship
     mapping(uint256 => BitMaps.BitMap) private seriesArtistExist;
 
-    // Co-Artist Management
-    mapping(uint256 => BitMaps.BitMap) private seriesPendingCoArtist;
-    mapping(uint256 => uint256[]) private seriesPendingCoArtists;   // List of series's pending co-artists
-    mapping(uint256 => uint256[]) private artistPendingCoArtistSeries;   // List of artist's pending co-artist series
+    // Collaborator Management
+    mapping(uint256 => BitMaps.BitMap) private seriesPendingCollaborator;
+    mapping(uint256 => uint256[]) private seriesPendingCollaborators;   // List of series's pending collaborators
+    mapping(uint256 => uint256[]) private artistPendingCollaboratorSeries;   // List of artist's pending collaborator series
 
     // ============ Events ============
 
@@ -79,21 +79,21 @@ contract SeriesIndexer is Ownable {
         address indexed newAddress
     );
     
-    event SeriesIndexed(uint256 indexed seriesID);
+    event SeriesRegistered(uint256 indexed seriesID);
     event SeriesUpdated(uint256 indexed seriesID);
     event SeriesDeleted(uint256 indexed seriesID);
     
-    event CoArtistProposed(
+    event CollaboratorProposed(
         uint256 indexed seriesID, 
         uint256 indexed proposedArtistID
     );
     
-    event CoArtistConfirmed(
+    event CollaboratorConfirmed(
         uint256 indexed seriesID, 
         uint256 indexed confirmedArtistID
     );
     
-    event CoArtistProposalCancelled(
+    event CollaboratorProposalCancelled(
         uint256 indexed seriesID,
         uint256 indexed proposerArtistID,
         uint256 indexed cancelledArtistID
@@ -242,12 +242,12 @@ contract SeriesIndexer is Ownable {
         emit SeriesUpdated(seriesID);
     }
 
-    // ============ Public/External Functions: Co-Artist Management ============
+    // ============ Public/External Functions: Collaborator Management ============
 
     /**
-     * @dev Proposes a new co-artist for a series
+     * @dev Proposes a new collaborator for a series
      */
-    function proposeCoArtist(
+    function proposeCollaborator(
         uint256 seriesID,
         address proposedArtistAddress
     ) external seriesExists(seriesID) onlyOwnerOrArtist(seriesID) {
@@ -257,55 +257,55 @@ contract SeriesIndexer is Ownable {
         if (seriesArtistExist[seriesID].get(proposedArtistID)) {
             revert ArtistAlreadyInSeriesError(seriesID, proposedArtistAddress);
         }
-        if (seriesPendingCoArtist[seriesID].get(proposedArtistID)) {
+        if (seriesPendingCollaborator[seriesID].get(proposedArtistID)) {
             revert AlreadyProposedError(seriesID, proposedArtistAddress);
         }
 
-        seriesPendingCoArtist[seriesID].set(proposedArtistID);
-        _addCoArtistProposal(proposedArtistID, seriesID);
+        seriesPendingCollaborator[seriesID].set(proposedArtistID);
+        _addCollaboratorProposal(proposedArtistID, seriesID);
 
-        emit CoArtistProposed(seriesID, proposedArtistID);
+        emit CollaboratorProposed(seriesID, proposedArtistID);
     }
 
     /**
-     * @dev Cancels a co-artist proposal
+     * @dev Cancels a collaborator proposal
      */
-    function cancelProposeCoArtist(
+    function cancelProposeCollaborator(
         uint256 seriesID,
         address proposedArtistAddress
     ) external seriesExists(seriesID) onlyOwnerOrArtist(seriesID) {
         uint256 proposedArtistID = artistAddressToID[proposedArtistAddress];
-        if (!seriesPendingCoArtist[seriesID].get(proposedArtistID)) {
+        if (!seriesPendingCollaborator[seriesID].get(proposedArtistID)) {
             revert NoProposalExistsError(seriesID, proposedArtistAddress);
         }
 
-        seriesPendingCoArtist[seriesID].unset(proposedArtistID);
-        _removeCoArtistProposal(proposedArtistID, seriesID);
+        seriesPendingCollaborator[seriesID].unset(proposedArtistID);
+        _removeCollaboratorProposal(proposedArtistID, seriesID);
 
         uint256 artistID = artistAddressToID[msg.sender];
-        emit CoArtistProposalCancelled(seriesID, artistID, proposedArtistID);
+        emit CollaboratorProposalCancelled(seriesID, artistID, proposedArtistID);
     }
 
     /**
-     * @dev Confirms participation as a co-artist
+     * @dev Confirms participation as a collaborator
      */
-    function confirmAsCoArtist(uint256 seriesID) external seriesExists(seriesID) {
+    function confirmAsCollaborator(uint256 seriesID) external seriesExists(seriesID) {
         uint256 artistID = artistAddressToID[msg.sender];
         if (artistID == 0) {
             revert NotAnArtistError(msg.sender);
         }
-        if (!seriesPendingCoArtist[seriesID].get(artistID)) {
+        if (!seriesPendingCollaborator[seriesID].get(artistID)) {
             revert NotAPendingProposalError(seriesID, msg.sender);
         }
 
         address[] memory artistAddresses = new address[](1);
         artistAddresses[0] = msg.sender;
 
-        seriesPendingCoArtist[seriesID].unset(artistID);
-        _removeCoArtistProposal(artistID, seriesID);
+        seriesPendingCollaborator[seriesID].unset(artistID);
+        _removeCollaboratorProposal(artistID, seriesID);
         _addArtistsToSeries(seriesID, artistAddresses);
 
-        emit CoArtistConfirmed(seriesID, artistID);
+        emit CollaboratorConfirmed(seriesID, artistID);
     }
 
     // ============ Public/External Functions: Artist Management ============
@@ -439,18 +439,18 @@ contract SeriesIndexer is Ownable {
     }
 
     /**
-     * @notice Returns the pending co-artist requests for a given artist address
+     * @notice Returns the pending collaborator requests for a given artist address
      */
-    function getArtistPendingCoArtistSeries(address artistAddress) external view returns (uint256[] memory) {
+    function getArtistPendingCollaboratorSeries(address artistAddress) external view returns (uint256[] memory) {
         uint256 artistID = artistAddressToID[artistAddress];
-        return artistPendingCoArtistSeries[artistID];
+        return artistPendingCollaboratorSeries[artistID];
     }
 
     /**
-     * @notice Returns the pending co-artist list for a given series
+     * @notice Returns the pending collaborator list for a given series
      */
-    function getSeriesPendingCoArtists(uint256 seriesID) external view returns (address[] memory) {
-        uint256[] memory artistIDs = seriesPendingCoArtists[seriesID];
+    function getSeriesPendingCollaborators(uint256 seriesID) external view returns (address[] memory) {
+        uint256[] memory artistIDs = seriesPendingCollaborators[seriesID];
         address[] memory artistAddresses = new address[](artistIDs.length);
         for (uint256 i = 0; i < artistIDs.length; i++) {
             artistAddresses[i] = artists[artistIDs[i]].artistAddress;
@@ -499,7 +499,7 @@ contract SeriesIndexer is Ownable {
 
         _addArtistsToSeries(seriesID, artistAddresses);
 
-        emit SeriesIndexed(seriesID);
+        emit SeriesRegistered(seriesID);
         return seriesID;
     }
 
@@ -528,13 +528,13 @@ contract SeriesIndexer is Ownable {
         seriesExists(seriesID) 
         onlyOwnerOrArtist(seriesID) 
     {
-        // Clean up all pending co-artist requests for this series in one loop
-        uint256[] memory pendingCoArtists = seriesPendingCoArtists[seriesID];
-        for (uint256 i = 0; i < pendingCoArtists.length; i++) {
-            uint256 artistID = pendingCoArtists[i];
-            seriesPendingCoArtist[seriesID].unset(artistID);
-            _removeArtistPendingCoArtistSeries(artistID, seriesID);
-            _removeSeriesPendingCoArtist(seriesID, artistID);
+        // Clean up all pending collaborator requests for this series in one loop
+        uint256[] memory pendingCollaborators = seriesPendingCollaborators[seriesID];
+        for (uint256 i = 0; i < pendingCollaborators.length; i++) {
+            uint256 artistID = pendingCollaborators[i];
+            seriesPendingCollaborator[seriesID].unset(artistID);
+            _removeArtistPendingCollaboratorSeries(artistID, seriesID);
+            _removeSeriesPendingCollaborator(seriesID, artistID);
         }
 
         Series memory series = seriesRegistry[seriesID];
@@ -675,29 +675,29 @@ contract SeriesIndexer is Ownable {
     }
 
     /**
-     * @dev Adds a pending co-artist request
+     * @dev Adds a pending collaborator request
      */
-    function _addCoArtistProposal(uint256 artistID, uint256 seriesID) internal {
+    function _addCollaboratorProposal(uint256 artistID, uint256 seriesID) internal {
         // Add to artist tracking
-        artistPendingCoArtistSeries[artistID].push(seriesID);
+        artistPendingCollaboratorSeries[artistID].push(seriesID);
         
         // Add to series tracking
-        seriesPendingCoArtists[seriesID].push(artistID);
+        seriesPendingCollaborators[seriesID].push(artistID);
     }
 
     /**
-     * @dev Removes a pending co-artist request
+     * @dev Removes a pending collaborator request
      */
-    function _removeCoArtistProposal(uint256 artistID, uint256 seriesID) internal {
-        _removeArtistPendingCoArtistSeries(artistID, seriesID);
-        _removeSeriesPendingCoArtist(seriesID, artistID);
+    function _removeCollaboratorProposal(uint256 artistID, uint256 seriesID) internal {
+        _removeArtistPendingCollaboratorSeries(artistID, seriesID);
+        _removeSeriesPendingCollaborator(seriesID, artistID);
     }
 
     /**
-     * @dev Removes a pending co-artist request from artist
+     * @dev Removes a pending collaborator request from artist
      */
-    function _removeArtistPendingCoArtistSeries(uint256 artistID, uint256 seriesID) internal {
-        uint256[] storage pendingSeries = artistPendingCoArtistSeries[artistID];
+    function _removeArtistPendingCollaboratorSeries(uint256 artistID, uint256 seriesID) internal {
+        uint256[] storage pendingSeries = artistPendingCollaboratorSeries[artistID];
         uint256 pendingSeriesLength = pendingSeries.length;
         for (uint256 i = 0; i < pendingSeriesLength; i++) {
             if (pendingSeries[i] == seriesID) {
@@ -711,10 +711,10 @@ contract SeriesIndexer is Ownable {
     }
 
     /**
-     * @dev Removes a pending co-artist request from series
+     * @dev Removes a pending collaborator request from series
      */
-    function _removeSeriesPendingCoArtist(uint256 seriesID, uint256 artistID) internal {
-        uint256[] storage pendingArtists = seriesPendingCoArtists[seriesID];
+    function _removeSeriesPendingCollaborator(uint256 seriesID, uint256 artistID) internal {
+        uint256[] storage pendingArtists = seriesPendingCollaborators[seriesID];
         uint256 pendingArtistLength = pendingArtists.length;
         for (uint256 i = 0; i < pendingArtistLength; i++) {
             if (pendingArtists[i] == artistID) {
