@@ -1314,6 +1314,45 @@ contract SeriesRegistry {
     }
 
     /**
+     * @notice Swaps the inviter of a series
+     * @param _seriesID The ID of the series to swap the inviter of
+     * @param _oldInviterAddress The address of the old inviter
+     * @param _newInviterAddress The address of the new inviter
+     */
+    function _swapSeriesCollaborationInviter(
+        uint256 _seriesID,
+        address _oldInviterAddress,
+        address _newInviterAddress
+    ) internal {
+        // Get all invitees for this series
+        address[] memory invitees = seriesCollaborationInviteesMap[_seriesID]
+            .values();
+
+        // Swap the inviter of each invitee
+        for (uint256 i = 0; i < invitees.length; ) {
+            address invitee = invitees[i];
+            if (
+                seriesCollaborationInviteeInviterMap[_seriesID][invitee] ==
+                _oldInviterAddress
+            ) {
+                seriesCollaborationInviteeInviterMap[_seriesID][
+                    invitee
+                ] = _newInviterAddress;
+            }
+
+            unchecked {
+                i++;
+            }
+        }
+
+        // Remove the old inviter from the series set
+        inviterSeriesMap[_oldInviterAddress].remove(_seriesID);
+
+        // Add the new inviter to the series set
+        inviterSeriesMap[_newInviterAddress].add(_seriesID);
+    }
+
+    /**
      * @notice Removes all collaboration invitations for an inviter from a series
      * @param _seriesID The ID of the series to remove the collaboration invitations for
      * @param _inviterAddress The address of the inviter to remove the collaboration invitations for
@@ -1481,11 +1520,43 @@ contract SeriesRegistry {
         uint256[] memory seriesIDs = artistSeriesMap[artistID].values();
         for (uint256 i = 0; i < seriesIDs.length; ) {
             uint256 seriesID = seriesIDs[i];
+
+            // Swap delegatees
             _swapSeriesDelegatees(seriesID, artistAddress, _newAddress);
-            _removeSeriesCollaborationInvitationsByInviter(
+
+            // Swap collaboration inviter
+            _swapSeriesCollaborationInviter(
                 seriesID,
-                artistAddress
+                artistAddress,
+                _newAddress
             );
+
+            // Remove the invitation sent by delegatees
+            address[] memory delegatees = addressDelegateeMap[artistAddress]
+                .values();
+
+            for (uint256 j = 0; j < delegatees.length; ) {
+                address delegatee = delegatees[j];
+
+                // If the delegatee is not an inviter of the series, skip
+                if (!inviterSeriesMap[delegatee].contains(seriesID)) {
+                    unchecked {
+                        j++;
+                    }
+                    continue;
+                }
+
+                // Remove the invitation sent by the delegatee
+                _removeSeriesCollaborationInvitationsByInviter(
+                    seriesID,
+                    delegatee
+                );
+
+                unchecked {
+                    j++;
+                }
+            }
+
             unchecked {
                 i++;
             }

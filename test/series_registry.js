@@ -2035,23 +2035,34 @@ contract("SeriesRegistry", (accounts) => {
                 await instance.getTotalArtistSeries(artistBAddress)
             ).to.be.a.bignumber.that.equals(new BN(1));
 
-            // 8. check pending collaboration invitations
+            // 8. check pending collaboration invitations.
+            // since the collaborator is invited by the artist A, so the collaboration invitation
+            // should be transferred to the artist B.
+            // All the invitation created by artist A's delegatee should be terminated.
+
+            // 8.1. the collaboration invitation should be still.
             expectAddressArraysEqual(
                 await instance.getCollaborationInvitees(seriesID),
-                [collaboratorAddress2]
+                [collaboratorAddress1]
             );
+
+            // 8.2. the artist A's collaboration invitations should be terminated.
             expect(
                 await instance.getCollaborationInviterSeriesIDs(artistAAddress)
             ).to.be.empty;
-            expect(
-                await instance.getCollaborationInviterSeriesIDs(artistBAddress)
-            ).to.be.empty;
+
+            // 8.3. the artist A's collaboration invitations should be transferred to the artist B.
             expectBigNumberArraysEqual(
-                await instance.getCollaborationInviterSeriesIDs(
-                    delegateeAddress
-                ),
+                await instance.getCollaborationInviterSeriesIDs(artistBAddress),
                 [seriesID]
             );
+
+            // 8.4. the artist A's delegatee's collaboration invitations should be terminated.
+            expect(
+                await instance.getCollaborationInviterSeriesIDs(
+                    delegateeAddress
+                )
+            ).to.be.empty;
 
             // 9. check event emitted
             expectEvent(updateTx, "UpdateArtistAddress", {
