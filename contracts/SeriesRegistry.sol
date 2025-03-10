@@ -266,11 +266,11 @@ contract SeriesRegistry {
         string[] calldata _metadataURIs,
         string[] calldata _tokenDataURIs
     ) external returns (uint256[] memory) {
-        uint256 seriesLength = _seriesArtists.length;
-        _validateSeriesWriteBatch(seriesLength, _metadataURIs, _tokenDataURIs);
+        uint256 artistLength = _seriesArtists.length;
+        _validateSeriesWriteBatch(artistLength, _metadataURIs, _tokenDataURIs);
 
-        uint256[] memory seriesIDs = new uint256[](seriesLength);
-        for (uint256 i = 0; i < seriesLength; ) {
+        uint256[] memory seriesIDs = new uint256[](artistLength);
+        for (uint256 i = 0; i < artistLength; ) {
             seriesIDs[i] = _registerSeries(
                 _seriesArtists[i],
                 _metadataURIs[i],
@@ -332,6 +332,13 @@ contract SeriesRegistry {
      */
     function batchDeleteSeries(uint256[] calldata _seriesIDs) external {
         uint256 seriesLength = _seriesIDs.length;
+        if (seriesLength == 0) {
+            revert GenericError("seriesCount is zero");
+        }
+        if (seriesLength > MAX_BATCH_SIZE) {
+            revert GenericError("seriesCount is too large");
+        }
+
         for (uint256 i = 0; i < seriesLength; ) {
             _deleteSeries(_seriesIDs[i]);
             unchecked {

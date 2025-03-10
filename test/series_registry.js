@@ -20,6 +20,170 @@ contract("SeriesRegistry", (accounts) => {
     });
 
     // ------------------------------------------------------------------------
+    // batchRegisterSeries
+    // ------------------------------------------------------------------------
+
+    describe("batchRegisterSeries", () => {
+        it("should be able to register multiple series", async () => {
+            const length = 10;
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const artistAddresses = [];
+            const metadataURIs = [];
+            const tokenDataURIs = [];
+
+            // create payloads
+            for (let i = 0; i < length; i++) {
+                artistAddresses.push(artistAddress);
+                metadataURIs.push(metadataURI + i);
+                tokenDataURIs.push(tokenDataURI + i);
+            }
+
+            // artist register series
+            const tx = await instance.batchRegisterSeries(
+                artistAddresses,
+                metadataURIs,
+                tokenDataURIs,
+                {
+                    from: artistAddress,
+                }
+            );
+
+            // collect series IDs
+            const seriesIDs = [];
+            for (let i = 0; i < length; i++) {
+                seriesIDs.push(tx.logs[i].args.seriesID);
+            }
+
+            for (let i = 0; i < length; i++) {
+                const seriesID = seriesIDs[i];
+
+                // check series ID
+                expect(seriesID).to.be.a.bignumber.that.equals(new BN(i + 1));
+
+                // check series administrator ID
+                expect(
+                    await instance.getSeriesAdministratorID(seriesID)
+                ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+                // check series artist addresses
+                expectAddressArraysEqual(
+                    await instance.getSeriesArtistAddresses(seriesID),
+                    [artistAddress]
+                );
+
+                // check series artist IDs
+                expectBigNumberArraysEqual(
+                    await instance.getSeriesArtistIDs(seriesID),
+                    [expectedArtistID]
+                );
+
+                // check series metadata URI
+                expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                    metadataURIs[i]
+                );
+
+                // check series token data URI
+                expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                    tokenDataURIs[i]
+                );
+
+                // check event emitted
+                expectEvent(tx, "RegisterSeries", {
+                    seriesID: seriesID,
+                });
+            }
+
+            // check total series
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(new BN(length));
+
+            // check artist address
+            expect(await instance.getArtistAddress(expectedArtistID)).to.equal(
+                artistAddress
+            );
+
+            // check artist ID
+            expect(
+                await instance.getArtistID(artistAddress)
+            ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+            // check artist series
+            expectBigNumberArraysEqual(
+                await instance.getArtistSeriesIDs(artistAddress),
+                seriesIDs
+            );
+        });
+
+        it("should NOT be able to register series if amount is too large", async () => {
+            const length = 51;
+            const artistAddress = accounts[0];
+            const artistAddresses = [];
+            const metadataURIs = [];
+            const tokenDataURIs = [];
+
+            // create payloads
+            for (let i = 0; i < length; i++) {
+                artistAddresses.push(artistAddress);
+                metadataURIs.push(metadataURI + i);
+                tokenDataURIs.push(tokenDataURI + i);
+            }
+
+            await expectCustomError(
+                instance.batchRegisterSeries(
+                    artistAddresses,
+                    metadataURIs,
+                    tokenDataURIs
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
+            );
+        });
+
+        it("should NOT be able to register series if either of the array is empty", async () => {
+            await expectCustomError(
+                instance.batchRegisterSeries([], [metadataURI], [tokenDataURI]),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+
+            await expectCustomError(
+                instance.batchRegisterSeries([accounts[0]], [metadataURI], []),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+
+            await expectCustomError(
+                instance.batchRegisterSeries([accounts[0]], [], [tokenDataURI]),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to register series if the metadataURIs and tokenDataURIs array length mismatch", async () => {
+            const artistAddresses = [accounts[0], accounts[1]];
+            const metadataURIs = [metadataURI, metadataURI];
+            const tokenDataURIs = [tokenDataURI];
+
+            await expectCustomError(
+                instance.batchRegisterSeries(
+                    artistAddresses,
+                    metadataURIs,
+                    tokenDataURIs
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
     // registerSeries
     // ------------------------------------------------------------------------
 
@@ -334,6 +498,213 @@ contract("SeriesRegistry", (accounts) => {
     });
 
     // ------------------------------------------------------------------------
+    // batchUpdateSeries
+    // ------------------------------------------------------------------------
+
+    describe("batchUpdateSeries", () => {
+        it("should be able to update multiple series", async () => {
+            const length = 10;
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const baseMetadataURI = "metadataURI";
+            const baseTokenDataURI = "tokenDataURI";
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI + i,
+                    tokenDataURI + i,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. build update payloads
+            const metadataURIs = [];
+            const tokenDataURIs = [];
+            for (let i = 0; i < length; i++) {
+                metadataURIs.push(baseMetadataURI + i);
+                tokenDataURIs.push(baseTokenDataURI + i);
+            }
+
+            // 3. artist batch update series
+            const tx = await instance.batchUpdateSeries(
+                seriesIDs,
+                metadataURIs,
+                tokenDataURIs
+            );
+
+            // 4. check series details
+            for (let i = 0; i < length; i++) {
+                const seriesID = seriesIDs[i];
+
+                // 4.1 check series ID
+                expect(seriesID).to.be.a.bignumber.that.equals(new BN(i + 1));
+
+                // 4.2 check series metadata URI
+                expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                    metadataURIs[i]
+                );
+
+                // 4.3 check series token data URI
+                expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                    tokenDataURIs[i]
+                );
+
+                // 4.4 check series artist addresses
+                expectAddressArraysEqual(
+                    await instance.getSeriesArtistAddresses(seriesID),
+                    [artistAddress]
+                );
+
+                // 4.5. check artist ID
+                expect(
+                    await instance.getArtistID(artistAddress)
+                ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+                // 4.6. check artist address
+                expect(
+                    await instance.getArtistAddress(expectedArtistID)
+                ).to.equal(artistAddress);
+
+                // 4.7 check event emitted
+                expectEvent(tx, "UpdateSeries", {
+                    seriesID: seriesID,
+                });
+            }
+        });
+
+        it("should NOT be able to update more than 50 series in a single transaction", async () => {
+            const length = 51;
+            const artistAddress = accounts[0];
+            const baseNewMetadataURI = "new metadataURI";
+            const baseNewTokenDataURI = "new tokenDataURI";
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. build update payloads
+            const metadataURIs = [];
+            const tokenDataURIs = [];
+            for (let i = 0; i < length; i++) {
+                metadataURIs.push(baseNewMetadataURI + i);
+                tokenDataURIs.push(baseNewTokenDataURI + i);
+            }
+
+            // 3. artist batch update series
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    seriesIDs,
+                    metadataURIs,
+                    tokenDataURIs
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
+            );
+        });
+
+        it("should NOT be able to update series if the metadataURIs and tokenDataURIs array length mismatch", async () => {
+            const length = 3;
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. build update payloads
+            const metadataURIs = [metadataURI];
+            const tokenDataURIs = [tokenDataURI, tokenDataURI, tokenDataURI];
+
+            // 3. artist batch update series
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    seriesIDs,
+                    metadataURIs,
+                    tokenDataURIs
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to update series if either of the array is empty", async () => {
+            const length = 3;
+            const artistAddress = accounts[0];
+            const baseNewMetadataURI = "new metadataURI";
+            const baseNewTokenDataURI = "new tokenDataURI";
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. update series with empty metadataURI
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    [seriesIDs[0]],
+                    [],
+                    [baseNewTokenDataURI]
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+
+            // 3. update series with empty tokenDataURI
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    [seriesIDs[0]],
+                    [baseNewMetadataURI],
+                    []
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+
+            // 4. update series with empty seriesIDs
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    [],
+                    [baseNewMetadataURI],
+                    [baseNewTokenDataURI]
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
     // updateSeries
     // ------------------------------------------------------------------------
 
@@ -578,6 +949,98 @@ contract("SeriesRegistry", (accounts) => {
                 ),
                 abi,
                 "SeriesNotExistsError"
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchDeleteSeries
+    // ------------------------------------------------------------------------
+
+    describe("batchDeleteSeries", () => {
+        it("should be able to delete multiple series", async () => {
+            const length = 10;
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const seriesIDs = [];
+
+            // 1. artist register multiple series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. artist batch delete series
+            const deleteTx = await instance.batchDeleteSeries(seriesIDs, {
+                from: artistAddress,
+            });
+
+            // 3. check series should be deleted
+            for (let i = 0; i < length; i++) {
+                const seriesID = seriesIDs[i];
+
+                // 3.1. check series is deleted
+                expect(await instance.getSeriesMetadataURI(seriesID)).to.be
+                    .empty;
+                expect(await instance.getSeriesTokenDataURI(seriesID)).to.be
+                    .empty;
+                expect(await instance.getSeriesArtistAddresses(seriesID)).to.be
+                    .empty;
+                expect(await instance.getSeriesArtistIDs(seriesID)).to.be.empty;
+
+                // 3.2. check artist is deleted
+                expect(
+                    await instance.getArtistID(artistAddress)
+                ).to.be.a.bignumber.that.equals(new BN(0));
+                expect(
+                    await instance.getArtistAddress(expectedArtistID)
+                ).to.equal(zeroAddress);
+
+                // 3.3. check event emitted
+                expectEvent(deleteTx, "DeleteSeries", {
+                    seriesID: seriesID,
+                });
+            }
+        });
+
+        it("should NOT be able to delete series if series array is empty", async () => {
+            await expectCustomError(
+                instance.batchDeleteSeries([]),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+        });
+
+        it("should NOT be able to delete series if series array is too large", async () => {
+            const length = 51;
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+
+            // 1. artist register multiple series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. artist batch delete series
+            await expectCustomError(
+                instance.batchDeleteSeries(seriesIDs, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
             );
         });
     });
@@ -1302,6 +1765,173 @@ contract("SeriesRegistry", (accounts) => {
     });
 
     // ------------------------------------------------------------------------
+    // batchInviteCollaborators
+    // ------------------------------------------------------------------------
+
+    describe("batchInviteCollaborators", () => {
+        it("should be able to invite multiple collaborators to a series", async () => {
+            const artistAddress = accounts[0];
+            const length = 8;
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+
+                collaboratorAddresses.push(accounts[i + 1]);
+            }
+
+            // 2. invite collaborators to series
+            const tx = await instance.batchInviteCollaborators(
+                seriesIDs,
+                collaboratorAddresses,
+                {
+                    from: artistAddress,
+                }
+            );
+
+            for (let i = 0; i < length; i++) {
+                // 3. check pending collaboration invitation
+                expectAddressArraysEqual(
+                    await instance.getCollaborationInvitees(seriesIDs[i]),
+                    [collaboratorAddresses[i]]
+                );
+
+                // 4. check event emitted
+                expectEvent(tx, "InviteCollaborator", {
+                    seriesID: seriesIDs[i],
+                    inviterAddress: artistAddress,
+                    inviteeAddress: collaboratorAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to invite multiple collaborators to a series if amount is too large", async () => {
+            const artistAddress = accounts[0];
+            const length = 51;
+
+            // 1. register series
+            const registerSeriesTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerSeriesTx.logs[0].args.seriesID;
+
+            // 2. construct payload
+            const seriesIDs = [];
+            const collaboratorAddresses = [];
+            for (let i = 0; i < length; i++) {
+                seriesIDs.push(seriesID);
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. check error is `GenericError` with message `seriesCount is too large`
+            expectCustomError(
+                instance.batchInviteCollaborators(
+                    seriesIDs,
+                    collaboratorAddresses,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
+            );
+        });
+
+        it("should NOT be able to invite multiple collaborators to a series if either of the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+            const length = 10;
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. check error is `GenericError` with message `seriesCount is zero`
+            expectCustomError(
+                instance.batchInviteCollaborators([], collaboratorAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+
+            // 4. check error is `GenericError` with message `arrayLength mismatch`
+            expectCustomError(
+                instance.batchInviteCollaborators(seriesIDs, [], {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to invite multiple collaborators to a series if array length mismatch", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+            const length = 50;
+
+            // 1. register series
+            const registerSeriesTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerSeriesTx.logs[0].args.seriesID;
+            seriesIDs.push(seriesID);
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. check error is `GenericError` with message `arrayLength mismatch`
+            expectCustomError(
+                instance.batchInviteCollaborators(
+                    seriesIDs,
+                    collaboratorAddresses,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
     // inviteCollaborator
     // ------------------------------------------------------------------------
 
@@ -1309,8 +1939,6 @@ contract("SeriesRegistry", (accounts) => {
         it("should be able to create collaboration invitation by artist", async () => {
             const artistAddress = accounts[0];
             const collaboratorAddress = accounts[1];
-            const expectedArtistID = new BN(1);
-            const expectedSeriesID = new BN(1);
 
             // 1. artist register series
             const tx = await instance.registerSeries(
@@ -1523,6 +2151,207 @@ contract("SeriesRegistry", (accounts) => {
                 abi,
                 "GenericError",
                 ["invitee address is zero"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchCancelCollaborationInvitations
+    // ------------------------------------------------------------------------
+
+    describe("batchCancelCollaborationInvitations", () => {
+        it("should be able to cancel multiple collaborators invitation", async () => {
+            const artistAddress = accounts[0];
+            const length = 8;
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. invite collaborators to series
+            await instance.batchInviteCollaborators(
+                seriesIDs,
+                collaboratorAddresses,
+                { from: artistAddress }
+            );
+
+            // 4. cancel multiple collaborators invitation
+            const tx = await instance.batchCancelCollaborationInvitations(
+                seriesIDs,
+                collaboratorAddresses,
+                { from: artistAddress }
+            );
+
+            for (let i = 0; i < length; i++) {
+                // 5. check pending collaboration invitation should be empty
+                expect(await instance.getCollaborationInvitees(seriesIDs[i])).to
+                    .be.empty;
+
+                // 6. check event emitted
+                expectEvent(tx, "CancelCollaborationInvitation", {
+                    seriesID: seriesIDs[i],
+                    inviteeAddress: collaboratorAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to cancel multiple collaborators invitation if amount is too large", async () => {
+            const artistAddress = accounts[0];
+            const length = 51;
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. invite collaborators to series
+            for (let i = 0; i < length; i++) {
+                await instance.inviteCollaborator(
+                    seriesIDs[i],
+                    collaboratorAddresses[i],
+                    {
+                        from: artistAddress,
+                    }
+                );
+            }
+
+            // 4. check error is `GenericError` with message `seriesCount is too large`
+            expectCustomError(
+                instance.batchCancelCollaborationInvitations(
+                    seriesIDs,
+                    collaboratorAddresses,
+                    { from: artistAddress }
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
+            );
+        });
+
+        it("should NOT be able to cancel multiple collaborators invitation if either of the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+            const length = 10;
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. invite collaborators to series
+            await instance.batchInviteCollaborators(
+                seriesIDs,
+                collaboratorAddresses,
+                { from: artistAddress }
+            );
+
+            // 4. check error is `GenericError` with message `seriesCount is zero`
+            expectCustomError(
+                instance.batchCancelCollaborationInvitations(
+                    [],
+                    collaboratorAddresses,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+
+            // 5. check error is `GenericError` with message `arrayLength mismatch`
+            expectCustomError(
+                instance.batchCancelCollaborationInvitations(seriesIDs, [], {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to cancel multiple collaborators invitation if array length mismatch", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+            const length = 10;
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. invite collaborators to series
+            await instance.batchInviteCollaborators(
+                seriesIDs,
+                collaboratorAddresses,
+                { from: artistAddress }
+            );
+
+            // 4. check error is `GenericError` with message `arrayLength mismatch`
+            expectCustomError(
+                instance.batchCancelCollaborationInvitations(
+                    seriesIDs,
+                    collaboratorAddresses.slice(0, length - 1),
+                    { from: artistAddress }
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
             );
         });
     });
@@ -2128,6 +2957,75 @@ contract("SeriesRegistry", (accounts) => {
     });
 
     // ------------------------------------------------------------------------
+    // batchAddDelegatees
+    // ------------------------------------------------------------------------
+
+    describe("batchAddDelegatees", () => {
+        it("should be able to add multiple delegatees", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [
+                accounts[1],
+                accounts[2],
+                accounts[3],
+                accounts[4],
+                accounts[5],
+            ];
+
+            // 1. add delegatees
+            const tx = await instance.batchAddDelegatees(delegateeAddresses, {
+                from: artistAddress,
+            });
+
+            // 2. check all delegatees should be added
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistAddress),
+                delegateeAddresses
+            );
+
+            // 3. check event emitted
+            for (let i = 0; i < delegateeAddresses.length; i++) {
+                expectEvent(tx, "AddDelegatee", {
+                    delegator: artistAddress,
+                    delegatee: delegateeAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to add multiple delegatees if the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [];
+
+            expectCustomError(
+                instance.batchAddDelegatees(delegateeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["delegateeCount is zero"]
+            );
+        });
+
+        it("should NOT be able to add multiple delegatees if the array is too large", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [];
+
+            for (let i = 0; i < 51; i++) {
+                const delegatee = "0x" + (i + 1).toString(16).padStart(40, "0");
+                delegateeAddresses.push(delegatee);
+            }
+
+            expectCustomError(
+                instance.batchAddDelegatees(delegateeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["delegateeCount is too large"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
     // addDelegatee
     // ------------------------------------------------------------------------
 
@@ -2224,6 +3122,85 @@ contract("SeriesRegistry", (accounts) => {
                 abi,
                 "DuplicateDelegateeError",
                 [delegatorAddress, delegateeAddress]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchRemoveDelegatees
+    // ------------------------------------------------------------------------
+
+    describe("batchRemoveDelegatees", () => {
+        it("should be able to remove multiple delegatees", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [
+                accounts[1],
+                accounts[2],
+                accounts[3],
+                accounts[4],
+                accounts[5],
+            ];
+
+            // 1. add delegatees
+            await instance.batchAddDelegatees(delegateeAddresses, {
+                from: artistAddress,
+            });
+
+            // 2. remove multiple delegatees
+            const tx = await instance.batchRemoveDelegatees(
+                delegateeAddresses,
+                {
+                    from: artistAddress,
+                }
+            );
+
+            // 3. check all delegatees should be removed
+            expect(await instance.getDelegatees(artistAddress)).to.be.empty;
+
+            // 4. check event emitted
+            for (let i = 0; i < delegateeAddresses.length; i++) {
+                expectEvent(tx, "RemoveDelegatee", {
+                    delegator: artistAddress,
+                    delegatee: delegateeAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to remove multiple delegatees if the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [];
+
+            expectCustomError(
+                instance.batchRemoveDelegatees(delegateeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["delegateeCount is zero"]
+            );
+        });
+
+        it("should NOT be able to remove multiple delegatees if the array is too large", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [];
+
+            // 1. add delegatees
+            for (let i = 0; i < 51; i++) {
+                const delegatee = "0x" + (i + 1).toString(16).padStart(40, "0");
+                await instance.addDelegatee(delegatee, {
+                    from: artistAddress,
+                });
+                delegateeAddresses.push(delegatee);
+            }
+
+            // 2. remove delegatees
+            expectCustomError(
+                instance.batchRemoveDelegatees(delegateeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["delegateeCount is too large"]
             );
         });
     });
@@ -2396,6 +3373,138 @@ contract("SeriesRegistry", (accounts) => {
                 abi,
                 "NotDelegateeError",
                 [accounts[0], accounts[1]]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchAssignSeries
+    // ------------------------------------------------------------------------
+
+    describe("batchAssignSeries", () => {
+        it("should be able to assign multiple series", async () => {
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+            const length = 5;
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. construct payload
+            const assigneeAddresses = [];
+            for (let i = 0; i < length; i++) {
+                assigneeAddresses.push(accounts[i + 1]);
+            }
+
+            // 3. assign series
+            const tx = await instance.batchAssignSeries(
+                seriesIDs,
+                assigneeAddresses,
+                {
+                    from: artistAddress,
+                }
+            );
+
+            // 4. check all series should be assigned to the assignee addresses
+            for (let i = 0; i < length; i++) {
+                expectAddressArraysEqual(
+                    await instance.getSeriesArtistAddresses(seriesIDs[i]),
+                    [assigneeAddresses[i]]
+                );
+            }
+
+            // 5. check event emitted
+            for (let i = 0; i < length; i++) {
+                expectEvent(tx, "AssignSeries", {
+                    seriesID: seriesIDs[i],
+                    assignerAddress: artistAddress,
+                    assigneeAddress: assigneeAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to assign multiple series to an artist if the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+            const length = 5;
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. construct payload
+            const assigneeAddresses = [];
+            for (let i = 0; i < length; i++) {
+                assigneeAddresses.push(accounts[i + 1]);
+            }
+
+            // 3. assign series with empty series IDs
+            expectCustomError(
+                instance.batchAssignSeries([], assigneeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+
+            // 4. assign series with empty assignee addresses
+            expectCustomError(
+                instance.batchAssignSeries(seriesIDs, [], {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to assign multiple series to an artist if the array is too large", async () => {
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+            const length = 51;
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. construct payload
+            const assigneeAddresses = [];
+            for (let i = 0; i < length; i++) {
+                const assignee = "0x" + (i + 1).toString(16).padStart(40, "0");
+                assigneeAddresses.push(assignee);
+            }
+
+            // 3. assign series
+            expectCustomError(
+                instance.batchAssignSeries(seriesIDs, assigneeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
             );
         });
     });
