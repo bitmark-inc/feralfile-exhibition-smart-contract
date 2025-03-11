@@ -1,1223 +1,3976 @@
 const { expect } = require("chai");
-const { BN, expectRevert, expectEvent } = require("@openzeppelin/test-helpers");
+const { BN, expectEvent } = require("@openzeppelin/test-helpers");
 const SeriesRegistry = artifacts.require("SeriesRegistry");
-// NOTE: We have to build the abi before running the test
 const SeriesRegistryArtifact = require("../build/contracts/SeriesRegistry.json");
 const { expectCustomError } = require("./helper/expectCustomError.js");
-const seriesRegistryABI = SeriesRegistryArtifact.abi;
+const {
+    expectBigNumberArraysEqual,
+    expectAddressArraysEqual,
+} = require("./helper/array.js");
+const abi = SeriesRegistryArtifact.abi;
 
 contract("SeriesRegistry", (accounts) => {
-    const owner = accounts[0];
-    const artistA = accounts[1];
-    const artistB = accounts[2];
-    const artistC = accounts[3]; // will be proposed as collaborator
-    const artistD = accounts[5]; // for multiple proposals scenario
-    const nonArtist = accounts[4]; // never added as an artist
-    const firstSeriesID = new BN("1");
-    const secondSeriesID = new BN("2");
-    const metadataURI = "QmMetadataURI";
-    const tokenMapURI = "QmTokenMapURI";
-    const newMetadataURI = "QmMetadataURINew";
-    const newTokenMapURI = "QmTokenMapURINew";
-
     let instance;
+    const metadataURI = "ipfs://QmS4ghgMgfFvqPjB4WKXHaN15ZyT4K4JYZxUY5C21U123";
+    const tokenDataURI = "ipfs://QmS4ghgMgfFvqPjB4WKXHaN15ZyT4K4JYZxUY5C21U321";
+    const zeroAddress = "0x0000000000000000000000000000000000000000";
 
     beforeEach(async () => {
-        instance = await SeriesRegistry.new({ from: owner });
+        instance = await SeriesRegistry.new();
     });
 
-    describe("Initial State", () => {
-        it("Owner should be the contract deployer", async () => {
-            const contractOwner = await instance.owner();
-            expect(contractOwner).to.equal(owner);
-        });
-    });
+    // ------------------------------------------------------------------------
+    // batchRegisterSeries
+    // ------------------------------------------------------------------------
 
-    describe("hasUnrevokedArtist", () => {
-        it("should return true if the series has no artists", async () => {
-          await instance.addSeries([artistA], metadataURI, tokenMapURI, { from: artistA });
-          await instance.resignFromSeries(firstSeriesID, { from: artistA });
-      
-          // Now the series has zero artists. The function should return true for an empty artist list.
-          const canModify = await instance.hasUnrevokedArtist(firstSeriesID);
-          expect(canModify).to.equal(true, "Expected true since no artists exist in the series");
-        });
-      
-        it("should return true if at least one artist in the series has NOT revoked owner", async () => {
-          await instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, { from: owner });
-          await instance.revokeContractOwnerRights({ from: artistA });
-          // We expect that at least one artist (B) has not revoked, so result = true
-          const canModify = await instance.hasUnrevokedArtist(firstSeriesID);
-          expect(canModify).to.equal(true, "Expected true because artistB has not revoked");
-        });
-      
-        it("should return false if all artists in the series revoked owner", async () => {
-          await instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, { from: owner });
-          await instance.revokeContractOwnerRights({ from: artistA });
-          await instance.revokeContractOwnerRights({ from: artistB });
-      
-          // 3) Now every artist in the series has revoked the owner, so expect false
-          const canModify = await instance.hasUnrevokedArtist(firstSeriesID);
-          expect(canModify).to.equal(false, "Expected false because both artistA and artistB revoked");
-        });
-    });
+    describe("batchRegisterSeries", () => {
+        it("should be able to register multiple series", async () => {
+            const length = 10;
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const artistAddresses = [];
+            const metadataURIs = [];
+            const tokenDataURIs = [];
 
-    describe("Adding Series", () => {
-        it("should revert when adding a series with no artists", async () => {
-            // Reverts with custom error: NoArtistsForSeriesError()
-            await expectCustomError(
-              instance.addSeries([], metadataURI, tokenMapURI, { from: owner }),
-              seriesRegistryABI,
-              "NoArtistsForSeriesError"
-            );
-        });
-
-        it("should revert when trying to create a series with the zero address in artist list", async () => {
-            const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-            // Reverts with custom error: ZeroAddressNotAllowedError()
-            await expectCustomError(
-              instance.addSeries([ZERO_ADDRESS], metadataURI, tokenMapURI, { from: owner }),
-              seriesRegistryABI,
-              "ZeroAddressNotAllowedError"
-            );
-          });
-
-        it("Non-owner (artist) can add a series with themselves as the first artist", async () => {
-            const tx = await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            expectEvent(tx, "SeriesRegistered", {
-                seriesID: firstSeriesID,
-            });
-
-            const seriesMeta = await instance.getSeriesMetadataURI(firstSeriesID);
-            const seriesTokenMap = await instance.getSeriesContractTokenDataURI(
-                firstSeriesID
-            );
-
-            expect(seriesMeta).to.equal(metadataURI);
-            expect(seriesTokenMap).to.equal(tokenMapURI);
-
-            const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            expect(artistIDs.length).to.equal(1);
-
-            const artistAID = await instance.getAddressArtistID(artistA);
-            expect(artistAID.toNumber()).to.not.equal(
-                0,
-                "ArtistA should have a valid artistID"
-            );
-        });
-
-        it("Non-owner (artist) can't add a series with others as the artist", async () => {
-            await expectCustomError(
-                instance.addSeries([artistB], metadataURI, tokenMapURI, {
-                    from: artistA,
-                }),
-                seriesRegistryABI,
-                "NotAuthorizedError",
-                [artistA]
-            );
-
-            await expectCustomError(
-                instance.addSeries([artistA, artistB], metadataURI, tokenMapURI, {
-                    from: artistA,
-                }),
-                seriesRegistryABI,
-                "NotAuthorizedError",
-                [artistA]
-            );
-        });
-
-        it("Owner can add a series with multiple artists", async () => {
-            const tx = await instance.addSeries(
-                [artistA, artistB],
-                metadataURI,
-                tokenMapURI,
-                { from: owner }
-            );
-
-            expectEvent(tx, "SeriesRegistered", {
-                seriesID: firstSeriesID,
-            });
-
-            const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            expect(artistIDs.length).to.equal(2);
-        });
-
-        it("Should revert when metadata URI or token map URI is empty", async () => {
-            // Reverts with custom error EmptyMetadataURIError()
-            await expectCustomError(
-                instance.addSeries([artistA], "", tokenMapURI, { from: artistA }),
-                seriesRegistryABI,
-                "EmptyMetadataURIError"
-            );
-
-            // Reverts with custom error EmptyTokenMapURIError()
-            await expectCustomError(
-                instance.addSeries([artistA], metadataURI, "", { from: artistA }),
-                seriesRegistryABI,
-                "EmptyTokenMapURIError"
-            );
-        });
-    });
-
-    describe("Batch Adding Series by Owner", () => {
-        const batchArtistsArray = [[artistA], [artistB]];
-        const batchMetadataURIs = ["meta3001", "meta3002"];
-        const batchTokenMapURIs = ["token3001", "token3002"];
-
-        it("Owner can batch add multiple series", async () => {
-            const tx = await instance.batchAddSeries(
-                batchArtistsArray,
-                batchMetadataURIs,
-                batchTokenMapURIs,
-                { from: owner }
-            );
-
-            expectEvent(tx, "SeriesRegistered", { seriesID: firstSeriesID });
-            expectEvent(tx, "SeriesRegistered", { seriesID: secondSeriesID });
-
-            const seriesMeta1 = await instance.getSeriesMetadataURI(firstSeriesID);
-            const seriesTokenMap1 = await instance.getSeriesContractTokenDataURI(
-                firstSeriesID
-            );
-            expect(seriesMeta1).to.equal("meta3001");
-            expect(seriesTokenMap1).to.equal("token3001");
-
-            const seriesMeta2 = await instance.getSeriesMetadataURI(
-                secondSeriesID
-            );
-            const seriesTokenMap2 = await instance.getSeriesContractTokenDataURI(
-                secondSeriesID
-            );
-            expect(seriesMeta2).to.equal("meta3002");
-            expect(seriesTokenMap2).to.equal("token3002");
-        });
-
-        it("Non-owner (artist) can batch add multiple series of themselves", async () => {
-            const tx = await instance.batchAddSeries(
-                [[artistA], [artistA]],
-                batchMetadataURIs,
-                batchTokenMapURIs,
-                { from: owner }
-            );
-
-            expectEvent(tx, "SeriesRegistered", { seriesID: firstSeriesID });
-            expectEvent(tx, "SeriesRegistered", { seriesID: secondSeriesID });
-
-            const seriesMeta1 = await instance.getSeriesMetadataURI(firstSeriesID);
-            const seriesTokenMap1 = await instance.getSeriesContractTokenDataURI(
-                firstSeriesID
-            );
-            expect(seriesMeta1).to.equal("meta3001");
-            expect(seriesTokenMap1).to.equal("token3001");
-
-            const seriesMeta2 = await instance.getSeriesMetadataURI(
-                secondSeriesID
-            );
-            const seriesTokenMap2 = await instance.getSeriesContractTokenDataURI(
-                secondSeriesID
-            );
-            expect(seriesMeta2).to.equal("meta3002");
-            expect(seriesTokenMap2).to.equal("token3002");
-        });
-
-        it("Owner batch add should revert if one of the artists revoked owner rights", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            await instance.revokeContractOwnerRights({ from: artistA });
-
-            // Reverts with custom error ArtistRevokedOwnerRightsError(address artistAddr)
-            await expectCustomError(
-                instance.batchAddSeries(
-                    [[artistA]],
-                    ["meta4001"],
-                    ["token4001"],
-                    { from: owner }
-                ),
-                seriesRegistryABI,
-                "ArtistRevokedOwnerRightsError",
-                [artistA]
-            );
-        });
-
-        it("Non-owner (artist) can't batch add if adding others as artists", async () => {
-            await expectCustomError(
-                instance.batchAddSeries(
-                    [[artistA], [artistB]],
-                    batchMetadataURIs,
-                    batchTokenMapURIs,
-                    { from: artistA }
-                ),
-                seriesRegistryABI,
-                "NotAuthorizedError",
-                [artistA]
-            );
-        });
-
-        it("Batch add should revert on array length mismatch", async () => {
-            // Reverts with custom error ArrayLengthMismatchError(uint256, uint256, uint256)
-            // The first array's length = 1, while the others have length = 2
-            await expectCustomError(
-                instance.batchAddSeries(
-                    [[artistA]],
-                    ["meta5001", "meta5002"],
-                    ["token5001", "token5002"],
-                    { from: owner }
-                ),
-                seriesRegistryABI,
-                "ArrayLengthMismatchError",
-                ["1", "2", "2"] // must pass as strings or BN if we want to match decode
-            );
-        });
-
-        it("should revert when batchAddSeries is called with more than 50 series in one batch", async () => {
-            // Make an array of length 51 for artists, metadata, and tokens
-            const bigArray = [];
-            const metaArray = [];
-            const tokenArray = [];
-            for (let i = 0; i < 51; i++) {
-              bigArray.push([artistA]);   // or [accounts[i+1]] if you want variation
-              metaArray.push(`meta-${i}`);
-              tokenArray.push(`token-${i}`);
+            // create payloads
+            for (let i = 0; i < length; i++) {
+                artistAddresses.push(artistAddress);
+                metadataURIs.push(metadataURI + i);
+                tokenDataURIs.push(tokenDataURI + i);
             }
-          
-            // Reverts with custom error: BatchSizeTooLargeError(51)
-            await expectCustomError(
-              instance.batchAddSeries(bigArray, metaArray, tokenArray, { from: owner }),
-              seriesRegistryABI,
-              "BatchSizeTooLargeError",
-              ["51"]
+
+            // artist register series
+            const tx = await instance.batchRegisterSeries(
+                artistAddresses,
+                metadataURIs,
+                tokenDataURIs,
+                {
+                    from: artistAddress,
+                }
             );
-          });
+
+            // collect series IDs
+            const seriesIDs = [];
+            for (let i = 0; i < length; i++) {
+                seriesIDs.push(tx.logs[i].args.seriesID);
+            }
+
+            for (let i = 0; i < length; i++) {
+                const seriesID = seriesIDs[i];
+
+                // check series ID
+                expect(seriesID).to.be.a.bignumber.that.equals(new BN(i + 1));
+
+                // check series administrator ID
+                expect(
+                    await instance.getSeriesAdministratorID(seriesID)
+                ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+                // check series artist addresses
+                expectAddressArraysEqual(
+                    await instance.getSeriesArtistAddresses(seriesID),
+                    [artistAddress]
+                );
+
+                // check series artist IDs
+                expectBigNumberArraysEqual(
+                    await instance.getSeriesArtistIDs(seriesID),
+                    [expectedArtistID]
+                );
+
+                // check series metadata URI
+                expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                    metadataURIs[i]
+                );
+
+                // check series token data URI
+                expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                    tokenDataURIs[i]
+                );
+
+                // check event emitted
+                expectEvent(tx, "RegisterSeries", {
+                    seriesID: seriesID,
+                });
+            }
+
+            // check total series
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(new BN(length));
+
+            // check artist address
+            expect(await instance.getArtistAddress(expectedArtistID)).to.equal(
+                artistAddress
+            );
+
+            // check artist ID
+            expect(
+                await instance.getArtistID(artistAddress)
+            ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+            // check artist series
+            expectBigNumberArraysEqual(
+                await instance.getArtistSeriesIDs(artistAddress),
+                seriesIDs
+            );
+        });
+
+        it("should NOT be able to register series if amount is too large", async () => {
+            const length = 51;
+            const artistAddress = accounts[0];
+            const artistAddresses = [];
+            const metadataURIs = [];
+            const tokenDataURIs = [];
+
+            // create payloads
+            for (let i = 0; i < length; i++) {
+                artistAddresses.push(artistAddress);
+                metadataURIs.push(metadataURI + i);
+                tokenDataURIs.push(tokenDataURI + i);
+            }
+
+            await expectCustomError(
+                instance.batchRegisterSeries(
+                    artistAddresses,
+                    metadataURIs,
+                    tokenDataURIs
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
+            );
+        });
+
+        it("should NOT be able to register series if either of the array is empty", async () => {
+            await expectCustomError(
+                instance.batchRegisterSeries([], [metadataURI], [tokenDataURI]),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+
+            await expectCustomError(
+                instance.batchRegisterSeries([accounts[0]], [metadataURI], []),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+
+            await expectCustomError(
+                instance.batchRegisterSeries([accounts[0]], [], [tokenDataURI]),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to register series if the metadataURIs and tokenDataURIs array length mismatch", async () => {
+            const artistAddresses = [accounts[0], accounts[1]];
+            const metadataURIs = [metadataURI, metadataURI];
+            const tokenDataURIs = [tokenDataURI];
+
+            await expectCustomError(
+                instance.batchRegisterSeries(
+                    artistAddresses,
+                    metadataURIs,
+                    tokenDataURIs
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
     });
 
-    describe("Updating Series", () => {
-        it("Series artist can update the series metadata", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const tx = await instance.updateSeries(
-                firstSeriesID,
-                newMetadataURI,
-                newTokenMapURI,
-                { from: artistA }
-            );
-            expectEvent(tx, "SeriesUpdated", {
-                seriesID: firstSeriesID,
-            });
+    // ------------------------------------------------------------------------
+    // registerSeries
+    // ------------------------------------------------------------------------
 
-            const updatedMeta = await instance.getSeriesMetadataURI(firstSeriesID);
-            const updatedTokenMap = await instance.getSeriesContractTokenDataURI(
-                firstSeriesID
+    describe("registerSeries", () => {
+        it("should be able to register a new series by artist that has no delegatees", async () => {
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const expectedSeriesCount = new BN(1);
+            const expectedSeriesID = new BN(1);
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
             );
-            expect(updatedMeta).to.equal(newMetadataURI);
-            expect(updatedTokenMap).to.equal(newTokenMapURI);
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. check series details
+            // 2.1 check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 2.2 check series administrator ID should be the artist ID
+            const administratorID =
+                await instance.getSeriesAdministratorID(seriesID);
+            expect(administratorID).to.be.a.bignumber.that.equals(
+                expectedArtistID
+            );
+
+            // 2.3 check series artist addresses
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistAddress]
+            );
+
+            // 2.4 check series artist IDs
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 2.5 check series metadata URI
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                metadataURI
+            );
+
+            // 2.6 check series token data URI
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                tokenDataURI
+            );
+
+            // 3. check total series
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(expectedSeriesCount);
+
+            // 4. check artist addresses
+            expect(await instance.getArtistAddress(expectedArtistID)).to.equal(
+                artistAddress
+            );
+
+            // 5. check artist ID
+            expect(
+                await instance.getArtistID(artistAddress)
+            ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+            // 6. check artist series
+            expectBigNumberArraysEqual(
+                await instance.getArtistSeriesIDs(artistAddress),
+                [seriesID]
+            );
+
+            // 7. check event emitted
+            expectEvent(tx, "RegisterSeries", {
+                seriesID: seriesID,
+            });
         });
 
-        it("Non-owner (artist) can batch update multiple series of themselves", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
+        it("should be able to register a new series by artist that has delegatees", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedSeriesCount = new BN(1);
+            const expectedSeriesID = new BN(1);
+
+            // 1. artist add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
             });
 
-            const tx = await instance.batchUpdateSeries(
-                [firstSeriesID, secondSeriesID],
-                ["meta5001", "meta5002"],
-                ["token5001", "token5002"],
-                { from: artistA }
+            // 2. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
             );
-            expectEvent(tx, "SeriesUpdated", {
-                seriesID: firstSeriesID,
-            });
-            expectEvent(tx, "SeriesUpdated", {
-                seriesID: firstSeriesID,
-            });
+            const seriesID = tx.logs[0].args.seriesID;
 
-            let updatedMeta = await instance.getSeriesMetadataURI(firstSeriesID);
-            let updatedTokenMap = await instance.getSeriesContractTokenDataURI(
-                firstSeriesID
+            // 3. check series details
+            // 3.1 check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 3.2 check series administrator ID should be the artist ID
+            const administratorID =
+                await instance.getSeriesAdministratorID(seriesID);
+            expect(administratorID).to.be.a.bignumber.that.equals(
+                expectedArtistID
             );
-            expect(updatedMeta).to.equal("meta5001");
-            expect(updatedTokenMap).to.equal("token5001");
-            updatedMeta = await instance.getSeriesMetadataURI(secondSeriesID);
-            updatedTokenMap = await instance.getSeriesContractTokenDataURI(
-                secondSeriesID
+
+            // 3.3 check series artist addresses
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistAddress]
             );
-            expect(updatedMeta).to.equal("meta5002");
-            expect(updatedTokenMap).to.equal("token5002");
+
+            // 3.4 check series artist IDs
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 3.5 check series metadata URI
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                metadataURI
+            );
+
+            // 3.6 check series token data URI
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                tokenDataURI
+            );
+
+            // 4. check total series
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(expectedSeriesCount);
+
+            // 5. check artist addresses
+            expect(await instance.getArtistAddress(expectedArtistID)).to.equal(
+                artistAddress
+            );
+
+            // 6. check artist ID
+            expect(
+                await instance.getArtistID(artistAddress)
+            ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+            // 7. check artist series ID
+            expectBigNumberArraysEqual(
+                await instance.getArtistSeriesIDs(artistAddress),
+                [seriesID]
+            );
+
+            // 8. check series delegatees should include the delegatee address
+            expectAddressArraysEqual(
+                await instance.getSeriesDelegatees(seriesID),
+                [delegateeAddress]
+            );
+
+            // 9. check artist delegatees should include the delegatee address
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistAddress),
+                [delegateeAddress]
+            );
+
+            // 10. check event emitted
+            expectEvent(tx, "RegisterSeries", {
+                seriesID: seriesID,
+            });
         });
 
-        it("Owner can batch update multiple existing series", async () => {
-            // Create two series for which the owner still has rights
-            await instance.addSeries([artistA], "origMeta1", "origToken1", { from: owner });
-            await instance.addSeries([artistA], "origMeta2", "origToken2", { from: owner });
-          
-            const tx = await instance.batchUpdateSeries(
-              [firstSeriesID, secondSeriesID],
-              ["newMeta1", "newMeta2"],
-              ["newToken1", "newToken2"],
-              { from: owner }
+        it("should be able to register a new series by delegatee", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedSeriesCount = new BN(1);
+            const expectedSeriesID = new BN(1);
+
+            // 1. artist add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 2. delegatee register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: delegateeAddress }
             );
-          
-            expectEvent(tx, "SeriesUpdated", { seriesID: firstSeriesID });
-            expectEvent(tx, "SeriesUpdated", { seriesID: secondSeriesID });
-          
-            const meta1 = await instance.getSeriesMetadataURI(firstSeriesID);
-            const token1 = await instance.getSeriesContractTokenDataURI(firstSeriesID);
-            expect(meta1).to.equal("newMeta1");
-            expect(token1).to.equal("newToken1");
-            const meta2 = await instance.getSeriesMetadataURI(secondSeriesID);
-            const token2 = await instance.getSeriesContractTokenDataURI(secondSeriesID);
-            expect(meta2).to.equal("newMeta2");
-            expect(token2).to.equal("newToken2");
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 3. check series details
+            // 3.1 check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 3.2 check series administrator ID should be the artist ID
+            const administratorID =
+                await instance.getSeriesAdministratorID(seriesID);
+            expect(administratorID).to.be.a.bignumber.that.equals(
+                expectedArtistID
+            );
+
+            // 3.3 check series artist addresses
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistAddress]
+            );
+
+            // 3.4 check series artist IDs
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 3.5 check series metadata URI
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                metadataURI
+            );
+
+            // 3.6 check series token data URI
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                tokenDataURI
+            );
+
+            // 4. check total series
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(expectedSeriesCount);
+
+            // 5. check artist addresses
+            expect(await instance.getArtistAddress(expectedArtistID)).to.equal(
+                artistAddress
+            );
+
+            // 6. check artist ID
+            expect(
+                await instance.getArtistID(artistAddress)
+            ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+            // 7. check artist series ID
+            expectBigNumberArraysEqual(
+                await instance.getArtistSeriesIDs(artistAddress),
+                [seriesID]
+            );
+
+            // 8. check series delegatees should include the delegatee address
+            expectAddressArraysEqual(
+                await instance.getSeriesDelegatees(seriesID),
+                [delegateeAddress]
+            );
+
+            // 9. check artist delegatees should include the delegatee address
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistAddress),
+                [delegateeAddress]
+            );
+
+            // 10. check event emitted
+            expectEvent(tx, "RegisterSeries", {
+                seriesID: seriesID,
+            });
         });
 
-        it("Non-artist or non-owner cannot update", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            // Reverts with custom error: CallerNotASeriesArtistError(uint256 seriesID, address caller)
+        it("should NOT be able to register a new series if the caller is not an artist or delegatee", async () => {
+            const artistAddress = accounts[0];
+            const someoneAddress = accounts[1];
+
             await expectCustomError(
-                instance.updateSeries(firstSeriesID, metadataURI, tokenMapURI, {
-                    from: nonArtist,
-                }),
-                seriesRegistryABI,
-                "CallerNotASeriesArtistError",
-                [firstSeriesID.toString(), nonArtist] // (seriesID, caller)
+                instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    {
+                        from: someoneAddress,
+                    }
+                ),
+                abi,
+                "NotAuthorizedError"
             );
         });
 
-        it("Updating a non-existent series should revert", async () => {
-            // Reverts with custom error: SeriesDoesNotExistError(uint256 seriesID)
+        it("should NOT be able to register a new series if the artist address is zero", async () => {
+            await expectCustomError(
+                instance.registerSeries(zeroAddress, metadataURI, tokenDataURI),
+                abi,
+                "GenericError",
+                ["artist address is zero"]
+            );
+        });
+
+        it("should NOT be able to register a new series if the metadataURI is empty", async () => {
+            const artistAddress = accounts[0];
+            await expectCustomError(
+                instance.registerSeries(artistAddress, "", tokenDataURI),
+                abi,
+                "GenericError",
+                ["empty metadataURI"]
+            );
+        });
+
+        it("should NOT be able to register a new series if the tokenDataURI is empty", async () => {
+            const artistAddress = accounts[0];
+            await expectCustomError(
+                instance.registerSeries(artistAddress, metadataURI, ""),
+                abi,
+                "GenericError",
+                ["empty tokenDataURI"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchUpdateSeries
+    // ------------------------------------------------------------------------
+
+    describe("batchUpdateSeries", () => {
+        it("should be able to update multiple series", async () => {
+            const length = 10;
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const baseMetadataURI = "metadataURI";
+            const baseTokenDataURI = "tokenDataURI";
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI + i,
+                    tokenDataURI + i,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. build update payloads
+            const metadataURIs = [];
+            const tokenDataURIs = [];
+            for (let i = 0; i < length; i++) {
+                metadataURIs.push(baseMetadataURI + i);
+                tokenDataURIs.push(baseTokenDataURI + i);
+            }
+
+            // 3. artist batch update series
+            const tx = await instance.batchUpdateSeries(
+                seriesIDs,
+                metadataURIs,
+                tokenDataURIs
+            );
+
+            // 4. check series details
+            for (let i = 0; i < length; i++) {
+                const seriesID = seriesIDs[i];
+
+                // 4.1 check series ID
+                expect(seriesID).to.be.a.bignumber.that.equals(new BN(i + 1));
+
+                // 4.2 check series metadata URI
+                expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                    metadataURIs[i]
+                );
+
+                // 4.3 check series token data URI
+                expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                    tokenDataURIs[i]
+                );
+
+                // 4.4 check series artist addresses
+                expectAddressArraysEqual(
+                    await instance.getSeriesArtistAddresses(seriesID),
+                    [artistAddress]
+                );
+
+                // 4.5. check artist ID
+                expect(
+                    await instance.getArtistID(artistAddress)
+                ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+                // 4.6. check artist address
+                expect(
+                    await instance.getArtistAddress(expectedArtistID)
+                ).to.equal(artistAddress);
+
+                // 4.7 check event emitted
+                expectEvent(tx, "UpdateSeries", {
+                    seriesID: seriesID,
+                });
+            }
+        });
+
+        it("should NOT be able to update more than 50 series in a single transaction", async () => {
+            const length = 51;
+            const artistAddress = accounts[0];
+            const baseNewMetadataURI = "new metadataURI";
+            const baseNewTokenDataURI = "new tokenDataURI";
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. build update payloads
+            const metadataURIs = [];
+            const tokenDataURIs = [];
+            for (let i = 0; i < length; i++) {
+                metadataURIs.push(baseNewMetadataURI + i);
+                tokenDataURIs.push(baseNewTokenDataURI + i);
+            }
+
+            // 3. artist batch update series
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    seriesIDs,
+                    metadataURIs,
+                    tokenDataURIs
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
+            );
+        });
+
+        it("should NOT be able to update series if the metadataURIs and tokenDataURIs array length mismatch", async () => {
+            const length = 3;
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. build update payloads
+            const metadataURIs = [metadataURI];
+            const tokenDataURIs = [tokenDataURI, tokenDataURI, tokenDataURI];
+
+            // 3. artist batch update series
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    seriesIDs,
+                    metadataURIs,
+                    tokenDataURIs
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to update series if either of the array is empty", async () => {
+            const length = 3;
+            const artistAddress = accounts[0];
+            const baseNewMetadataURI = "new metadataURI";
+            const baseNewTokenDataURI = "new tokenDataURI";
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. update series with empty metadataURI
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    [seriesIDs[0]],
+                    [],
+                    [baseNewTokenDataURI]
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+
+            // 3. update series with empty tokenDataURI
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    [seriesIDs[0]],
+                    [baseNewMetadataURI],
+                    []
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+
+            // 4. update series with empty seriesIDs
+            await expectCustomError(
+                instance.batchUpdateSeries(
+                    [],
+                    [baseNewMetadataURI],
+                    [baseNewTokenDataURI]
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // updateSeries
+    // ------------------------------------------------------------------------
+
+    describe("updateSeries", () => {
+        it("should be able to update a series by artist", async () => {
+            const artistAddress = accounts[0];
+            const expectedSeriesID = new BN(1);
+            const newMetadataURI = "new metadataURI";
+            const newTokenDataURI = "new tokenDataURI";
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. check the series details
+            // 2.1 check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 2.2 check series metadata URI
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                metadataURI
+            );
+
+            // 2.3 check series token data URI
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                tokenDataURI
+            );
+
+            // 2.4 check series artist addresses
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistAddress]
+            );
+
+            // 3. artist update series
+            const updateTx = await instance.updateSeries(
+                seriesID,
+                newMetadataURI,
+                newTokenDataURI,
+                { from: artistAddress }
+            );
+
+            // 4. check series details
+            // 4.1 check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 4.2 check series metadata URI
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                newMetadataURI
+            );
+
+            // 4.3 check series token data URI
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                newTokenDataURI
+            );
+
+            // 4.4 check series artist addresses
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistAddress]
+            );
+
+            // 5. check event emitted
+            expectEvent(updateTx, "UpdateSeries", {
+                seriesID: seriesID,
+            });
+        });
+
+        it("should be able to update a series by delegatee", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+            const expectedSeriesID = new BN(1);
+            const newMetadataURI = "new metadataURI";
+            const newTokenDataURI = "new tokenDataURI";
+
+            // 1. artist add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 2. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 3. check series details
+            // 3.1 check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 3.2 check series metadata URI
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                metadataURI
+            );
+
+            // 3.3 check series token data URI
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                tokenDataURI
+            );
+
+            // 4. Delegatee update series
+            const updateTx = await instance.updateSeries(
+                seriesID,
+                newMetadataURI,
+                newTokenDataURI,
+                { from: delegateeAddress }
+            );
+
+            // 5. check series details
+            // 5.1 check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 5.2 check series metadata URI
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                newMetadataURI
+            );
+
+            // 5.3 check series token data URI
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                newTokenDataURI
+            );
+
+            // 5. check event emitted
+            expectEvent(updateTx, "UpdateSeries", {
+                seriesID: seriesID,
+            });
+        });
+
+        it("should NOT be able to update a series if the caller is not an artist or delegatee", async () => {
+            const artistAddress = accounts[0];
+            const someoneAddress = accounts[1];
+            const newMetadataURI = "new metadataURI";
+            const newTokenDataURI = "new tokenDataURI";
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. update series by someone is not artist or delegatee
             await expectCustomError(
                 instance.updateSeries(
-                    new BN("9999"),
+                    seriesID,
+                    newMetadataURI,
+                    newTokenDataURI,
+                    {
+                        from: someoneAddress,
+                    }
+                ),
+                abi,
+                "NotAuthorizedError"
+            );
+        });
+
+        it("should NOT be able to update a series if the metadataURI is empty", async () => {
+            const artistAddress = accounts[0];
+            const newMetadataURI = "";
+            const newTokenDataURI = "new tokenDataURI";
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. update series with metadataURI is empty
+            await expectCustomError(
+                instance.updateSeries(
+                    seriesID,
+                    newMetadataURI,
+                    newTokenDataURI,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "GenericError",
+                ["empty metadataURI"]
+            );
+        });
+
+        it("should NOT be able to update a series if the tokenDataURI is empty", async () => {
+            const artistAddress = accounts[0];
+            const newMetadataURI = "new metadataURI";
+            const newTokenDataURI = "";
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. update series with tokenDataURI is empty
+            await expectCustomError(
+                instance.updateSeries(
+                    seriesID,
+                    newMetadataURI,
+                    newTokenDataURI,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "GenericError",
+                ["empty tokenDataURI"]
+            );
+        });
+
+        it("should NOT be able to update a series if the series does not exist", async () => {
+            const artistAddress = accounts[0];
+            const seriesID = new BN(1);
+            const newMetadataURI = "new metadataURI";
+            const newTokenDataURI = "new tokenDataURI";
+
+            // 1. update series that does not exist
+            await expectCustomError(
+                instance.updateSeries(
+                    seriesID,
+                    newMetadataURI,
+                    newTokenDataURI,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "SeriesNotExistsError"
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchDeleteSeries
+    // ------------------------------------------------------------------------
+
+    describe("batchDeleteSeries", () => {
+        it("should be able to delete multiple series", async () => {
+            const length = 10;
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const seriesIDs = [];
+
+            // 1. artist register multiple series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
                     metadataURI,
-                    tokenMapURI,
-                    { from: artistA }
-                ),
-                seriesRegistryABI,
-                "SeriesDoesNotExistError",
-                ["9999"] // pass as a string
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. artist batch delete series
+            const deleteTx = await instance.batchDeleteSeries(seriesIDs, {
+                from: artistAddress,
+            });
+
+            // 3. check series should be deleted
+            for (let i = 0; i < length; i++) {
+                const seriesID = seriesIDs[i];
+
+                // 3.1. check series is deleted
+                expect(await instance.getSeriesMetadataURI(seriesID)).to.be
+                    .empty;
+                expect(await instance.getSeriesTokenDataURI(seriesID)).to.be
+                    .empty;
+                expect(await instance.getSeriesArtistAddresses(seriesID)).to.be
+                    .empty;
+                expect(await instance.getSeriesArtistIDs(seriesID)).to.be.empty;
+
+                // 3.2. check artist is deleted
+                expect(
+                    await instance.getArtistID(artistAddress)
+                ).to.be.a.bignumber.that.equals(new BN(0));
+                expect(
+                    await instance.getArtistAddress(expectedArtistID)
+                ).to.equal(zeroAddress);
+
+                // 3.3. check event emitted
+                expectEvent(deleteTx, "DeleteSeries", {
+                    seriesID: seriesID,
+                });
+            }
+        });
+
+        it("should NOT be able to delete series if series array is empty", async () => {
+            await expectCustomError(
+                instance.batchDeleteSeries([]),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
             );
         });
 
-        it("Owner batch update should revert if one of the series is non-existent", async () => {
-            await instance.addSeries([artistA], "origMeta1", "origToken1", { from: owner });
-            const nonExistent = new BN("9999");
-          
-            // Reverts with SeriesDoesNotExistError(9999) on the second series
+        it("should NOT be able to delete series if series array is too large", async () => {
+            const length = 51;
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+
+            // 1. artist register multiple series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. artist batch delete series
             await expectCustomError(
-              instance.batchUpdateSeries(
-                [firstSeriesID, nonExistent],
-                ["newMeta1", "newMeta9999"],
-                ["newToken1", "newToken9999"],
-                { from: owner }
-              ),
-              seriesRegistryABI,
-              "SeriesDoesNotExistError",
-              [nonExistent.toString()]
+                instance.batchDeleteSeries(seriesIDs, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
             );
         });
     });
 
-    describe("Owner Rights Revocation", () => {
-        it("Artist can revoke owner rights", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            await instance.revokeContractOwnerRights({ from: artistA });
-            const revoked = await instance.hasArtistRevokedOwnerRights(artistA);
-            expect(revoked).to.be.true;
-        });
-
-        it("Artist can re-approve owner rights", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            await instance.revokeContractOwnerRights({ from: artistA });
-            await instance.approveContractOwnerRights({ from: artistA });
-            const revoked = await instance.hasArtistRevokedOwnerRights(artistA);
-            expect(revoked).to.be.false;
-        });
-
-        it("When all artists revoke, owner cannot update series", async () => {
-            await instance.addSeries(
-                [artistA, artistB],
-                metadataURI,
-                tokenMapURI,
-                { from: owner }
-            );
-            await instance.revokeContractOwnerRights({ from: artistA });
-            await instance.revokeContractOwnerRights({ from: artistB });
-
-            // Reverts with custom error: OwnerRightsRevokedForThisSeries(uint256 seriesID)
-            await expectCustomError(
-                instance.updateSeries(firstSeriesID, "x", "y", { from: owner }),
-                seriesRegistryABI,
-                "OwnerRightsRevokedForThisSeries",
-                [firstSeriesID.toString()]
-            );
-
-            await instance.approveContractOwnerRights({ from: artistA });
-            const tx = await instance.updateSeries(
-                firstSeriesID,
-                "metaNew",
-                "tokenNew",
-                { from: owner }
-            );
-            expectEvent(tx, "SeriesUpdated", {
-                seriesID: firstSeriesID,
-            });
-        });
-
-        it("Non-artist tries to revoke/approve owner rights should revert", async () => {
-            // Reverts with custom error: NotAnArtistError(address caller)
-            await expectCustomError(
-                instance.revokeContractOwnerRights({ from: nonArtist }),
-                seriesRegistryABI,
-                "NotAnArtistError",
-                [nonArtist]
-            );
-
-            // Reverts with custom error: NotAnArtistError(address caller)
-            await expectCustomError(
-                instance.approveContractOwnerRights({ from: nonArtist }),
-                seriesRegistryABI,
-                "NotAnArtistError",
-                [nonArtist]
-            );
-        });
-    });
-
-    describe("Propose and Confirm Collaborator", () => {
-        it("Artist in a series can propose a new collaborator", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const tx = await instance.proposeCollaborator(firstSeriesID, artistC, {
-                from: artistA,
-            });
-            expectEvent(tx, "CollaboratorProposed", {
-                seriesID: firstSeriesID,
-            });
-
-            let pending = await instance.getArtistPendingCollaboratorSeries(artistC);
-            expect(pending.map((e) => e.toString())).to.include(
-                firstSeriesID.toString()
-            );
-            pending = await instance.getSeriesPendingCollaborators(firstSeriesID);
-            expect(pending.map((e) => e.toString())).to.include(
-                artistC.toString()
-            );
-        });
-
-        it("Collaborator can confirm themselves", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            await instance.proposeCollaborator(firstSeriesID, artistC, {
-                from: artistA,
-            });
-            let artistURI = await instance.getAddressArtistID(artistC);
-
-            const tx = await instance.confirmAsCollaborator(firstSeriesID, {
-                from: artistC,
-            });
-            expectEvent(tx, "CollaboratorConfirmed", {
-                seriesID: firstSeriesID,
-                confirmedArtistID: artistURI,
-            });
-
-            const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            expect(artistIDs.map((id) => id.toString())).to.include(
-                artistURI.toString()
-            );
-
-            let pendingAfter = await instance.getArtistPendingCollaboratorSeries(artistC);
-            expect(pendingAfter.length).to.equal(
-                0,
-                "Pending artist requests should be cleared after confirmation"
-            );
-            pendingAfter = await instance.getSeriesPendingCollaborators(firstSeriesID);
-            expect(pendingAfter.length).to.equal(
-                0,
-                "Pending series requests should be cleared after confirmation"
-            );
-        });
-
-        it("Cannot confirm if not proposed", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            await instance.addSeries([artistC], metadataURI, tokenMapURI, {
-                from: artistC,
-            });
-            // Reverts with custom error: NotAPendingProposalError(uint256 seriesID, address caller)
-            await expectCustomError(
-                instance.confirmAsCollaborator(firstSeriesID, { from: artistC }),
-                seriesRegistryABI,
-                "NotAPendingProposalError",
-                [firstSeriesID.toString(), artistC]
-            );
-        });
-
-        it("An artist can cancel a collaborator proposal before confirmation", async () => {
-            await instance.addSeries(
-                [artistA, artistB],
-                metadataURI,
-                tokenMapURI,
-                { from: owner }
-            );
-            await instance.proposeCollaborator(firstSeriesID, artistC, {
-                from: artistA,
-            });
-            let artistURI = await instance.getAddressArtistID(artistC);
-
-            let pendingBefore = await instance.getArtistPendingCollaboratorSeries(artistC);
-            expect(pendingBefore.map((e) => e.toString())).to.include(
-                firstSeriesID.toString()
-            );
-            pendingBefore = await instance.getSeriesPendingCollaborators(firstSeriesID);
-            expect(pendingBefore.map((e) => e.toString())).to.include(
-                artistC.toString()
-            );
-
-            const tx = await instance.cancelProposeCollaborator(
-                firstSeriesID,
-                artistC,
-                { from: artistB }
-            );
-            expectEvent(tx, "CollaboratorProposalCancelled", {
-                seriesID: firstSeriesID,
-                proposerArtistID: await instance.getAddressArtistID(artistB),
-                cancelledArtistID: artistURI,
-            });
-
-            // Now the proposal is canceled, confirming should revert
-            // Reverts with custom error: NotAPendingProposalError(...)
-            await expectCustomError(
-                instance.confirmAsCollaborator(firstSeriesID, { from: artistC }),
-                seriesRegistryABI,
-                "NotAPendingProposalError",
-                [firstSeriesID.toString(), artistC]
-            );
-
-            let pendingAfterCancel = await instance.getArtistPendingCollaboratorSeries(
-                artistC
-            );
-            expect(pendingAfterCancel.length).to.equal(
-                0,
-                "Pending artist requests should be cleared after cancellation"
-            );
-            pendingAfterCancel = await instance.getSeriesPendingCollaborators(firstSeriesID);
-            expect(pendingAfterCancel.length).to.equal(
-                0,
-                "Pending series requests should be cleared after cancellation"
-            );
-        });
-
-        it("Proposing a collaborator for a non-existent series should revert", async () => {
-            // Reverts with custom error: SeriesDoesNotExistError(seriesID)
-            await expectCustomError(
-                instance.proposeCollaborator(new BN("9999"), artistC, {
-                    from: artistA,
-                }),
-                seriesRegistryABI,
-                "SeriesDoesNotExistError",
-                ["9999"]
-            );
-        });
-
-        it("Proposing the same collaborator twice for the same series should revert", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            // Propose artistB
-            await instance.proposeCollaborator(firstSeriesID, artistB, {
-                from: artistA,
-            });
-            // Attempt to propose the same collaborator again
-            // Reverts with custom error: AlreadyProposedError(uint256 seriesID, address proposedArtistAddr)
-            await expectCustomError(
-                instance.proposeCollaborator(firstSeriesID, artistB, {
-                    from: artistA,
-                }),
-                seriesRegistryABI,
-                "AlreadyProposedError",
-                [firstSeriesID.toString(), artistB]
-            );
-        });
-
-        it("Non-artist cannot propose collaborator", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            // Reverts with custom error: CallerNotASeriesArtistError(uint256 seriesID, address caller)
-            await expectCustomError(
-                instance.proposeCollaborator(firstSeriesID, artistB, {
-                    from: nonArtist,
-                }),
-                seriesRegistryABI,
-                "CallerNotASeriesArtistError",
-                [firstSeriesID.toString(), nonArtist]
-            );
-        });
-
-        it("Propose collaborator with invalid (zero) address should revert", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            // Reverts with custom error: ZeroAddressNotAllowedError()
-            await expectCustomError(
-                instance.proposeCollaborator(
-                    firstSeriesID,
-                    "0x0000000000000000000000000000000000000000",
-                    { from: artistA }
-                ),
-                seriesRegistryABI,
-                "ZeroAddressNotAllowedError"
-            );
-        });
-    });
-
-    describe("Multiple Collaborator Proposals", () => {
-        it("Can propose multiple collaborators and confirm/cancel them independently", async () => {
-            await instance.addSeries(
-                [artistA, artistB],
-                metadataURI,
-                tokenMapURI,
-                { from: owner }
-            );
-            // Propose artistD for firstSeriesID
-            await instance.proposeCollaborator(firstSeriesID, artistD, {
-                from: artistA,
-            });
-            let artistDID = await instance.getAddressArtistID(artistD);
-
-            // Add another new series
-            await instance.addSeries([artistA], "meta1010", "token1010", {
-                from: artistA,
-            });
-
-            // Propose artistD for secondSeriesID
-            await instance.proposeCollaborator(secondSeriesID, artistD, {
-                from: artistA,
-            });
-
-            // Now artistD should have 2 pending requests
-            let pendingD = await instance.getArtistPendingCollaboratorSeries(artistD);
-            expect(pendingD.map((e) => e.toString())).to.have.members([
-                firstSeriesID.toString(),
-                secondSeriesID.toString(),
-            ]);
-            pendingD = await instance.getSeriesPendingCollaborators(firstSeriesID);
-            expect(pendingD.map((e) => e.toString())).to.include(
-                artistD.toString()
-            );
-            pendingD = await instance.getSeriesPendingCollaborators(secondSeriesID);
-            expect(pendingD.map((e) => e.toString())).to.include(
-                artistD.toString()
-            );
-
-            // Confirm artistD for secondSeriesID first
-            await instance.confirmAsCollaborator(secondSeriesID, { from: artistD });
-
-            // Now pending should only have firstSeriesID
-            let pendingDAfterOneConfirm = await instance.getArtistPendingCollaboratorSeries(
-                artistD
-            );
-            expect(pendingDAfterOneConfirm.map((e) => e.toString())).to.include(
-                firstSeriesID.toString()
-            );
-            expect(pendingDAfterOneConfirm.length).to.equal(1);
-            pendingDAfterOneConfirm = await instance.getSeriesPendingCollaborators(firstSeriesID);
-            expect(pendingDAfterOneConfirm.map((e) => e.toString())).to.include(
-                artistD.toString()
-            );
-            pendingDAfterOneConfirm = await instance.getSeriesPendingCollaborators(secondSeriesID);
-            expect(pendingDAfterOneConfirm.length).to.equal(
-                0,
-                "All secondSeriesID pending requests cleared after confirm/cancel operations"
-            );
-
-            // Cancel the remaining proposal on firstSeriesID
-            const artistAID = await instance.getAddressArtistID(artistA);
-            const tx = await instance.cancelProposeCollaborator(
-                firstSeriesID,
-                artistD,
-                { from: artistA }
-            );
-            expectEvent(tx, "CollaboratorProposalCancelled", {
-                seriesID: firstSeriesID,
-                proposerArtistID: artistAID,
-                cancelledArtistID: artistDID,
-            });
-
-            // Attempting to confirm the canceled proposal should fail
-            // Reverts with custom error: NotAPendingProposalError(...)
-            await expectCustomError(
-                instance.confirmAsCollaborator(firstSeriesID, { from: artistD }),
-                seriesRegistryABI,
-                "NotAPendingProposalError",
-                [firstSeriesID.toString(), artistD]
-            );
-
-            // Pending should now be empty
-            let pendingDAfterCancel = await instance.getArtistPendingCollaboratorSeries(
-                artistD
-            );
-            expect(pendingDAfterCancel.length).to.equal(
-                0,
-                "All pending requests cleared after confirm/cancel operations"
-            );
-            pendingDAfterCancel = await instance.getSeriesPendingCollaborators(firstSeriesID);
-            expect(pendingDAfterCancel.length).to.equal(
-                0,
-                "All firstSeriesID pending requests cleared after confirm/cancel operations"
-            );
-            pendingDAfterCancel = await instance.getSeriesPendingCollaborators(secondSeriesID);
-            expect(pendingDAfterCancel.length).to.equal(
-                0,
-                "All secondSeriesID pending requests cleared after confirm/cancel operations"
-            );
-        });
-    });
-
-    describe("Updating Artist's address", () => {
-        it("Artist can update their own address", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const artistAID = await instance.getAddressArtistID(artistA);
-            const newAddressA = accounts[6];
-
-            const tx = await instance.updateArtistAddress(
-                artistAID,
-                newAddressA,
-                { from: artistA }
-            );
-            expectEvent(tx, "ArtistAddressUpdated", {
-                artistID: artistAID,
-                oldAddress: artistA,
-                newAddress: newAddressA,
-            });
-
-            const updatedAddress = await instance.getArtistAddress(artistAID);
-            expect(updatedAddress).to.equal(newAddressA);
-
-            const updatedArtistID = await instance.getAddressArtistID(
-                newAddressA
-            );
-            expect(updatedArtistID.toString()).to.equal(artistAID.toString());
-        });
-
-        it("Owner can update artist address if owner rights not revoked", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const artistAID = await instance.getAddressArtistID(artistA);
-            const newAddressA2 = accounts[7];
-
-            const tx = await instance.updateArtistAddress(
-                artistAID,
-                newAddressA2,
-                { from: owner }
-            );
-            expectEvent(tx, "ArtistAddressUpdated", {
-                artistID: artistAID,
-                oldAddress: artistA,
-                newAddress: newAddressA2,
-            });
-
-            const updatedAddress = await instance.getArtistAddress(artistAID);
-            expect(updatedAddress).to.equal(newAddressA2);
-        });
-
-        it("Owner cannot update artist address if the artist revoked owner rights", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const artistAID = await instance.getAddressArtistID(artistA);
-            await instance.revokeContractOwnerRights({ from: artistA });
-            const revoked = await instance.hasArtistRevokedOwnerRights(artistA);
-            expect(revoked).to.be.true;
-            // Reverts with custom error: NotAuthorizedError(address caller)
-            await expectCustomError(
-                instance.updateArtistAddress(artistAID, artistB, {
-                    from: owner,
-                }),
-                seriesRegistryABI,
-                "NotAuthorizedError",
-                [owner]
-            );
-        });
-
-        it("Random address cannot update artist address", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const artistAID = await instance.getAddressArtistID(artistA);
-
-            // Reverts with custom error: NotAuthorizedError(address caller)
-            await expectCustomError(
-                instance.updateArtistAddress(artistAID, artistB, {
-                    from: nonArtist,
-                }),
-                seriesRegistryABI,
-                "NotAuthorizedError",
-                [nonArtist]
-            );
-        });
-
-        it("Cannot update artist address to one already assigned to another artist", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            await instance.addSeries([artistB], metadataURI, tokenMapURI, {
-                from: artistB,
-            });
-            const artistAID = await instance.getAddressArtistID(artistA);
-
-            // Reverts with custom error: AddressAlreadyAssignedError(address newAddress)
-            await expectCustomError(
-                instance.updateArtistAddress(artistAID, artistB, {
-                    from: owner,
-                }),
-                seriesRegistryABI,
-                "AddressAlreadyAssignedError",
-                [artistB]
-            );
-        });
-    });
+    // ------------------------------------------------------------------------
+    // deleteSeries
+    // ------------------------------------------------------------------------
 
     describe("deleteSeries", () => {
-        it("should allow owner to delete series", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const tx = await instance.deleteSeries(firstSeriesID, {
-                from: owner,
+        it("should be able to delete the series by artist has administrator role and has only one series", async () => {
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const expectedSeriesID = new BN(1);
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. check series registered successfully
+            // 2.1. check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 2.2. check series metadata URI
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.equal(
+                metadataURI
+            );
+
+            // 2.3. check series token data URI
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.equal(
+                tokenDataURI
+            );
+
+            // 2.4. check series artist addresses
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistAddress]
+            );
+
+            // 2.5. check series administrator
+            expect(
+                await instance.getSeriesAdministratorID(seriesID)
+            ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+            // 3. artist delete series
+            const deleteTx = await instance.deleteSeries(seriesID, {
+                from: artistAddress,
             });
 
-            // Verify event emission
-            expectEvent(tx, "SeriesDeleted", {
-                seriesID: firstSeriesID,
+            // 4. check total series should be 0
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(new BN(0));
+
+            // 5. check total artist series should be 0
+            expect(
+                await instance.getTotalArtistSeries(artistAddress)
+            ).to.be.a.bignumber.that.equals(new BN(0));
+
+            // 6. check artist existence globally should be false
+            expect(await instance.getArtistAddress(expectedArtistID)).to.equal(
+                zeroAddress
+            );
+
+            // 7. check artist existence in series should be false
+            expect(await instance.getSeriesArtistIDs(seriesID)).to.be.empty;
+
+            // 8. check event emitted
+            expectEvent(deleteTx, "DeleteSeries", {
+                seriesID: seriesID,
             });
-
-            // Verify series is deleted
-            const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            expect(artistIDs.length).to.equal(0);
-
-            // Verify series is removed from artists' series lists
-            const artist1Series = await instance.getArtistSeriesIDs(artistA);
-            expect(artist1Series.length).to.equal(0);
         });
 
-        it("should allow owner to batch delete series", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
+        it("should be able to delete the series by artist has administrator role and has delegatees", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedSeriesID = new BN(1);
+
+            // 1. artist add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
             });
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
+
+            // 2. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 3. check series registered successfully
+            // 3.1. check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 3.2. check administrator
+            expect(
+                await instance.getSeriesAdministratorID(seriesID)
+            ).to.be.a.bignumber.that.equals(expectedArtistID);
+
+            // 3.3. check artist IDs
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 4. artist delete series
+            const deleteTx = await instance.deleteSeries(seriesID, {
+                from: artistAddress,
             });
-            const tx = await instance.batchDeleteSeries([firstSeriesID, secondSeriesID], { from: owner });
-            expectEvent(tx, "SeriesDeleted", {
-                seriesID: firstSeriesID,
+
+            // 5. check total series should be 0
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(new BN(0));
+
+            // 6. check total artist series should be 0
+            expect(
+                await instance.getTotalArtistSeries(artistAddress)
+            ).to.be.a.bignumber.that.equals(new BN(0));
+
+            // 7. check artist existence globally should be false
+            expect(await instance.getArtistAddress(expectedArtistID)).to.equal(
+                zeroAddress
+            );
+
+            // 8. check artist existence in series should be false
+            expect(await instance.getSeriesArtistIDs(seriesID)).to.be.empty;
+
+            // 9. check event emitted
+            expectEvent(deleteTx, "DeleteSeries", {
+                seriesID: seriesID,
             });
-            expectEvent(tx, "SeriesDeleted", {
-                seriesID: secondSeriesID,
-            });
-            let artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            expect(artistIDs.length).to.equal(0);
-            artistIDs = await instance.getSeriesArtistIDs(secondSeriesID);
-            expect(artistIDs.length).to.equal(0);
         });
 
-        it("should allow artist to delete series", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
+        it("should be able to delete a series by artist has administrator role and has multiple series", async () => {
+            const artistAddress = accounts[0];
+            const expectedArtistID = new BN(1);
+            const registeredSeriesIDs = [];
+
+            // 1. artist register multiple series (2 series)
+            for (let i = 0; i < 2; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+
+                // 1.1. check series ID
+                const seriesID = tx.logs[0].args.seriesID;
+                expect(seriesID).to.be.a.bignumber.that.equals(new BN(i + 1));
+
+                // 1.2. check artist ID
+                expectBigNumberArraysEqual(
+                    await instance.getSeriesArtistIDs(seriesID),
+                    [expectedArtistID]
+                );
+
+                // 1.3. add series ID to registeredSeriesIDs
+                registeredSeriesIDs.push(seriesID);
+            }
+
+            // 2. artist delete one series
+            const deletingSeriesID = registeredSeriesIDs[0];
+            const deleteTx = await instance.deleteSeries(deletingSeriesID, {
+                from: artistAddress,
             });
-            const tx = await instance.deleteSeries(firstSeriesID, { from: artistA });
-            expectEvent(tx, "SeriesDeleted", {
-                seriesID: firstSeriesID,
+
+            // 3. check total series count should be 1
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(new BN(1));
+
+            // 4. check total artist series should be 1
+            expect(
+                await instance.getTotalArtistSeries(artistAddress)
+            ).to.be.a.bignumber.that.equals(new BN(1));
+
+            // 5. check artist existence globally should be true
+            expect(await instance.getArtistAddress(expectedArtistID)).to.equal(
+                artistAddress
+            );
+
+            // 6. check artist existence in series should be false
+            expect(await instance.getSeriesArtistIDs(deletingSeriesID)).to.be
+                .empty;
+
+            // 7. check event emitted
+            expectEvent(deleteTx, "DeleteSeries", {
+                seriesID: deletingSeriesID,
             });
-            const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            expect(artistIDs.length).to.equal(0);
         });
 
-        it("should allow artist to batch delete series", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
+        it("should be able to delete a series by collaborator after the series creator has opted out", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedCollaboratorID = new BN(2);
+            const expectedSeriesID = new BN(1);
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. check series registered successfully
+            // 2.1. check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 2.2. check series artist ID
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 3. artist invite collaborator to series
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
             });
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
+
+            // 4. collaborator opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
             });
-            const tx = await instance.batchDeleteSeries([firstSeriesID, secondSeriesID], { from: artistA });
-            expectEvent(tx, "SeriesDeleted", {
-                seriesID: firstSeriesID,
+
+            // 5. check collaborator should be in series
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID, expectedCollaboratorID]
+            );
+
+            // 6. artist opt out of series
+            await instance.optOutSeries(seriesID, {
+                from: artistAddress,
             });
-            expectEvent(tx, "SeriesDeleted", {
-                seriesID: secondSeriesID,
+
+            // 7. check artist should not be in series
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedCollaboratorID]
+            );
+
+            // 8. collaborator delete series
+            const deleteTx = await instance.deleteSeries(seriesID, {
+                from: collaboratorAddress,
             });
-            let artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            expect(artistIDs.length).to.equal(0);
-            artistIDs = await instance.getSeriesArtistIDs(secondSeriesID);
-            expect(artistIDs.length).to.equal(0);
+
+            // 9. check total series should be 0
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(new BN(0));
+
+            // 10. check total artist series should be 0
+            expect(
+                await instance.getTotalArtistSeries(collaboratorAddress)
+            ).to.be.a.bignumber.that.equals(new BN(0));
+
+            // 11. check event emitted
+            expectEvent(deleteTx, "DeleteSeries", {
+                seriesID: seriesID,
+            });
         });
 
-        it("should not allow non-artist to delete series", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            // Reverts with custom error: CallerNotASeriesArtistError(...)
+        it("should NOT be able to delete a series if the caller isn't series artist", async () => {
+            const artistAddress = accounts[0];
+            const someoneAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedSeriesID = new BN(1);
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. check series registered successfully
+            // 2.1. check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 2.2. check series artist ID
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 3. delete series by someone and check error is `NotAdministratorError`
             await expectCustomError(
-                instance.deleteSeries(firstSeriesID, { from: artistB }),
-                seriesRegistryABI,
-                "CallerNotASeriesArtistError",
-                [firstSeriesID.toString(), artistB]
+                instance.deleteSeries(seriesID, {
+                    from: someoneAddress,
+                }),
+                abi,
+                "NotAdministratorError"
             );
         });
 
-        it("should not allow deleting non-existent series", async () => {
-            const nonExistentSeriesID = new BN("9999");
-            // Reverts with custom error: SeriesDoesNotExistError(uint256 seriesID)
-            await expectCustomError(
-                instance.deleteSeries(nonExistentSeriesID, { from: owner }),
-                seriesRegistryABI,
-                "SeriesDoesNotExistError",
-                [nonExistentSeriesID.toString()]
-            );
-        });
+        it("should NOT be able to delete a series if the caller is collaborator but not administrator", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedCollaboratorID = new BN(2);
+            const expectedSeriesID = new BN(1);
 
-        it("should remove collaborator proposals data upon deleting a series", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. check series registered successfully
+            // 2.1. check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 2.2. check series artist ID
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 3. artist invite collaborator to series
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
             });
-            await instance.proposeCollaborator(firstSeriesID, artistC, { from: artistA });
-            let pendingForC = await instance.getArtistPendingCollaboratorSeries(artistC);
-            expect(pendingForC.map((x) => x.toString())).to.include(
-                firstSeriesID.toString()
-            );
-            let seriesPendingArtists = await instance.getSeriesPendingCollaborators(
-                firstSeriesID
-            );
-            expect(seriesPendingArtists).to.include(artistC);
-        
-            const tx = await instance.deleteSeries(firstSeriesID, { from: artistA });
-            expectEvent(tx, "SeriesDeleted", {
-                seriesID: firstSeriesID,
+
+            // 4. collaborator opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
             });
-        
-            // Verify that the pending requests were removed
-            //  - The collaborator's pending list should no longer contain this series
-            //  - The series's pending list should be empty
-            pendingForC = await instance.getArtistPendingCollaboratorSeries(artistC);
-            expect(pendingForC.length).to.equal(0);
-        
-            seriesPendingArtists = await instance.getSeriesPendingCollaborators(
-                firstSeriesID
+
+            // 5. check collaborator should be in series
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID, expectedCollaboratorID]
             );
-            expect(seriesPendingArtists.length).to.equal(0);
+
+            // 6. delete series by collaborator and check error is `NotAdministratorError`
+            await expectCustomError(
+                instance.deleteSeries(seriesID, {
+                    from: collaboratorAddress,
+                }),
+                abi,
+                "NotAdministratorError"
+            );
         });
 
-        it("should revert if batchDeleteSeries includes a non-existent series", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, { from: owner });
-            const nonExistent = new BN("9999");
+        it("should NOT be able to delete a series if the series does not exist", async () => {
+            const artistAddress = accounts[0];
+            const seriesID = new BN(1);
 
+            // 1. delete series that does not exist
             await expectCustomError(
-              instance.batchDeleteSeries([firstSeriesID, nonExistent], { from: owner }),
-              seriesRegistryABI,
-              "SeriesDoesNotExistError",
-              [nonExistent.toString()]
+                instance.deleteSeries(seriesID, {
+                    from: artistAddress,
+                }),
+                abi,
+                "SeriesNotExistsError"
             );
         });
     });
 
-    describe("resignFromSeries", () => {
-        it("should allow artist to remove themselves", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const tx = await instance.resignFromSeries(firstSeriesID, {
-                from: artistA,
-            });
+    // ------------------------------------------------------------------------
+    // optOutSeries
+    // ------------------------------------------------------------------------
 
-            // Verify event emission
-            expect(tx.logs[0].event).to.equal("SeriesUpdated");
+    describe("optOutSeries", () => {
+        it("should be able to opt out of a series if artist has only one series", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedCollaboratorID = new BN(2);
+            const expectedSeriesID = new BN(1);
 
-            // Check artist is removed from series
-            const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            const artistAID = await instance.getAddressArtistID(artistA);
-            expect(artistIDs.map((id) => id.toNumber())).to.not.include(
-                artistAID.toNumber()
-            );
-
-            // Check series is removed from artist's list
-            const artistASeries = await instance.getArtistSeriesIDs(artistA);
-            expect(artistASeries.map((id) => id.toNumber())).to.not.include(
-                firstSeriesID.toNumber()
-            );
-        });
-
-        it("should not allow non-artist to remove themselves", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            // Reverts with custom error: CallerNotASeriesArtistError(...)
-            await expectCustomError(
-                instance.resignFromSeries(firstSeriesID, { from: artistB }),
-                seriesRegistryABI,
-                "CallerNotASeriesArtistError",
-                [firstSeriesID.toString(), artistB]
-            );
-        });
-
-        it("should maintain other artists in series after removal", async () => {
-            await instance.addSeries(
-                [artistA, artistB],
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
                 metadataURI,
-                tokenMapURI,
-                { from: owner }
+                tokenDataURI,
+                { from: artistAddress }
             );
-            await instance.resignFromSeries(firstSeriesID, {
-                from: artistA,
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. check series registered successfully
+            // 2.1. check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 2.2. check series artist ID
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 3. artist invite collaborator to series
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
             });
 
-            const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            const artistBID = await instance.getAddressArtistID(artistB);
-            expect(artistIDs.map((id) => id.toNumber())).to.include(
-                artistBID.toNumber()
+            // 4. collaborator opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
+            });
+
+            // 5. check series artist IDs should include the both artist and collaborator
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID, expectedCollaboratorID]
+            );
+
+            // 6. artist opt out of series
+            const optOutTx = await instance.optOutSeries(seriesID, {
+                from: artistAddress,
+            });
+
+            // 7. check artist should not be in series
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedCollaboratorID]
+            );
+
+            // 8. check collaborator existence globally should be true
+            expect(
+                await instance.getArtistAddress(expectedCollaboratorID)
+            ).to.equal(collaboratorAddress);
+
+            // 9. check collaborator existence in series should be true
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedCollaboratorID]
+            );
+
+            // 10. check artist existence in series should be false
+            expect(await instance.getArtistSeriesIDs(artistAddress)).to.be
+                .empty;
+
+            // 11. check artist existence globally should be false
+            expect(
+                await instance.getArtistAddress(expectedArtistID)
+            ).to.be.equal(zeroAddress);
+
+            // 12. check series administrator should be the collaborator address
+            expect(
+                await instance.getSeriesAdministratorID(seriesID)
+            ).to.be.a.bignumber.that.equals(expectedCollaboratorID);
+
+            // 13. check event emitted
+            expectEvent(optOutTx, "OptOutSeries", {
+                seriesID: seriesID,
+                artistAddress: artistAddress,
+            });
+        });
+
+        it("should be able to opt out of a series if artist has multiple series", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedCollaboratorID = new BN(2);
+            const expectedSeriesIDs = [];
+
+            // 1. register multiple series (2 series)
+            for (let i = 0; i < 2; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                expectedSeriesIDs.push(seriesID);
+
+                // 1.1. check series ID
+                expect(seriesID).to.be.a.bignumber.that.equals(
+                    expectedSeriesIDs[i]
+                );
+
+                // 1.2. check series artist ID
+                expectBigNumberArraysEqual(
+                    await instance.getSeriesArtistIDs(seriesID),
+                    [expectedArtistID]
+                );
+            }
+
+            // 2. artist invite collaborator to a series
+            const seriesID = expectedSeriesIDs[0];
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. collaborator opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
+            });
+
+            // 4. artist opt out series
+            const optOutTx = await instance.optOutSeries(seriesID, {
+                from: artistAddress,
+            });
+
+            // 5. check series existence should be true
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.be.equal(
+                metadataURI
+            );
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.be.equal(
+                tokenDataURI
+            );
+
+            // 6. check total series count should be 2
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(new BN(2));
+
+            // 7. check total artist series should be 1
+            expect(
+                await instance.getTotalArtistSeries(artistAddress)
+            ).to.be.a.bignumber.that.equals(new BN(1));
+
+            // 8. check artist existence globally should be true
+            expect(
+                await instance.getArtistAddress(expectedArtistID)
+            ).to.be.equal(artistAddress);
+
+            // 9. check artist existence in series should be false
+            expectBigNumberArraysEqual(
+                await instance.getArtistSeriesIDs(artistAddress),
+                [expectedSeriesIDs[1]]
+            );
+
+            // 10. check collaborator existence in series should be true
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedCollaboratorID]
+            );
+
+            // 11. check series administrator should be the collaborator address
+            expect(
+                await instance.getSeriesAdministratorID(seriesID)
+            ).to.be.a.bignumber.that.equals(expectedCollaboratorID);
+
+            // 12. check event emitted
+            expectEvent(optOutTx, "OptOutSeries", {
+                seriesID: seriesID,
+                artistAddress: artistAddress,
+            });
+        });
+
+        it("should be able to opt out of a series if the artist has some pending collaboration invitations", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress1 = accounts[1];
+            const collaboratorAddress2 = accounts[2];
+            const expectedArtistID = new BN(1);
+            const expectedCollaboratorID1 = new BN(2);
+            const expectedSeriesID = new BN(1);
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 1.1. check series ID
+            expect(seriesID).to.be.a.bignumber.that.equals(expectedSeriesID);
+
+            // 1.2. check series artist ID
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID]
+            );
+
+            // 2. artist invite collaborators to series (2 collaborators)
+            await instance.inviteCollaborator(seriesID, collaboratorAddress1, {
+                from: artistAddress,
+            });
+            await instance.inviteCollaborator(seriesID, collaboratorAddress2, {
+                from: artistAddress,
+            });
+
+            // 3. one collaborator opt in to series, another collaborator doesn't opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress1,
+            });
+
+            // 3.1. check collaborator 1 should be in series and collaborator 2 should not be in series
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID, expectedCollaboratorID1]
+            );
+
+            // 4. artist opt out series
+            const optOutTx = await instance.optOutSeries(seriesID, {
+                from: artistAddress,
+            });
+
+            // 5. check series existence should be true
+            expect(await instance.getSeriesMetadataURI(seriesID)).to.be.equal(
+                metadataURI
+            );
+            expect(await instance.getSeriesTokenDataURI(seriesID)).to.be.equal(
+                tokenDataURI
+            );
+
+            // 6. check total series count should be 1
+            expect(
+                await instance.getTotalSeries()
+            ).to.be.a.bignumber.that.equals(new BN(1));
+
+            // 7. check total artist series should be 0
+            expect(
+                await instance.getTotalArtistSeries(artistAddress)
+            ).to.be.a.bignumber.that.equals(new BN(0));
+
+            // 8. check total collaborator 1 series should be 1
+            expect(
+                await instance.getTotalArtistSeries(collaboratorAddress1)
+            ).to.be.a.bignumber.that.equals(new BN(1));
+
+            // 9. check total collaborator 2 series should be 0
+            expect(
+                await instance.getTotalArtistSeries(collaboratorAddress2)
+            ).to.be.a.bignumber.that.equals(new BN(0));
+
+            // 10. check artist existence globally should be false
+            expect(
+                await instance.getArtistAddress(expectedArtistID)
+            ).to.be.equal(zeroAddress);
+
+            // 11. check pending collaboration invitations should be empty
+            expect(await instance.getCollaborationInvitees(seriesID)).to.be
+                .empty;
+            expect(
+                await instance.getCollaborationInviterSeriesIDs(artistAddress)
+            ).to.be.empty;
+
+            // 12. check event emitted
+            expectEvent(optOutTx, "OptOutSeries", {
+                seriesID: seriesID,
+                artistAddress: artistAddress,
+            });
+        });
+
+        it("should NOT be able to opt out of a series if the caller is not an artist", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const someoneAddress = accounts[2];
+
+            // 1. register series by artist
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist invite collaborator to series
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. collaborator opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
+            });
+
+            // 4. someone else opt out of series
+            expectCustomError(
+                instance.optOutSeries(seriesID, {
+                    from: someoneAddress,
+                }),
+                abi,
+                "NotArtistError"
             );
         });
 
-        it("should revert if artist tries to remove themselves from a non-existent series", async () => {
-            const nonExistent = new BN("9999");
-            await expectCustomError(
-              instance.resignFromSeries(nonExistent, { from: artistA }),
-              seriesRegistryABI,
-              "SeriesDoesNotExistError",
-              [nonExistent.toString()]
+        it("should NOT be able to opt out of a series if the series does not exist", async () => {
+            expectCustomError(
+                instance.optOutSeries(new BN(1), {
+                    from: accounts[0],
+                }),
+                abi,
+                "SeriesNotExistsError"
+            );
+        });
+
+        it("should NOT be able to opt out of a series if the series is not collaborative", async () => {
+            const artistAddress = accounts[0];
+
+            // 1. register series by artist
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. opt out series by artist
+            expectCustomError(
+                instance.optOutSeries(seriesID, {
+                    from: artistAddress,
+                }),
+                abi,
+                "NotCollaborativeSeriesError"
             );
         });
     });
 
-    describe("ownerUpdateSeriesArtists", () => {
-        it("should allow owner to update artists", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            const newArtists = [artistB, artistC]; // remove A, add B & C
-            const tx = await instance.ownerUpdateSeriesArtists(
-                firstSeriesID,
-                newArtists,
-                { from: owner }
+    // ------------------------------------------------------------------------
+    // batchInviteCollaborators
+    // ------------------------------------------------------------------------
+
+    describe("batchInviteCollaborators", () => {
+        it("should be able to invite multiple collaborators to a series", async () => {
+            const artistAddress = accounts[0];
+            const length = 8;
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+
+                collaboratorAddresses.push(accounts[i + 1]);
+            }
+
+            // 2. invite collaborators to series
+            const tx = await instance.batchInviteCollaborators(
+                seriesIDs,
+                collaboratorAddresses,
+                {
+                    from: artistAddress,
+                }
             );
 
-            // Verify event emission
-            expect(tx.logs[0].event).to.equal("SeriesUpdated");
+            for (let i = 0; i < length; i++) {
+                // 3. check pending collaboration invitation
+                expectAddressArraysEqual(
+                    await instance.getCollaborationInvitees(seriesIDs[i]),
+                    [collaboratorAddresses[i]]
+                );
 
-            // Check new artists are in series
-            const artistIDs = await instance.getSeriesArtistIDs(firstSeriesID);
-            const artistBID = await instance.getAddressArtistID(artistB);
-            const artistURI = await instance.getAddressArtistID(artistC);
-
-            const artistIDNumbers = artistIDs.map((id) => id.toNumber());
-            expect(artistIDNumbers).to.include(artistBID.toNumber());
-            expect(artistIDNumbers).to.include(artistURI.toNumber());
-
-            // Check old artist (A) is removed
-            const artistAID = await instance.getAddressArtistID(artistA);
-            expect(artistIDNumbers).to.not.include(artistAID.toNumber());
+                // 4. check event emitted
+                expectEvent(tx, "InviteCollaborator", {
+                    seriesID: seriesIDs[i],
+                    inviterAddress: artistAddress,
+                    inviteeAddress: collaboratorAddresses[i],
+                });
+            }
         });
 
-        it("should not allow non-owner to update artists", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            // This fails with "Ownable: caller is not the owner", which is a standard OpenZeppelin revert,
-            // not a custom error from our contract. We'll keep the old check:
-            await expectRevert(
-                instance.ownerUpdateSeriesArtists(
-                    firstSeriesID,
-                    [artistB, artistC],
-                    { from: artistA }
-                ),
-                "Ownable: caller is not the owner"
-            );
-        });
+        it("should NOT be able to invite multiple collaborators to a series if amount is too large", async () => {
+            const artistAddress = accounts[0];
+            const length = 51;
 
-        it("should not allow update if all artists revoked owner rights", async () => {
-            await instance.addSeries(
-                [artistA, artistB],
+            // 1. register series
+            const registerSeriesTx = await instance.registerSeries(
+                artistAddress,
                 metadataURI,
-                tokenMapURI,
-                { from: owner }
+                tokenDataURI,
+                { from: artistAddress }
             );
-            // Revoke rights for all current artists
-            await instance.revokeContractOwnerRights({ from: artistA });
-            await instance.revokeContractOwnerRights({ from: artistB });
+            const seriesID = registerSeriesTx.logs[0].args.seriesID;
 
-            // Reverts with custom error: OwnerRightsRevokedForThisSeries(uint256 seriesID)
-            await expectCustomError(
-                instance.ownerUpdateSeriesArtists(
-                    firstSeriesID,
-                    [artistC, artistD],
-                    { from: owner }
+            // 2. construct payload
+            const seriesIDs = [];
+            const collaboratorAddresses = [];
+            for (let i = 0; i < length; i++) {
+                seriesIDs.push(seriesID);
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. check error is `GenericError` with message `seriesCount is too large`
+            expectCustomError(
+                instance.batchInviteCollaborators(
+                    seriesIDs,
+                    collaboratorAddresses,
+                    {
+                        from: artistAddress,
+                    }
                 ),
-                seriesRegistryABI,
-                "OwnerRightsRevokedForThisSeries",
-                [firstSeriesID.toString()]
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
             );
         });
 
-        it("should not allow adding artists who revoked owner rights", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
-            });
-            // Revoke rights for artistA
-            await instance.revokeContractOwnerRights({ from: artistA });
+        it("should NOT be able to invite multiple collaborators to a series if either of the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+            const length = 10;
 
-            await instance.addSeries([artistB], metadataURI, tokenMapURI, {
-                from: artistB,
-            });
-            // Fails with custom error: ArtistRevokedOwnerRightsError(address artistAddr)
-            await expectCustomError(
-                instance.ownerUpdateSeriesArtists(
-                    secondSeriesID,
-                    [artistA, artistB],
-                    { from: owner }
-                ),
-                seriesRegistryABI,
-                "ArtistRevokedOwnerRightsError",
-                [artistA]
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. check error is `GenericError` with message `seriesCount is zero`
+            expectCustomError(
+                instance.batchInviteCollaborators([], collaboratorAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+
+            // 4. check error is `GenericError` with message `arrayLength mismatch`
+            expectCustomError(
+                instance.batchInviteCollaborators(seriesIDs, [], {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
             );
         });
 
-        it("should properly update artists' series lists", async () => {
-            await instance.addSeries([artistA], metadataURI, tokenMapURI, {
-                from: artistA,
+        it("should NOT be able to invite multiple collaborators to a series if array length mismatch", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+            const length = 50;
+
+            // 1. register series
+            const registerSeriesTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerSeriesTx.logs[0].args.seriesID;
+            seriesIDs.push(seriesID);
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. check error is `GenericError` with message `arrayLength mismatch`
+            expectCustomError(
+                instance.batchInviteCollaborators(
+                    seriesIDs,
+                    collaboratorAddresses,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // inviteCollaborator
+    // ------------------------------------------------------------------------
+
+    describe("inviteCollaborator", () => {
+        it("should be able to create collaboration invitation by artist", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist create collaboration invitation
+            const inviteTx = await instance.inviteCollaborator(
+                seriesID,
+                collaboratorAddress,
+                {
+                    from: artistAddress,
+                }
+            );
+
+            // 3. check pending collaboration invitation
+            expectAddressArraysEqual(
+                await instance.getCollaborationInvitees(seriesID),
+                [collaboratorAddress]
+            );
+            expectBigNumberArraysEqual(
+                await instance.getCollaborationInviterSeriesIDs(artistAddress),
+                [seriesID]
+            );
+            expectBigNumberArraysEqual(
+                await instance.getCollaborationInviteeSeriesIDs(
+                    collaboratorAddress
+                ),
+                [seriesID]
+            );
+
+            // 4. check event emitted
+            expectEvent(inviteTx, "InviteCollaborator", {
+                seriesID: seriesID,
+                inviterAddress: artistAddress,
+                inviteeAddress: collaboratorAddress,
             });
-            await instance.ownerUpdateSeriesArtists(
-                firstSeriesID,
-                [artistB, artistC],
-                { from: owner }
+        });
+
+        it("should be able to create collaboration invitation by delegatee", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const delegateeAddress = accounts[2];
+
+            // 1. artist add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 2. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 3. delegatee create collaboration invitation
+            const inviteTx = await instance.inviteCollaborator(
+                seriesID,
+                collaboratorAddress,
+                {
+                    from: delegateeAddress,
+                }
             );
 
-            // Check artistA's series list doesn't contain the series
-            const artistASeries = await instance.getArtistSeriesIDs(artistA);
-            expect(artistASeries.map((id) => id.toString())).to.not.include(
-                firstSeriesID.toString()
+            // 4. check pending collaboration invitation
+            expectAddressArraysEqual(
+                await instance.getCollaborationInvitees(seriesID),
+                [collaboratorAddress]
+            );
+            expectBigNumberArraysEqual(
+                await instance.getCollaborationInviterSeriesIDs(
+                    delegateeAddress
+                ),
+                [seriesID]
+            );
+            expectBigNumberArraysEqual(
+                await instance.getCollaborationInviteeSeriesIDs(
+                    collaboratorAddress
+                ),
+                [seriesID]
             );
 
-            // Check artistC's series list contains the series
-            const artistCSeries = await instance.getArtistSeriesIDs(artistC);
-            expect(artistCSeries.map((id) => id.toString())).to.include(
-                firstSeriesID.toString()
+            // 5. check event emitted
+            expectEvent(inviteTx, "InviteCollaborator", {
+                seriesID: seriesID,
+                inviterAddress: delegateeAddress,
+                inviteeAddress: collaboratorAddress,
+            });
+        });
+
+        it("should NOT be able to create collaboration invitation if the caller is not an artist or delegatee", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const someoneAddress = accounts[2];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. someone else create collaboration invitation
+            expectCustomError(
+                instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                    from: someoneAddress,
+                }),
+                abi,
+                "NotAuthorizedError"
+            );
+        });
+
+        it("should NOT be able to create collaboration invitation if the series does not exist", async () => {
+            expectCustomError(
+                instance.inviteCollaborator(new BN(1), accounts[1], {
+                    from: accounts[0],
+                }),
+                abi,
+                "SeriesNotExistsError"
+            );
+        });
+
+        it("should NOT be able to create collaboration invitation if the collaborator is already in the series", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist create collaboration invitation
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. invitee opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
+            });
+
+            // 4. check error is `ArtistExistsError`
+            expectCustomError(
+                instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "ArtistExistsError"
+            );
+        });
+
+        it("should NOT be able to create collaboration invitation if the collaborator is already invited to the series", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist create collaboration invitation
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. check error is `DuplicateInvitationError`
+            expectCustomError(
+                instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "DuplicateInvitationError"
+            );
+        });
+
+        it("should NOT be able to create collaboration invitation if the collaborator address is zero", async () => {
+            const artistAddress = accounts[0];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. check error is `GenericError` with message `invitee address is zero`
+            expectCustomError(
+                instance.inviteCollaborator(seriesID, zeroAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["invitee address is zero"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchCancelCollaborationInvitations
+    // ------------------------------------------------------------------------
+
+    describe("batchCancelCollaborationInvitations", () => {
+        it("should be able to cancel multiple collaborators invitation", async () => {
+            const artistAddress = accounts[0];
+            const length = 8;
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. invite collaborators to series
+            await instance.batchInviteCollaborators(
+                seriesIDs,
+                collaboratorAddresses,
+                { from: artistAddress }
+            );
+
+            // 4. cancel multiple collaborators invitation
+            const tx = await instance.batchCancelCollaborationInvitations(
+                seriesIDs,
+                collaboratorAddresses,
+                { from: artistAddress }
+            );
+
+            for (let i = 0; i < length; i++) {
+                // 5. check pending collaboration invitation should be empty
+                expect(await instance.getCollaborationInvitees(seriesIDs[i])).to
+                    .be.empty;
+
+                // 6. check event emitted
+                expectEvent(tx, "CancelCollaborationInvitation", {
+                    seriesID: seriesIDs[i],
+                    inviteeAddress: collaboratorAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to cancel multiple collaborators invitation if amount is too large", async () => {
+            const artistAddress = accounts[0];
+            const length = 51;
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. invite collaborators to series
+            for (let i = 0; i < length; i++) {
+                await instance.inviteCollaborator(
+                    seriesIDs[i],
+                    collaboratorAddresses[i],
+                    {
+                        from: artistAddress,
+                    }
+                );
+            }
+
+            // 4. check error is `GenericError` with message `seriesCount is too large`
+            expectCustomError(
+                instance.batchCancelCollaborationInvitations(
+                    seriesIDs,
+                    collaboratorAddresses,
+                    { from: artistAddress }
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
+            );
+        });
+
+        it("should NOT be able to cancel multiple collaborators invitation if either of the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+            const length = 10;
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. invite collaborators to series
+            await instance.batchInviteCollaborators(
+                seriesIDs,
+                collaboratorAddresses,
+                { from: artistAddress }
+            );
+
+            // 4. check error is `GenericError` with message `seriesCount is zero`
+            expectCustomError(
+                instance.batchCancelCollaborationInvitations(
+                    [],
+                    collaboratorAddresses,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+
+            // 5. check error is `GenericError` with message `arrayLength mismatch`
+            expectCustomError(
+                instance.batchCancelCollaborationInvitations(seriesIDs, [], {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to cancel multiple collaborators invitation if array length mismatch", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddresses = [];
+            const seriesIDs = [];
+            const length = 10;
+
+            // 1. register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                const seriesID = tx.logs[0].args.seriesID;
+                seriesIDs.push(seriesID);
+            }
+
+            // 2. construct payload
+            for (let i = 0; i < length; i++) {
+                collaboratorAddresses.push(accounts[1]);
+            }
+
+            // 3. invite collaborators to series
+            await instance.batchInviteCollaborators(
+                seriesIDs,
+                collaboratorAddresses,
+                { from: artistAddress }
+            );
+
+            // 4. check error is `GenericError` with message `arrayLength mismatch`
+            expectCustomError(
+                instance.batchCancelCollaborationInvitations(
+                    seriesIDs,
+                    collaboratorAddresses.slice(0, length - 1),
+                    { from: artistAddress }
+                ),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // cancelCollaborationInvitation
+    // ------------------------------------------------------------------------
+
+    describe("cancelCollaborationInvitation", () => {
+        it("should be able to cancel a collaboration invitation invited by artist", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist create collaboration invitation
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. artist cancel collaboration invitation
+            const cancelTx = await instance.cancelCollaborationInvitation(
+                seriesID,
+                collaboratorAddress,
+                { from: artistAddress }
+            );
+
+            // 4. check pending collaboration invitation should be empty
+            expect(await instance.getCollaborationInvitees(seriesID)).to.be
+                .empty;
+
+            // 5. check pending collaborative series should be empty
+            expect(
+                await instance.getCollaborationInviterSeriesIDs(artistAddress)
+            ).to.be.empty;
+
+            // 6. check event emitted
+            expectEvent(cancelTx, "CancelCollaborationInvitation", {
+                seriesID: seriesID,
+                inviteeAddress: collaboratorAddress,
+            });
+        });
+
+        it("should be able to cancel a collaboration invitation invited by delegatee", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const delegateeAddress = accounts[2];
+
+            // 1. artist add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 2. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 3. delegatee create collaboration invitation
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: delegateeAddress,
+            });
+
+            // 4. delegatee cancel collaboration invitation
+            const cancelTx = await instance.cancelCollaborationInvitation(
+                seriesID,
+                collaboratorAddress,
+                { from: delegateeAddress }
+            );
+
+            // 5. check pending collaboration invitation should be empty
+            expect(await instance.getCollaborationInvitees(seriesID)).to.be
+                .empty;
+
+            // 6. check pending collaborative series should be empty
+            expect(
+                await instance.getCollaborationInviterSeriesIDs(artistAddress)
+            ).to.be.empty;
+
+            // 7. check event emitted
+            expectEvent(cancelTx, "CancelCollaborationInvitation", {
+                seriesID: seriesID,
+                inviteeAddress: collaboratorAddress,
+            });
+        });
+
+        it("should NOT be able to cancel a collaboration invitation if the series does not exist", async () => {
+            expectCustomError(
+                instance.cancelCollaborationInvitation(new BN(1), accounts[1], {
+                    from: accounts[0],
+                }),
+                abi,
+                "SeriesNotExistsError"
+            );
+        });
+
+        it("should NOT be able to cancel a collaboration invitation if the collaborator is not invited to the series", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist cancel collaboration invitation for collaborator that is not invited to the series
+            expectCustomError(
+                instance.cancelCollaborationInvitation(
+                    seriesID,
+                    collaboratorAddress,
+                    {
+                        from: artistAddress,
+                    }
+                ),
+                abi,
+                "NotCollaborationInviterError",
+                [artistAddress]
+            );
+        });
+
+        it("should NOT be able to cancel a collaboration invitation if it's not invited by the caller", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const someoneAddress = accounts[2];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist create collaboration invitation
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. someone else cancel collaboration invitation
+            expectCustomError(
+                instance.cancelCollaborationInvitation(
+                    seriesID,
+                    collaboratorAddress,
+                    {
+                        from: someoneAddress,
+                    }
+                ),
+                abi,
+                "NotCollaborationInviterError",
+                [someoneAddress]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // optInCollaboration
+    // ------------------------------------------------------------------------
+
+    describe("optInCollaboration", () => {
+        it("should be able to opt in to a series", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+            const expectedArtistID = new BN(1);
+            const expectedCollaboratorID = new BN(2);
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist create collaboration invitation
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. collaborator opt in to series
+            const optInTx = await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
+            });
+
+            // 4. check pending collaboration invitation should be empty
+            expect(await instance.getCollaborationInvitees(seriesID)).to.be
+                .empty;
+
+            // 5. check pending collaborative series should be empty
+            expect(
+                await instance.getCollaborationInviterSeriesIDs(artistAddress)
+            ).to.be.empty;
+
+            // 6. check total artist in series should be 2
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistAddress, collaboratorAddress]
+            );
+            expectBigNumberArraysEqual(
+                await instance.getSeriesArtistIDs(seriesID),
+                [expectedArtistID, expectedCollaboratorID]
+            );
+
+            // 7. check event emitted
+            expectEvent(optInTx, "OptInCollaboration", {
+                seriesID: seriesID,
+                collaboratorAddress: collaboratorAddress,
+            });
+        });
+
+        it("should NOT be able to opt in to a series if the series does not exist", async () => {
+            expectCustomError(
+                instance.optInCollaboration(new BN(1), {
+                    from: accounts[1],
+                }),
+                abi,
+                "SeriesNotExistsError"
+            );
+        });
+
+        it("should NOT be able to opt in to a series if the collaborator is not invited to the series", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. collaborator opt in to series
+            expectCustomError(
+                instance.optInCollaboration(seriesID, {
+                    from: collaboratorAddress,
+                }),
+                abi,
+                "NotPendingInvitationError",
+                [seriesID, collaboratorAddress]
+            );
+        });
+
+        it("should NOT be able to opt in to a series if the collaborator is already in the series", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+
+            // 1. artist register series
+            const tx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 2. artist send collaboration invitation to collaborator
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. collaborator opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
+            });
+
+            // 4. collaborator opt in to series again
+            expectCustomError(
+                instance.optInCollaboration(seriesID, {
+                    from: collaboratorAddress,
+                }),
+                abi,
+                "NotPendingInvitationError",
+                [seriesID, collaboratorAddress]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // updateArtistAddress
+    // ------------------------------------------------------------------------
+
+    describe("updateArtistAddress", () => {
+        it("should be able to update an artist's address to a new address hasn't been assigned to any series", async () => {
+            const artistAddress = accounts[0];
+            const newArtistAddress = accounts[1];
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < 2; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. artist update artist address to a new address hasn't been assigned to any series
+            const tx = await instance.updateArtistAddress(newArtistAddress, {
+                from: artistAddress,
+            });
+
+            // 3. check series artist addresses should include only the new address
+            for (let i = 0; i < seriesIDs.length; i++) {
+                expectAddressArraysEqual(
+                    await instance.getSeriesArtistAddresses(seriesIDs[i]),
+                    [newArtistAddress]
+                );
+            }
+
+            // 4. check total artist series
+            expect(
+                await instance.getTotalArtistSeries(artistAddress)
+            ).to.be.a.bignumber.that.equals(new BN(0));
+            expect(
+                await instance.getTotalArtistSeries(newArtistAddress)
+            ).to.be.a.bignumber.that.equals(new BN(2));
+
+            // 5. check event emitted
+            expectEvent(tx, "UpdateArtistAddress", {
+                oldAddress: artistAddress,
+                newAddress: newArtistAddress,
+            });
+        });
+
+        it("should be able to update an artist's address to a new address that has been assigned to another series", async () => {
+            const artistAAddress = accounts[0];
+            const artistBAddress = accounts[1];
+
+            // 1. artist A register series
+            const txA = await instance.registerSeries(
+                artistAAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAAddress }
+            );
+            const seriesIDA = txA.logs[0].args.seriesID;
+
+            // 2. artist B register series
+            const txB = await instance.registerSeries(
+                artistBAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistBAddress }
+            );
+            const seriesIDB = txB.logs[0].args.seriesID;
+
+            // 3. artist A update artist address to artist B's address
+            const tx = await instance.updateArtistAddress(artistBAddress, {
+                from: artistAAddress,
+            });
+
+            // 4. check series artist addresses should include the new address
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesIDA),
+                [artistBAddress]
+            );
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesIDB),
+                [artistBAddress]
+            );
+
+            // 5. check total artist series
+            expect(
+                await instance.getTotalArtistSeries(artistAAddress)
+            ).to.be.a.bignumber.that.equals(new BN(0));
+            expect(
+                await instance.getTotalArtistSeries(artistBAddress)
+            ).to.be.a.bignumber.that.equals(new BN(2));
+
+            // 6. check event emitted
+            expectEvent(tx, "AssignSeries", {
+                seriesID: seriesIDA,
+                assignerAddress: artistAAddress,
+                assigneeAddress: artistBAddress,
+            });
+        });
+
+        it("should be able to update an artist's address to a new address that both of them has delegatees", async () => {
+            const artistAAddress = accounts[0];
+            const artistBAddress = accounts[1];
+            const delegateeAAddress = accounts[2];
+            const delegateeBAddress = accounts[3];
+
+            // 1. artist A add delegatee
+            await instance.addDelegatee(delegateeAAddress, {
+                from: artistAAddress,
+            });
+
+            // 2. artist B add delegatee
+            await instance.addDelegatee(delegateeBAddress, {
+                from: artistBAddress,
+            });
+
+            // 3. artist A register series
+            const tx = await instance.registerSeries(
+                artistAAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 4. artist A update artist address to person B's address
+            const updateTx = await instance.updateArtistAddress(
+                artistBAddress,
+                {
+                    from: artistAAddress,
+                }
+            );
+
+            // 5. check series artist addresses should include the new address
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistBAddress]
+            );
+
+            // 6. check series delegatees should include the new address's delegatee address
+            expectAddressArraysEqual(
+                await instance.getSeriesDelegatees(seriesID),
+                [delegateeBAddress]
+            );
+
+            // 7. check the delegatee address should be the same as before
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistAAddress),
+                [delegateeAAddress]
+            );
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistBAddress),
+                [delegateeBAddress]
+            );
+
+            // 8. check event emitted
+            expectEvent(updateTx, "UpdateArtistAddress", {
+                oldAddress: artistAAddress,
+                newAddress: artistBAddress,
+            });
+        });
+
+        it("should be able to update an artist's address to a new address that the old address has pending collaboration invitations", async () => {
+            const artistAAddress = accounts[0];
+            const artistBAddress = accounts[1];
+            const collaboratorAddress1 = accounts[2];
+            const collaboratorAddress2 = accounts[3];
+            const delegateeAddress = accounts[4];
+
+            // 1. artist A add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAAddress,
+            });
+
+            // 2. artist A register series
+            const tx = await instance.registerSeries(
+                artistAAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAAddress }
+            );
+            const seriesID = tx.logs[0].args.seriesID;
+
+            // 3. artist A create collaboration invitation
+            await instance.inviteCollaborator(seriesID, collaboratorAddress1, {
+                from: artistAAddress,
+            });
+
+            // 4. delegatee create collaboration invitation
+            await instance.inviteCollaborator(seriesID, collaboratorAddress2, {
+                from: delegateeAddress,
+            });
+
+            // 5. artist A update artist address to artist B's address
+            const updateTx = await instance.updateArtistAddress(
+                artistBAddress,
+                {
+                    from: artistAAddress,
+                }
+            );
+
+            // 6. check series artist addresses should include only the new address
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [artistBAddress]
+            );
+
+            // 7. check total artist series
+            expect(
+                await instance.getTotalArtistSeries(artistAAddress)
+            ).to.be.a.bignumber.that.equals(new BN(0));
+            expect(
+                await instance.getTotalArtistSeries(artistBAddress)
+            ).to.be.a.bignumber.that.equals(new BN(1));
+
+            // 8. check pending collaboration invitations.
+            // since the collaborator is invited by the artist A, so the collaboration invitation
+            // should be transferred to the artist B.
+            // All the invitation created by artist A's delegatee should be terminated.
+
+            // 8.1. the collaboration invitation should be still.
+            expectAddressArraysEqual(
+                await instance.getCollaborationInvitees(seriesID),
+                [collaboratorAddress1]
+            );
+
+            // 8.2. the artist A's collaboration invitations should be terminated.
+            expect(
+                await instance.getCollaborationInviterSeriesIDs(artistAAddress)
+            ).to.be.empty;
+
+            // 8.3. the artist A's collaboration invitations should be transferred to the artist B.
+            expectBigNumberArraysEqual(
+                await instance.getCollaborationInviterSeriesIDs(artistBAddress),
+                [seriesID]
+            );
+
+            // 8.4. the artist A's delegatee's collaboration invitations should be terminated.
+            expect(
+                await instance.getCollaborationInviterSeriesIDs(
+                    delegateeAddress
+                )
+            ).to.be.empty;
+
+            // 9. check event emitted
+            expectEvent(updateTx, "UpdateArtistAddress", {
+                oldAddress: artistAAddress,
+                newAddress: artistBAddress,
+            });
+        });
+
+        it("should NOT be able to update an artist's address to a new address that is the same as the current address", async () => {
+            const artistAddress = accounts[0];
+
+            // 1. artist register series
+            await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+
+            // 2. update artist address to the same address
+            expectCustomError(
+                instance.updateArtistAddress(artistAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "SameAddressError",
+                [artistAddress]
+            );
+        });
+
+        it("should NOT be able to update an artist's address to a new address that is zero", async () => {
+            const artistAddress = accounts[0];
+
+            // 1. artist register series
+            await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+
+            // 2. update artist address to zero address
+            expectCustomError(
+                instance.updateArtistAddress(zeroAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["new address is zero"]
+            );
+        });
+
+        it("should NOT be able to update an artist's address if the caller is not an artist", async () => {
+            expectCustomError(
+                instance.updateArtistAddress(accounts[1], {
+                    from: accounts[0],
+                }),
+                abi,
+                "NotArtistError",
+                [accounts[0]]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchAddDelegatees
+    // ------------------------------------------------------------------------
+
+    describe("batchAddDelegatees", () => {
+        it("should be able to add multiple delegatees", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [
+                accounts[1],
+                accounts[2],
+                accounts[3],
+                accounts[4],
+                accounts[5],
+            ];
+
+            // 1. add delegatees
+            const tx = await instance.batchAddDelegatees(delegateeAddresses, {
+                from: artistAddress,
+            });
+
+            // 2. check all delegatees should be added
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistAddress),
+                delegateeAddresses
+            );
+
+            // 3. check event emitted
+            for (let i = 0; i < delegateeAddresses.length; i++) {
+                expectEvent(tx, "AddDelegatee", {
+                    delegator: artistAddress,
+                    delegatee: delegateeAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to add multiple delegatees if the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [];
+
+            expectCustomError(
+                instance.batchAddDelegatees(delegateeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["delegateeCount is zero"]
+            );
+        });
+
+        it("should NOT be able to add multiple delegatees if the array is too large", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [];
+
+            for (let i = 0; i < 51; i++) {
+                const delegatee = "0x" + (i + 1).toString(16).padStart(40, "0");
+                delegateeAddresses.push(delegatee);
+            }
+
+            expectCustomError(
+                instance.batchAddDelegatees(delegateeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["delegateeCount is too large"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // addDelegatee
+    // ------------------------------------------------------------------------
+
+    describe("addDelegatee", () => {
+        it("should be able to add a delegatee by artist", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+            const seriesIDs = [];
+
+            // 1. artist register multiple series (2 series)
+            for (let i = 0; i < 2; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. artist add delegatee
+            const tx = await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 3. check all series delegatees should include the delegatee address
+            for (let i = 0; i < seriesIDs.length; i++) {
+                expectAddressArraysEqual(
+                    await instance.getSeriesDelegatees(seriesIDs[i]),
+                    [delegateeAddress]
+                );
+            }
+
+            // 4. check artist delegatees should include the delegatee address
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistAddress),
+                [delegateeAddress]
+            );
+
+            // 5. check event emitted
+            expectEvent(tx, "AddDelegatee", {
+                delegator: artistAddress,
+                delegatee: delegateeAddress,
+            });
+        });
+
+        it("should be able to add a delegatee by a person who is not an artist", async () => {
+            const someoneAddress = accounts[1];
+            const delegateeAddress = accounts[2];
+
+            // 1. someone add delegatee
+            const tx = await instance.addDelegatee(delegateeAddress, {
+                from: someoneAddress,
+            });
+
+            // 2. check delegatee should be the same as the delegatee address
+            expectAddressArraysEqual(
+                await instance.getDelegatees(someoneAddress),
+                [delegateeAddress]
+            );
+
+            // 3. check event emitted
+            expectEvent(tx, "AddDelegatee", {
+                delegator: someoneAddress,
+                delegatee: delegateeAddress,
+            });
+        });
+
+        it("should NOT be able to add a delegatee if the delegatee address is zero", async () => {
+            expectCustomError(
+                instance.addDelegatee(zeroAddress, {
+                    from: accounts[0],
+                }),
+                abi,
+                "GenericError",
+                ["delegatee address is zero"]
+            );
+        });
+
+        it("should NOT be able to add a delegatee if the delegatee is already a delegatee", async () => {
+            const delegatorAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+
+            // 1. add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: delegatorAddress,
+            });
+
+            // 2. add delegatee again
+            expectCustomError(
+                instance.addDelegatee(delegateeAddress, {
+                    from: delegatorAddress,
+                }),
+                abi,
+                "DuplicateDelegateeError",
+                [delegatorAddress, delegateeAddress]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchRemoveDelegatees
+    // ------------------------------------------------------------------------
+
+    describe("batchRemoveDelegatees", () => {
+        it("should be able to remove multiple delegatees", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [
+                accounts[1],
+                accounts[2],
+                accounts[3],
+                accounts[4],
+                accounts[5],
+            ];
+
+            // 1. add delegatees
+            await instance.batchAddDelegatees(delegateeAddresses, {
+                from: artistAddress,
+            });
+
+            // 2. remove multiple delegatees
+            const tx = await instance.batchRemoveDelegatees(
+                delegateeAddresses,
+                {
+                    from: artistAddress,
+                }
+            );
+
+            // 3. check all delegatees should be removed
+            expect(await instance.getDelegatees(artistAddress)).to.be.empty;
+
+            // 4. check event emitted
+            for (let i = 0; i < delegateeAddresses.length; i++) {
+                expectEvent(tx, "RemoveDelegatee", {
+                    delegator: artistAddress,
+                    delegatee: delegateeAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to remove multiple delegatees if the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [];
+
+            expectCustomError(
+                instance.batchRemoveDelegatees(delegateeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["delegateeCount is zero"]
+            );
+        });
+
+        it("should NOT be able to remove multiple delegatees if the array is too large", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddresses = [];
+
+            // 1. add delegatees
+            for (let i = 0; i < 51; i++) {
+                const delegatee = "0x" + (i + 1).toString(16).padStart(40, "0");
+                await instance.addDelegatee(delegatee, {
+                    from: artistAddress,
+                });
+                delegateeAddresses.push(delegatee);
+            }
+
+            // 2. remove delegatees
+            expectCustomError(
+                instance.batchRemoveDelegatees(delegateeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["delegateeCount is too large"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // removeDelegatee
+    // ------------------------------------------------------------------------
+
+    describe("removeDelegatee", () => {
+        it("should be able to remove a delegatee by artist", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+            const seriesIDs = [];
+
+            // 1. artist register multiple series (2 series)
+            for (let i = 0; i < 2; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. artist add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 3. check all series delegatees should include the delegatee address
+            for (let i = 0; i < seriesIDs.length; i++) {
+                expectAddressArraysEqual(
+                    await instance.getSeriesDelegatees(seriesIDs[i]),
+                    [delegateeAddress]
+                );
+            }
+
+            // 4. check artist delegatees should include the delegatee address
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistAddress),
+                [delegateeAddress]
+            );
+
+            // 5. artist remove delegatee
+            const tx = await instance.removeDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 6. check all series delegatees should NOT include the delegatee address
+            for (let i = 0; i < seriesIDs.length; i++) {
+                expect(await instance.getSeriesDelegatees(seriesIDs[i])).to.be
+                    .empty;
+            }
+
+            // 7. check artist delegatees should NOT include the delegatee address
+            expect(await instance.getDelegatees(artistAddress)).to.be.empty;
+
+            // 8. check event emitted
+            expectEvent(tx, "RemoveDelegatee", {
+                delegator: artistAddress,
+                delegatee: delegateeAddress,
+            });
+        });
+
+        it("should be able to remove a delegatee by someone else", async () => {
+            const delegatorAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+
+            // 1. delegator add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: delegatorAddress,
+            });
+
+            // 2. check delegatee address related to the delegator address
+            expectAddressArraysEqual(
+                await instance.getDelegatees(delegatorAddress),
+                [delegateeAddress]
+            );
+
+            // 3. delegator remove delegatee
+            const tx = await instance.removeDelegatee(delegateeAddress, {
+                from: delegatorAddress,
+            });
+
+            // 4. check his delegatees should NOT include the delegatee address
+            expect(await instance.getDelegatees(delegatorAddress)).to.be.empty;
+
+            // 5. check event emitted
+            expectEvent(tx, "RemoveDelegatee", {
+                delegator: delegatorAddress,
+                delegatee: delegateeAddress,
+            });
+        });
+
+        it("should be able to remove a delegatee even there are some pending collaboration invitations sent by the delegatee", async () => {
+            const artistAddress = accounts[0];
+            const delegateeAddress = accounts[1];
+            const collaboratorAddress = accounts[2];
+            const seriesIDs = [];
+
+            // 1. artist register series
+            for (let i = 0; i < 2; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. artist add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 3. delegatee create collaboration invitation
+            for (let i = 0; i < seriesIDs.length; i++) {
+                await instance.inviteCollaborator(
+                    seriesIDs[i],
+                    collaboratorAddress,
+                    { from: delegateeAddress }
+                );
+            }
+
+            // 4. artist remove delegatee
+            const tx = await instance.removeDelegatee(delegateeAddress, {
+                from: artistAddress,
+            });
+
+            // 5. check artist delegatees should NOT include the delegatee address
+            expect(await instance.getDelegatees(artistAddress)).to.be.empty;
+
+            // 6. check series delegatees should NOT include the delegatee address
+            for (let i = 0; i < seriesIDs.length; i++) {
+                expect(await instance.getSeriesDelegatees(seriesIDs[i])).to.be
+                    .empty;
+            }
+
+            // 7. check pending collaboration invitations should be empty
+            for (let i = 0; i < seriesIDs.length; i++) {
+                expect(await instance.getCollaborationInvitees(seriesIDs[i])).to
+                    .be.empty;
+            }
+
+            // 8. check event emitted
+            expectEvent(tx, "RemoveDelegatee", {
+                delegator: artistAddress,
+                delegatee: delegateeAddress,
+            });
+        });
+
+        it("should NOT be able to remove a delegatee if the delegatee address is zero", async () => {
+            expectCustomError(
+                instance.removeDelegatee(zeroAddress, {
+                    from: accounts[0],
+                }),
+                abi,
+                "GenericError",
+                ["delegatee address is zero"]
+            );
+        });
+
+        it("should NOT be able to remove a delegatee if the delegatee is not a delegatee", async () => {
+            expectCustomError(
+                instance.removeDelegatee(accounts[1], {
+                    from: accounts[0],
+                }),
+                abi,
+                "NotDelegateeError",
+                [accounts[0], accounts[1]]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // batchAssignSeries
+    // ------------------------------------------------------------------------
+
+    describe("batchAssignSeries", () => {
+        it("should be able to assign multiple series", async () => {
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+            const length = 5;
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. construct payload
+            const assigneeAddresses = [];
+            for (let i = 0; i < length; i++) {
+                assigneeAddresses.push(accounts[i + 1]);
+            }
+
+            // 3. assign series
+            const tx = await instance.batchAssignSeries(
+                seriesIDs,
+                assigneeAddresses,
+                {
+                    from: artistAddress,
+                }
+            );
+
+            // 4. check all series should be assigned to the assignee addresses
+            for (let i = 0; i < length; i++) {
+                expectAddressArraysEqual(
+                    await instance.getSeriesArtistAddresses(seriesIDs[i]),
+                    [assigneeAddresses[i]]
+                );
+            }
+
+            // 5. check event emitted
+            for (let i = 0; i < length; i++) {
+                expectEvent(tx, "AssignSeries", {
+                    seriesID: seriesIDs[i],
+                    assignerAddress: artistAddress,
+                    assigneeAddress: assigneeAddresses[i],
+                });
+            }
+        });
+
+        it("should NOT be able to assign multiple series to an artist if the array is empty", async () => {
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+            const length = 5;
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. construct payload
+            const assigneeAddresses = [];
+            for (let i = 0; i < length; i++) {
+                assigneeAddresses.push(accounts[i + 1]);
+            }
+
+            // 3. assign series with empty series IDs
+            expectCustomError(
+                instance.batchAssignSeries([], assigneeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["seriesCount is zero"]
+            );
+
+            // 4. assign series with empty assignee addresses
+            expectCustomError(
+                instance.batchAssignSeries(seriesIDs, [], {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["arrayLength mismatch"]
+            );
+        });
+
+        it("should NOT be able to assign multiple series to an artist if the array is too large", async () => {
+            const artistAddress = accounts[0];
+            const seriesIDs = [];
+            const length = 51;
+
+            // 1. artist register series
+            for (let i = 0; i < length; i++) {
+                const tx = await instance.registerSeries(
+                    artistAddress,
+                    metadataURI,
+                    tokenDataURI,
+                    { from: artistAddress }
+                );
+                seriesIDs.push(tx.logs[0].args.seriesID);
+            }
+
+            // 2. construct payload
+            const assigneeAddresses = [];
+            for (let i = 0; i < length; i++) {
+                const assignee = "0x" + (i + 1).toString(16).padStart(40, "0");
+                assigneeAddresses.push(assignee);
+            }
+
+            // 3. assign series
+            expectCustomError(
+                instance.batchAssignSeries(seriesIDs, assigneeAddresses, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["seriesCount is too large"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // assignSeries
+    // ------------------------------------------------------------------------
+
+    describe("assignSeries", () => {
+        it("should be able to assign a series to an artist", async () => {
+            const artistAAddress = accounts[0];
+            const artistBAddress = accounts[1];
+            const expectedArtistBID = new BN(2);
+
+            // 1. artist A register series
+            const registerTxA = await instance.registerSeries(
+                artistAAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAAddress }
+            );
+            const seriesID1 = registerTxA.logs[0].args.seriesID;
+
+            // 2. artist B register series
+            const registerTxB = await instance.registerSeries(
+                artistBAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistBAddress }
+            );
+            const seriesID2 = registerTxB.logs[0].args.seriesID;
+
+            // 3. artist A assign series to artist B
+            const assignTx = await instance.assignSeries(
+                seriesID1,
+                artistBAddress,
+                { from: artistAAddress }
+            );
+
+            // 4. check artist A series count should be 0
+            expect(
+                await instance.getTotalArtistSeries(artistAAddress)
+            ).to.be.a.bignumber.that.equal(new BN(0));
+
+            // 5. check artist B series count should be 2
+            expect(
+                await instance.getTotalArtistSeries(artistBAddress)
+            ).to.be.a.bignumber.that.equal(new BN(2));
+
+            // 6. check series artists
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID1),
+                [artistBAddress]
+            );
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID2),
+                [artistBAddress]
+            );
+
+            // 7. check series administrator should be artist B
+            expect(
+                await instance.getSeriesAdministratorID(seriesID1)
+            ).to.be.a.bignumber.that.equal(expectedArtistBID);
+            expect(
+                await instance.getSeriesAdministratorID(seriesID2)
+            ).to.be.a.bignumber.that.equal(expectedArtistBID);
+
+            // 9. check event emitted
+            expectEvent(assignTx, "AssignSeries", {
+                seriesID: seriesID1,
+                assignerAddress: artistAAddress,
+                assigneeAddress: artistBAddress,
+            });
+        });
+
+        it("should be able to assign a series to someone else that is not an artist", async () => {
+            const artistAddress = accounts[0];
+            const assigneeAddress = accounts[1];
+            const expectedAssigneeID = new BN(2);
+
+            // 1. artist A register series
+            const registerTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerTx.logs[0].args.seriesID;
+
+            // 2. artist A assign series to person B
+            const assignTx = await instance.assignSeries(
+                seriesID,
+                assigneeAddress,
+                { from: artistAddress }
+            );
+
+            // 3. check artist A series count should be 0
+            expect(
+                await instance.getTotalArtistSeries(artistAddress)
+            ).to.be.a.bignumber.that.equal(new BN(0));
+
+            // 4. check series artists should include person B
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID),
+                [assigneeAddress]
+            );
+
+            // 5. check series administrator should be person B
+            expect(
+                await instance.getSeriesAdministratorID(seriesID)
+            ).to.be.a.bignumber.that.equal(expectedAssigneeID);
+
+            // 6. check event emitted
+            expectEvent(assignTx, "AssignSeries", {
+                seriesID: seriesID,
+                assignerAddress: artistAddress,
+                assigneeAddress: assigneeAddress,
+            });
+        });
+
+        it("should be able to assign a series to an artist that has delegatees", async () => {
+            const artistAAddress = accounts[0];
+            const artistBAddress = accounts[1];
+            const delegateeAddress = accounts[2];
+
+            // 1. artist A register series
+            const registerTxA = await instance.registerSeries(
+                artistAAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAAddress }
+            );
+            const seriesID1 = registerTxA.logs[0].args.seriesID;
+
+            // 2. artist B add delegatee
+            await instance.addDelegatee(delegateeAddress, {
+                from: artistBAddress,
+            });
+
+            // 3. artist B register series
+            const registerTxB = await instance.registerSeries(
+                artistBAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistBAddress }
+            );
+            const seriesID2 = registerTxB.logs[0].args.seriesID;
+
+            // 4. artist A assign series to artist B
+            const assignTx = await instance.assignSeries(
+                seriesID1,
+                artistBAddress,
+                { from: artistAAddress }
+            );
+
+            // 5. check artist A series count should be 0
+            expect(
+                await instance.getTotalArtistSeries(artistAAddress)
+            ).to.be.a.bignumber.that.equal(new BN(0));
+
+            // 6. check artist B series count should be 2
+            expect(
+                await instance.getTotalArtistSeries(artistBAddress)
+            ).to.be.a.bignumber.that.equal(new BN(2));
+
+            // 7. check series artists should NOT include artist A
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID1),
+                [artistBAddress]
+            );
+            expectAddressArraysEqual(
+                await instance.getSeriesArtistAddresses(seriesID2),
+                [artistBAddress]
+            );
+
+            // 8. check series delegatees should include the artist B's delegatee address
+            expectAddressArraysEqual(
+                await instance.getSeriesDelegatees(seriesID1),
+                [delegateeAddress]
+            );
+            expectAddressArraysEqual(
+                await instance.getSeriesDelegatees(seriesID2),
+                [delegateeAddress]
+            );
+
+            // 9. check artist delegatees should be the same as before
+            expect(await instance.getDelegatees(artistAAddress)).to.be.empty;
+            expectAddressArraysEqual(
+                await instance.getDelegatees(artistBAddress),
+                [delegateeAddress]
+            );
+
+            // 10. check event emitted
+            expectEvent(assignTx, "AssignSeries", {
+                seriesID: seriesID1,
+                assignerAddress: artistAAddress,
+                assigneeAddress: artistBAddress,
+            });
+        });
+
+        it("should NOT be able to assign a series to an artist that is already a collaborator", async () => {
+            const artistAddress = accounts[0];
+            const collaboratorAddress = accounts[1];
+
+            // 1. artist A register series
+            const registerTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerTx.logs[0].args.seriesID;
+
+            // 2. artist A invite artist B to series
+            await instance.inviteCollaborator(seriesID, collaboratorAddress, {
+                from: artistAddress,
+            });
+
+            // 3. artist B opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: collaboratorAddress,
+            });
+
+            // 4. artist A assign series to artist B
+            expectCustomError(
+                instance.assignSeries(seriesID, collaboratorAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "ArtistExistsError",
+                [collaboratorAddress]
+            );
+        });
+
+        it("should NOT be able to assign a series to the same address", async () => {
+            const artistAddress = accounts[0];
+
+            // 1. artist register series
+            const registerTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerTx.logs[0].args.seriesID;
+
+            // 2. artist assign series to himself
+            expectCustomError(
+                instance.assignSeries(seriesID, artistAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "SameAddressError",
+                [artistAddress]
+            );
+        });
+
+        it("should NOT be able to assign a series by an artist that does not exist", async () => {
+            const artistAddress = accounts[0];
+            const assigneeAddress = accounts[1];
+            const assignerAddress = accounts[2];
+
+            // 1. artist A register series
+            const registerTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerTx.logs[0].args.seriesID;
+
+            // 2. artist A assign series to himself
+            expectCustomError(
+                instance.assignSeries(seriesID, assigneeAddress, {
+                    from: assignerAddress,
+                }),
+                abi,
+                "NotArtistError",
+                [assignerAddress]
+            );
+        });
+
+        it("should NOT be able to assign a series to a zero address", async () => {
+            const artistAddress = accounts[0];
+
+            // 1. artist register series
+            const registerTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerTx.logs[0].args.seriesID;
+
+            // 2. artist assign series to zero address
+            expectCustomError(
+                instance.assignSeries(seriesID, zeroAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["assignee address is zero"]
+            );
+        });
+    });
+
+    // ------------------------------------------------------------------------
+    // assignAdministrator
+    // ------------------------------------------------------------------------
+
+    describe("assignAdministrator", () => {
+        it("should be able to assign an administrator to a series", async () => {
+            const artistAAddress = accounts[0];
+            const artistBAddress = accounts[1];
+
+            // 1. artist A register series
+            const registerTxA = await instance.registerSeries(
+                artistAAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAAddress }
+            );
+            const seriesID = registerTxA.logs[0].args.seriesID;
+
+            // 2. artist A invite artist B to series
+            await instance.inviteCollaborator(seriesID, artistBAddress, {
+                from: artistAAddress,
+            });
+
+            // 3. artist B opt in to series
+            await instance.optInCollaboration(seriesID, {
+                from: artistBAddress,
+            });
+
+            // 4. artist A assign administrator to artist B
+            const assignTx = await instance.assignAdministrator(
+                seriesID,
+                artistBAddress,
+                { from: artistAAddress }
+            );
+
+            // 5. check series administrator should be artist B
+            expect(
+                await instance.getSeriesAdministratorAddress(seriesID)
+            ).to.equal(artistBAddress);
+
+            // 6. check event emitted
+            expectEvent(assignTx, "AssignAdministrator", {
+                seriesID: seriesID,
+                assignerAddress: artistAAddress,
+                assigneeAddress: artistBAddress,
+            });
+        });
+
+        it("should NOT be able to assign an administrator to zero address", async () => {
+            const artistAddress = accounts[0];
+
+            // 1. artist register series
+            const registerTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerTx.logs[0].args.seriesID;
+
+            // 2. artist assign administrator to zero address
+            expectCustomError(
+                instance.assignAdministrator(seriesID, zeroAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "GenericError",
+                ["administrator address is zero"]
+            );
+        });
+        it("should NOT be able to assign an administrator to himself", async () => {
+            const artistAddress = accounts[0];
+
+            // 1. artist register series
+            const registerTx = await instance.registerSeries(
+                artistAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAddress }
+            );
+            const seriesID = registerTx.logs[0].args.seriesID;
+
+            // 2. artist assign administrator to himself
+            expectCustomError(
+                instance.assignAdministrator(seriesID, artistAddress, {
+                    from: artistAddress,
+                }),
+                abi,
+                "AdministratorCannotSelfAssignError",
+                [artistAddress]
+            );
+        });
+
+        it("should NOT be able to assign an administrator to an artist that is not in the series", async () => {
+            const artistAAddress = accounts[0];
+            const artistBAddress = accounts[1];
+
+            // 1. artist A register series
+            const registerTxA = await instance.registerSeries(
+                artistAAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAAddress }
+            );
+            const seriesID1 = registerTxA.logs[0].args.seriesID;
+
+            // 2. artist B register series
+            const registerTxB = await instance.registerSeries(
+                artistBAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistBAddress }
+            );
+            const seriesID2 = registerTxB.logs[0].args.seriesID;
+
+            // 3. artist A assign administrator to artist B
+            expectCustomError(
+                instance.assignAdministrator(seriesID1, artistBAddress, {
+                    from: artistAAddress,
+                }),
+                abi,
+                "NotSeriesArtistError",
+                [seriesID1, artistBAddress]
+            );
+        });
+
+        it("should NOT be able to assign an administrator if caller is not the administrator", async () => {
+            const artistAAddress = accounts[0];
+            const artistBAddress = accounts[1];
+            const assignerAddress = accounts[2];
+
+            // 1. artist A register series
+            const registerTxA = await instance.registerSeries(
+                artistAAddress,
+                metadataURI,
+                tokenDataURI,
+                { from: artistAAddress }
+            );
+            const seriesID = registerTxA.logs[0].args.seriesID;
+
+            // 2. artist A assign administrator to artist B
+            expectCustomError(
+                instance.assignAdministrator(seriesID, artistBAddress, {
+                    from: assignerAddress,
+                }),
+                abi,
+                "NotAdministratorError",
+                [seriesID, assignerAddress]
+            );
+        });
+
+        it("should NOT be able to assign an administrator for unknown series", async () => {
+            const seriesID = new BN(1);
+            expectCustomError(
+                instance.assignAdministrator(seriesID, accounts[1], {
+                    from: accounts[0],
+                }),
+                abi,
+                "SeriesNotExistsError",
+                [seriesID]
             );
         });
     });
