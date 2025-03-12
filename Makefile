@@ -68,6 +68,7 @@ build: build-contract
 	mkdir -p ./go-binding/feralfile-english-auction && \
 	mkdir -p ./go-binding/feralfile-airdrop-v1 && \
 	mkdir -p ./go-binding/owner-data && \
+	mkdir -p ./go-binding/series-registry && \
 	abigen --abi ./build/FeralfileExhibitionV2.abi --bin ./build/FeralfileExhibitionV2.bin --pkg feralfilev2 -type FeralfileExhibitionV2 --out ./go-binding/feralfile-exhibition-v2/abi.go
 	abigen --abi ./build/FeralfileExhibitionV3.abi --bin ./build/FeralfileExhibitionV3.bin --pkg feralfilev3 -type FeralfileExhibitionV3 --out ./go-binding/feralfile-exhibition-v3/abi.go
 	abigen --abi ./build/FeralfileExhibitionV4.abi --bin ./build/FeralfileExhibitionV4.bin --pkg feralfilev4 -type FeralfileExhibitionV4 --out ./go-binding/feralfile-exhibition-v4/abi.go
