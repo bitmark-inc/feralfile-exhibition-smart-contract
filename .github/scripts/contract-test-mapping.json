@@ -1,0 +1,5 @@
+{
+  "contracts/FeralFileAirdropV1.sol": ["test/feralfile_airdrop_v1.js"],
+  "contracts/FeralfileArtworkV3_3.sol": ["test/feralfile_exhibition_v3_3.js"],
+  "contracts/OwnerData.sol": ["test/owner_data.js"]
+}
