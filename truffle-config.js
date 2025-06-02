@@ -133,7 +133,11 @@ module.exports = {
     db: {
         enabled: false,
     },
-    plugins: ["truffle-plugin-verify", "solidity-coverage"],
+    plugins: [
+        "truffle-plugin-verify",
+        "solidity-coverage",
+        "truffle-contract-size",
+    ],
     api_keys: {
         etherscan: etherscan_api,
     },

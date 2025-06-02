@@ -14,6 +14,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@0xsequence/sstore2": "github:0xsequence/sstore2",
     "@openzeppelin/contracts": "4.9.0",
     "@truffle/hdwallet-provider": "^2.0.3",
     "axios": "^0.27.2",
@@ -27,6 +28,7 @@
     "prettier-plugin-solidity": "^1.4.2",
     "solidity-coverage": "^0.7.22",
     "truffle": "^5.9.2",
+    "truffle-contract-size": "^2.0.1",
     "truffle-flattener": "^1.6.0",
     "truffle-plugin-verify": "^0.5.33"
   }
