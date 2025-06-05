@@ -1,5 +1,6 @@
 var FeralfileExhibitionV4_4 = artifacts.require("FeralfileExhibitionV4_4");
 var RendererStorageV0 = artifacts.require("RendererStorageV0");
+var LibBytes = artifacts.require("LibBytes");
 
 const argv = require("minimist")(process.argv.slice(2), {
     string: [
@@ -27,6 +28,8 @@ module.exports = function (deployer) {
     let series_ids = argv.series_ids || [1, 2, 3, 4];
     let max_supplies = argv.max_supplies || [1000, 1000, 1000, 1000];
 
+    deployer.deploy(LibBytes);
+    deployer.link(LibBytes, FeralfileExhibitionV4_4);
     deployer.deploy(RendererStorageV0);
     deployer.link(RendererStorageV0, FeralfileExhibitionV4_4);
 

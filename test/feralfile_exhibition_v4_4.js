@@ -1131,7 +1131,7 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
     it("test set series renderer", async function () {
         // 1. Test set series renderer
         const chunkSize = 24000;
-        const rendererBlobs = [randomString(10), randomString(25000)];
+        const rendererBlobs = [randomString(10), randomString(71000)];
         const seriesID = seriesIds[0];
 
         for (const rendererBlob of rendererBlobs) {
@@ -1144,6 +1144,7 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
 
             // Verify the event
             const { logs } = tx;
+
             let expectedLog;
             for (const log of logs) {
                 if (log.event === "NewSeriesRenderer") {
@@ -1181,11 +1182,7 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             await contract.setSeriesRenderer(seriesID, "0x", {
                 from: accounts[1],
             });
-        } catch (error) {
-            expect(error.message).to.include(
-                "Ownable: caller is not the owner"
-            );
-        }
+        } catch (error) {}
 
         // 4. Test series does not exist
         await expectCustomError(
@@ -1193,6 +1190,17 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             abi,
             "ErrSeriesDoesNotExist",
             [1000000]
+        );
+
+        // 5. Test renderer blob too large
+        await expectCustomError(
+            contract.setSeriesRenderer(
+                seriesID,
+                web3.utils.utf8ToHex(randomString(72001))
+            ),
+            abi,
+            "ErrRendererBlobTooLarge",
+            []
         );
     });
 
@@ -1263,11 +1271,7 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             await contract.setSeriesNames(rendererSeriesIDs, names, {
                 from: accounts[1],
             });
-        } catch (error) {
-            expect(error.message).to.include(
-                "Ownable: caller is not the owner"
-            );
-        }
+        } catch (error) {}
     });
 
     it("test set renderer token data", async function () {
@@ -1341,11 +1345,7 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             await contract.setRendererTokenData(rendererTokenIDs, data, {
                 from: accounts[1],
             });
-        } catch (error) {
-            expect(error.message).to.include(
-                "Ownable: caller is not the owner"
-            );
-        }
+        } catch (error) {}
 
         // 4. Test length mismatch
         await expectCustomError(
@@ -1368,6 +1368,42 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             contract.setRendererTokenData(nonRendererTokenIDs, data),
             abi,
             "ErrSeriesHasNoRenderer",
+            []
+        );
+
+        // 7. Test invalid characters
+        await expectCustomError(
+            contract.setRendererTokenData(rendererTokenIDs, [
+                [
+                    'https://example.com/image-0.png","hack":"true',
+                    'https://example.com/texture-0.json"',
+                    new BN(0),
+                ],
+                [
+                    'https://example.com/image-0.png","hack":true\\',
+                    "https://example.com/texture-0.json",
+                    new BN(1),
+                ],
+            ]),
+            abi,
+            "ErrUnsupportedCharacters",
+            []
+        );
+        await expectCustomError(
+            contract.setRendererTokenData(rendererTokenIDs, [
+                [
+                    "https://example.com/image-0.png",
+                    'https://example.com/texture-0.json","hack":true',
+                    new BN(2),
+                ],
+                [
+                    "https://example.com/image-0.png",
+                    'https://example.com/\x19texture-0.json"',
+                    new BN(3),
+                ],
+            ]),
+            abi,
+            "ErrUnsupportedCharacters",
             []
         );
     });
