@@ -1300,12 +1300,12 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             [
                 "https://example.com/image-0.png",
                 "https://example.com/texture-0.json",
-                new BN(0),
+                "#1",
             ],
             [
                 "https://example.com/image-1.png",
                 "https://example.com/texture-1.json",
-                new BN(1),
+                "#2",
             ],
         ];
         const tx = await contract.setRendererTokenData(rendererTokenIDs, data);
@@ -1323,9 +1323,7 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             );
             expect(expectedLogs[i].args[1].imageURI).to.equal(data[i][0]);
             expect(expectedLogs[i].args[1].textureURI).to.equal(data[i][1]);
-            expect(expectedLogs[i].args[1].index).to.be.a.bignumber.that.equal(
-                new BN(data[i][2])
-            );
+            expect(expectedLogs[i].args[1].tokenName).to.equal(data[i][2]);
         }
 
         // 2. Test get renderer token data
@@ -1335,9 +1333,7 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             );
             expect(rendererTokenData.imageURI).to.equal(data[i][0]);
             expect(rendererTokenData.textureURI).to.equal(data[i][1]);
-            expect(rendererTokenData.index).to.be.a.bignumber.that.equal(
-                new BN(data[i][2])
-            );
+            expect(rendererTokenData.tokenName).to.equal(data[i][2]);
         }
 
         // 3. Test unauthorized call
@@ -1375,14 +1371,14 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
         await expectCustomError(
             contract.setRendererTokenData(rendererTokenIDs, [
                 [
-                    'https://example.com/image-0.png","hack":"true',
+                    'https://example.com/image-0.png","hack":"true', // double quote
                     'https://example.com/texture-0.json"',
-                    new BN(0),
+                    "#1",
                 ],
                 [
-                    'https://example.com/image-0.png","hack":true\\',
+                    'https://example.com/image-0.png","hack":true\\', // backslash
                     "https://example.com/texture-0.json",
-                    new BN(1),
+                    "#2",
                 ],
             ]),
             abi,
@@ -1393,19 +1389,40 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
             contract.setRendererTokenData(rendererTokenIDs, [
                 [
                     "https://example.com/image-0.png",
-                    'https://example.com/texture-0.json","hack":true',
-                    new BN(2),
+                    'https://example.com/texture-0.json","hack":true', // double quote
+                    "#2",
                 ],
                 [
                     "https://example.com/image-0.png",
-                    'https://example.com/\x19texture-0.json"',
-                    new BN(3),
+                    'https://example.com/\x19texture-0.json"', // control character
+                    "#3",
                 ],
             ]),
             abi,
             "ErrUnsupportedCharacters",
             []
         );
+        await expectCustomError(
+            contract.setRendererTokenData(rendererTokenIDs, [
+                [
+                    "https://example.com/image-0.png",
+                    "https://example.com/texture-0.json",
+                    '#2"', // double quote
+                ],
+                [
+                    "https://example.com/image-0.png",
+                    "https://example.com/texture-0.json",
+                    "#3\\", // backslash
+                ],
+            ]),
+            abi,
+            "ErrUnsupportedCharacters",
+            []
+        );
+
+        // 8. Test get renderer for an series that has no renderer
+        let renderer = await contract.getSeriesRenderer(nonRendererSeriesID);
+        expect(renderer).is.empty;
     });
 
     it("test tokenURI", async function () {
@@ -1439,19 +1456,19 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
         await contract.setSeriesRenderer(rendererSeriesID, rendererBlobBytes);
 
         // 2.3 Set renderer series name
-        const name = "Test Series";
-        await contract.setSeriesNames([rendererSeriesID], [name]);
+        const seriesName = "Test Series";
+        await contract.setSeriesNames([rendererSeriesID], [seriesName]);
 
         // 2.4 Set renderer token data
         const textureURI = "https://example.com/texture-0.json";
         const imageURI = "https://example.com/image-0.png";
-        const index = new BN(0);
-        const data = [[imageURI, textureURI, new BN(0)]];
+        const tokenName = "#1";
+        const data = [[imageURI, textureURI, tokenName]];
         await contract.setRendererTokenData([rendererTokenID], data);
 
         // 2.5 Test tokenURI
         tokenURI = await contract.tokenURI(rendererTokenID);
-        const expectedJson = `{"animation_url":"data:text/html;base64,${Base64.encode(rendererBlob.replace(placeholder, textureURI))}","image":"${imageURI}","name":"${name} #${index.toString()}"}`;
+        const expectedJson = `{"animation_url":"data:text/html;base64,${Base64.encode(rendererBlob.replace(placeholder, textureURI))}","image":"${imageURI}","name":"${seriesName} ${tokenName}"}`;
         expect(tokenURI).to.equal(
             `data:application/json;base64,${Base64.encode(expectedJson)}`
         );

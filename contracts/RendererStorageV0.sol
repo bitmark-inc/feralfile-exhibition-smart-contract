@@ -4,6 +4,9 @@ pragma solidity ^0.8.13;
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
 library RendererStorageV0 {
+    //----------------------------------------------------------
+    // Constants
+    //----------------------------------------------------------
     bytes private constant PLACEHOLDER = bytes("{{TEXTURE_JSON}}");
 
     /// @notice Generate the token URI for a renderer
@@ -18,6 +21,7 @@ library RendererStorageV0 {
         string memory imageURI,
         string memory tokenName
     ) public pure returns (string memory) {
+        // inject the texture URI into the renderer
         bytes memory patchedRenderer = _injectTexture(renderer, textureURI);
         string memory rendererB64 = Base64.encode(patchedRenderer);
 

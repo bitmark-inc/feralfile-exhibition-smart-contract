@@ -3,16 +3,27 @@ pragma solidity ^0.8.13;
 
 import {FeralfileExhibitionV4_1} from "./FeralfileArtworkV4_1.sol";
 import {SSTORE2} from "@0xsequence/sstore2/contracts/SSTORE2.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {RendererStorageV0} from "./RendererStorageV0.sol";
-
 import {LibBytes} from "./LibBytes.sol";
 
+/**
+ * @title FeralfileExhibitionV4_4
+ * @author Feral File
+ * @notice Advanced NFT exhibition contract with on-chain metadata rendering capabilities.
+ * Extends FeralfileExhibitionV4_1 to support dynamic token metadata generation using SSTORE2-stored HTML/JavaScript renderers,
+ * enabling fully decentralized generative and interactive digital art with immutable on-chain storage.
+ * @dev This contract extends FeralfileExhibitionV4_1 with on-chain renderer functionality.
+ * Uses SSTORE2 for efficient storage of renderer code (up to 72KB) in 24KB chunks.
+ * Supports both traditional IPFS metadata tokens and renderer-based tokens within the same exhibition.
+ * Renderer tokens require series-level renderer code, series names, and token-specific rendering data (imageURI, textureURI, tokenName) to generate dynamic metadata.
+ */
 contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
-    using Strings for uint256;
     using RendererStorageV0 for bytes;
     using LibBytes for address[];
 
+    //----------------------------------------------------------
+    // Constants
+    //----------------------------------------------------------
     uint256 public constant CHUNK_SIZE = 24000; // Single SSTORE2 write up to 24,576 bytes
     uint256 public constant RENDERER_BLOB_MAX_SIZE = 72000; // 3x CHUNK_SIZE (24,000) costs around 15.5M gas as target block gas limit
 
@@ -22,7 +33,7 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
     struct RendererTokenData {
         string imageURI;
         string textureURI;
-        uint256 index;
+        string tokenName;
     }
 
     //----------------------------------------------------------
@@ -37,8 +48,6 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
     error ErrSeriesHasNoRenderer();
     error ErrRendererBlobTooLarge();
     error ErrUnsupportedCharacters();
-    error ErrEmptyRenderer();
-    error ErrEmptySeriesName();
 
     //----------------------------------------------------------
     // Events
@@ -133,7 +142,7 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
             uint256 len = blob.length - offset;
             if (len > CHUNK_SIZE) len = CHUNK_SIZE;
 
-            // Copy slice to new bytes
+            // copy slice to new bytes
             address ptr = SSTORE2.write(blob[offset:offset + len]);
             _seriesRendererPointers[seriesId].push(ptr);
             offset += len;
@@ -148,10 +157,6 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
     function getSeriesRenderer(
         uint256 seriesId
     ) external view seriesExists(seriesId) returns (string memory) {
-        if (!_hasRenderer(seriesId)) {
-            revert ErrSeriesHasNoRenderer();
-        }
-
         return string(_readSeriesRenderer(seriesId));
     }
 
@@ -161,33 +166,22 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
     function tokenURI(
         uint256 tokenId
     ) public view override returns (string memory) {
-        // Validate token exists
+        // validate token exists
         if (!_exists(tokenId)) {
             revert ErrTokenDoesNotExist(tokenId);
         }
 
-        // Validate token is a renderer token
+        // validate token is a renderer token
         uint256 seriesId = _allArtworks[tokenId].seriesId;
         if (!_hasRenderer(seriesId)) {
             return super.tokenURI(tokenId);
         }
 
-        // Validate renderer token data is set
-        RendererTokenData memory data = rendererTokenData[tokenId];
-        if (bytes(data.imageURI).length == 0) {
-            revert ErrEmptyRenderer();
-        }
-
-        // Validate series name is set
-        string memory seriesName = seriesNames[seriesId];
-        if (bytes(seriesName).length == 0) {
-            revert ErrEmptySeriesName();
-        }
-
-        // Read renderer
+        // read renderer
         bytes memory renderer = _readSeriesRenderer(seriesId);
+        RendererTokenData memory data = rendererTokenData[tokenId];
         string memory name = string(
-            abi.encodePacked(seriesName, " #", Strings.toString(data.index))
+            abi.encodePacked(seriesNames[seriesId], " ", data.tokenName)
         );
 
         return renderer.tokenURI(data.textureURI, data.imageURI, name);
@@ -200,30 +194,33 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
         uint256[] calldata seriesIds,
         string[] calldata names
     ) external onlyAuthorized {
-        // Validation
+        // validate lengths match
         if (seriesIds.length != names.length) {
             revert ErrLengthMismatch();
         }
 
         for (uint256 i = 0; i < seriesIds.length; ) {
+            // validate name is not empty
             if (bytes(names[i]).length == 0) {
                 revert ErrEmptyString();
             }
 
-            _checkForUnsupportedCharacters(names[i]);
+            // validate name does not contain unsupported characters
+            checkForUnsupportedCharacters(names[i]);
 
             unchecked {
                 ++i;
             }
         }
 
+        // validate series exists and has a renderer
         _validateRendererSeries(seriesIds);
 
-        // Set
+        // set names
         for (uint256 i = 0; i < seriesIds.length; ) {
             seriesNames[seriesIds[i]] = names[i];
 
-            // Emit event
+            // emit event
             emit NewSeriesName(seriesIds[i], names[i]);
 
             unchecked {
@@ -239,12 +236,13 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
         uint256[] calldata tokenIds,
         RendererTokenData[] calldata data
     ) external onlyAuthorized {
-        // Validation
+        // validate lengths match
         if (tokenIds.length != data.length) {
             revert ErrLengthMismatch();
         }
 
         for (uint256 i = 0; i < data.length; ) {
+            // validate token data is not empty
             _validateRendererTokenData(data[i]);
 
             unchecked {
@@ -252,13 +250,14 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
             }
         }
 
+        // validate tokens are renderer tokens
         _validateRendererTokens(tokenIds);
 
-        // Set
+        // set renderer token data
         for (uint256 i = 0; i < tokenIds.length; ) {
             rendererTokenData[tokenIds[i]] = data[i];
 
-            // Emit event
+            // emit event
             emit NewRendererTokenData(tokenIds[i], data[i]);
 
             unchecked {
@@ -343,25 +342,26 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
     function _validateRendererTokenData(
         RendererTokenData memory data
     ) private pure {
-        if (bytes(data.imageURI).length == 0) {
+        if (
+            bytes(data.imageURI).length == 0 ||
+            bytes(data.textureURI).length == 0 ||
+            bytes(data.tokenName).length == 0
+        ) {
             revert ErrEmptyString();
         }
 
-        if (bytes(data.textureURI).length == 0) {
-            revert ErrEmptyString();
-        }
-
-        // Check for unsupported characters in URIs
-        _checkForUnsupportedCharacters(data.imageURI);
-        _checkForUnsupportedCharacters(data.textureURI);
+        // check for unsupported characters
+        checkForUnsupportedCharacters(data.imageURI);
+        checkForUnsupportedCharacters(data.textureURI);
+        checkForUnsupportedCharacters(data.tokenName);
     }
 
-    /// @notice Check if a string contains unsupported characters (quotes and backslashes)
+    /// @notice Check if a string contains unsupported characters that shouldn't be in a JSON string
     /// @param str The string to check
-    function _checkForUnsupportedCharacters(string memory str) private pure {
+    function checkForUnsupportedCharacters(string memory str) internal pure {
         bytes memory strBytes = bytes(str);
         for (uint256 i = 0; i < strBytes.length; ) {
-            // Check for double quote ("), backslash (\), and control characters
+            // check for double quote ("), backslash (\), and control characters
             bytes1 b = strBytes[i];
             if (b == 0x22 || b == 0x5C || b < 0x20) {
                 revert ErrUnsupportedCharacters();
