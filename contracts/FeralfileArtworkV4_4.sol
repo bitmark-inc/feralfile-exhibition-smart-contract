@@ -34,7 +34,6 @@ contract FeralfileExhibitionV4_4 is FeralfileExhibitionV4_1 {
     error ErrEmptyArray();
     error ErrEmptyString();
     error ErrEmptyBytes();
-    error ErrSeriesHasRenderer();
     error ErrSeriesHasNoRenderer();
     error ErrRendererBlobTooLarge();
     error ErrUnsupportedCharacters();

@@ -4,6 +4,12 @@ pragma solidity ^0.8.13;
 import {SSTORE2} from "@0xsequence/sstore2/contracts/SSTORE2.sol";
 
 library LibBytes {
+    //----------------------------------------------------------
+    // Errors
+    //----------------------------------------------------------
+    error ErrEmptySSTORE2Pointer();
+    error ErrOutOfBounds();
+
     /// @notice Copy bytes from src to dest
     /// @param dest The destination bytes
     /// @param destOffset The offset to copy to
@@ -16,6 +22,9 @@ library LibBytes {
         uint256 len
     ) public view {
         if (len == 0) return;
+        if (destOffset + len > dest.length) {
+            revert ErrOutOfBounds();
+        }
         assembly {
             if iszero(
                 staticcall(
@@ -44,7 +53,11 @@ library LibBytes {
 
         uint256 total;
         for (uint256 i = 0; i < pointers.length; ) {
-            total += pointers[i].code.length - 1; // skip STOP byte
+            uint256 length = pointers[i].code.length;
+            if (length <= 1) {
+                revert ErrEmptySSTORE2Pointer();
+            }
+            total += length - 1; // skip STOP byte
             unchecked {
                 ++i;
             }
@@ -54,8 +67,9 @@ library LibBytes {
         uint256 offset;
         for (uint256 i = 0; i < pointers.length; ) {
             bytes memory chunk = SSTORE2.read(pointers[i]);
-            memcpy(result, offset, chunk, chunk.length);
-            offset += chunk.length;
+            uint256 length = chunk.length;
+            memcpy(result, offset, chunk, length);
+            offset += length;
             unchecked {
                 ++i;
             }
