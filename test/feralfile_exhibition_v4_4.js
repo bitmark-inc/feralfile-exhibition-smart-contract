@@ -1442,10 +1442,11 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
 
         // 2. Test tokenURI for renderer token
         // 2.1 Mint token
-        const rendererSeriesID = seriesIds[1];
-        const rendererTokenID = 1;
+        const rendererSeriesID = seriesIds[2];
+        const rendererTokenID = [1, 2];
         await contract.mintArtworks([
-            [rendererSeriesID, rendererTokenID, contract.address],
+            [rendererSeriesID, rendererTokenID[0], contract.address],
+            [rendererSeriesID, rendererTokenID[1], contract.address],
         ]);
 
         // 2.2 Set renderer blob
@@ -1464,13 +1465,18 @@ contract("FeralfileExhibitionV4_4", async (accounts) => {
         const imageURI = "https://example.com/image-0.png";
         const tokenName = "#1";
         const data = [[imageURI, textureURI, tokenName]];
-        await contract.setRendererTokenData([rendererTokenID], data);
+        await contract.setRendererTokenData([rendererTokenID[0]], data);
 
         // 2.5 Test tokenURI
-        tokenURI = await contract.tokenURI(rendererTokenID);
+        tokenURI = await contract.tokenURI(rendererTokenID[0]);
         const expectedJson = `{"animation_url":"data:text/html;base64,${Base64.encode(rendererBlob.replace(placeholder, textureURI))}","image":"${imageURI}","name":"${seriesName} ${tokenName}"}`;
         expect(tokenURI).to.equal(
             `data:application/json;base64,${Base64.encode(expectedJson)}`
         );
+
+        // 2.6 Test error returned when token data is empty
+        try {
+            await contract.tokenURI(rendererTokenID[1]);
+        } catch (error) {}
     });
 });

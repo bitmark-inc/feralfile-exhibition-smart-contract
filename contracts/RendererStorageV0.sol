@@ -5,6 +5,11 @@ import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
 library RendererStorageV0 {
     //----------------------------------------------------------
+    // Errors
+    //----------------------------------------------------------
+    error ErrEmptyField();
+
+    //----------------------------------------------------------
     // Constants
     //----------------------------------------------------------
     bytes private constant PLACEHOLDER = bytes("{{TEXTURE_JSON}}");
@@ -21,6 +26,15 @@ library RendererStorageV0 {
         string memory imageURI,
         string memory tokenName
     ) public pure returns (string memory) {
+        if (
+            renderer.length == 0 ||
+            bytes(textureURI).length == 0 ||
+            bytes(imageURI).length == 0 ||
+            bytes(tokenName).length == 0
+        ) {
+            revert ErrEmptyField();
+        }
+
         // inject the texture URI into the renderer
         bytes memory patchedRenderer = _injectTexture(renderer, textureURI);
         string memory rendererB64 = Base64.encode(patchedRenderer);
