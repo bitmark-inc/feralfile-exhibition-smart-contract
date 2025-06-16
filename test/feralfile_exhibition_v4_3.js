@@ -28,7 +28,7 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
                 CONTRACT_URI,
                 this.seriesIds,
                 this.seriesMaxSupply,
-                this.mergeArtworkInfo,
+                this.mergeArtworkInfo
             );
             this.contracts.push(contract);
         }
@@ -85,7 +85,7 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
                 CONTRACT_URI,
                 seriesIds,
                 seriesMaxSupply,
-                mergeArtworkInfo,
+                mergeArtworkInfo
             );
         } catch (error) {
             assert.ok(
@@ -349,9 +349,8 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(
-                COST_RECEIVER
-            );
+            const accCostReceiverBalanceBefore =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             await contract.startSale();
             await contract.buyArtworks(
@@ -403,9 +402,8 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(
-                COST_RECEIVER
-            );
+            const accCostReceiverBalanceAfter =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
                 (
@@ -427,7 +425,6 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
                 BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -501,9 +498,8 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
             const vaultBalanceBefore = await web3.eth.getBalance(
                 this.vault.address
             );
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(
-                COST_RECEIVER
-            );
+            const accCostReceiverBalanceBefore =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             await contract.startSale();
             await contract.buyArtworks(
@@ -552,9 +548,8 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
             const vaultBalanceAfter = await web3.eth.getBalance(
                 this.vault.address
             );
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(
-                COST_RECEIVER
-            );
+            const accCostReceiverBalanceAfter =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
                 (
@@ -582,7 +577,6 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
                 BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -757,7 +751,6 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
             selling = await contract.selling();
             assert.equal(selling, true);
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -765,7 +758,6 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         try {
             await contract.stopSaleAndBurn();
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -893,7 +885,6 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         try {
             await contract.mintArtworks(data);
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -904,7 +895,6 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
                 from: owner1,
             });
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -958,7 +948,6 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         try {
             await contract.setAdvanceSetting(updatedAddresses, updatedAmounts);
         } catch (error) {
-            console.log(error);
             assert.equal(error.reason, "Custom error (could not decode)");
         }
     });
@@ -1010,7 +999,7 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
             CONTRACT_URI,
             seriesIds,
             seriesMaxSupply,
-            mergeArtworkInfo,
+            mergeArtworkInfo
         );
 
         // 0. set advance setting
@@ -1083,9 +1072,8 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
             const acc5BalanceBefore = await web3.eth.getBalance(accounts[5]);
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(
-                costReceiver
-            );
+            const accCostReceiverBalanceBefore =
+                await web3.eth.getBalance(costReceiver);
 
             await contract.startSale();
             await contract.buyArtworks(
@@ -1136,9 +1124,8 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
             const acc5BalanceAfter = await web3.eth.getBalance(accounts[5]);
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(
-                costReceiver
-            );
+            const accCostReceiverBalanceAfter =
+                await web3.eth.getBalance(costReceiver);
 
             // Revenue per item is 1 / 4 = 0.25
             // Revenues is 0.25 * 2 then deduct advance amount 0.3 => received 0.2 * 70% = 0.14
@@ -1171,7 +1158,6 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
                 web3.utils.toWei("0.84", "ether")
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -1192,8 +1178,9 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         let tx = await contract.mintArtworks(mintData);
 
         // 2. start merging
-        await contract.startMerging();
-        tx = await contract.mergeArtworks([tokenId1, tokenId2], { from: owner });
+        tx = await contract.mergeArtworks([tokenId1, tokenId2], {
+            from: owner,
+        });
 
         // total supply
         const totalSupply = await contract.totalSupply();
@@ -1220,7 +1207,7 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         // event emitted
         const { logs } = tx;
         assert.ok(Array.isArray(logs));
-        assert.equal(logs.length, 6);
+        assert.equal(logs.length, 7);
 
         assert.equal(logs[0].event, "Transfer");
         assert.equal(logs[1].event, "BurnArtwork");
@@ -1228,6 +1215,7 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         assert.equal(logs[3].event, "BurnArtwork");
         assert.equal(logs[4].event, "Transfer");
         assert.equal(logs[5].event, "NewArtwork");
+        assert.equal(logs[6].event, "MergedArtwork");
     });
 
     it("test merge artworks failed invalid owner", async function () {
@@ -1245,11 +1233,10 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         ];
         let tx = await contract.mintArtworks(mintData);
 
-        // 2. start merging
-        await contract.startMerging();
-
         try {
-            tx = await contract.mergeArtworks([tokenId1, tokenId2], { from: owner });
+            tx = await contract.mergeArtworks([tokenId1, tokenId2], {
+                from: owner,
+            });
             assert.fail("Expected revert not received");
         } catch (error) {
             assert.ok(error.message.includes("revert"));
@@ -1271,11 +1258,10 @@ contract("FeralfileExhibitionV4_3", async (accounts) => {
         ];
         let tx = await contract.mintArtworks(mintData);
 
-        // 2. start merging
-        await contract.startMerging();
-
         try {
-            tx = await contract.mergeArtworks([tokenId1, tokenId3], { from: owner });
+            tx = await contract.mergeArtworks([tokenId1, tokenId3], {
+                from: owner,
+            });
             assert.fail("Expected revert not received");
         } catch (error) {
             assert.ok(error.message.includes("revert"));
