@@ -30,7 +30,28 @@ function expectAddressArraysEqual(actual, expected) {
     }
 }
 
+function randomString(
+    length,
+    chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+) {
+    let result = "";
+    const chunkSize = 65536; // Maximum size for crypto.getRandomValues
+
+    for (let i = 0; i < length; i += chunkSize) {
+        const currentChunkSize = Math.min(chunkSize, length - i);
+        const randomValues = new Uint8Array(currentChunkSize);
+        crypto.getRandomValues(randomValues);
+
+        for (let j = 0; j < currentChunkSize; j++) {
+            result += chars.charAt(randomValues[j] % chars.length);
+        }
+    }
+
+    return result;
+}
+
 module.exports = {
     expectBigNumberArraysEqual,
     expectAddressArraysEqual,
+    randomString,
 };
