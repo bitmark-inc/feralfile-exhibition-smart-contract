@@ -1,20 +1,27 @@
-const FeralfileVault = artifacts.require('FeralfileVault');
+const FeralfileVault = artifacts.require("FeralfileVault");
 
-const IPFS_GATEWAY_PREFIX = 'https://cloudflare-ipfs.com/ipfs/';
-const EXHIBITION_CONTRACT_ADDRESS = '0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801';
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const IPFS_GATEWAY_PREFIX = "https://cloudflare-ipfs.com/ipfs/";
+const EXHIBITION_CONTRACT_ADDRESS =
+    "0x46f2B641d8702f29c45f6D06292dC34Eb9dB1801";
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-contract('FeralfileVault', async (accounts) => {
+contract("FeralfileVault", async (accounts) => {
     before(async function () {
         this.signer = accounts[1];
         this.vault = await FeralfileVault.new(this.signer);
     });
 
     it("check adding funds", async function () {
-        const vaultBalanceBefore = await web3.eth.getBalance(this.vault.address);
+        const vaultBalanceBefore = await web3.eth.getBalance(
+            this.vault.address
+        );
         assert.equal(vaultBalanceBefore, 0);
 
-        await web3.eth.sendTransaction({ from: accounts[0], to: this.vault.address, value: 0.5 * 1e18 });
+        await web3.eth.sendTransaction({
+            from: accounts[0],
+            to: this.vault.address,
+            value: 0.5 * 1e18,
+        });
 
         const vaultBalanceAfter = await web3.eth.getBalance(this.vault.address);
         assert.equal(vaultBalanceAfter, 0.5 * 1e18);
@@ -113,16 +120,19 @@ contract('FeralfileVault', async (accounts) => {
             ];
             await this.vault.payForSale(r, s, v, wrongSaleData);
         } catch (error) {
-            assert.ok(error.message.includes("FeralfileVault: invalid signature"));
+            assert.ok(
+                error.message.includes("FeralfileVault: invalid signature")
+            );
         }
 
         // pay successfully
         try {
             await this.vault.payForSale(r, s, v, saleData);
-            const vaultBalanceAfter = await web3.eth.getBalance(this.vault.address);
+            const vaultBalanceAfter = await web3.eth.getBalance(
+                this.vault.address
+            );
             assert.equal(vaultBalanceAfter, 0.4 * 1e18);
         } catch (error) {
-            console.log(error)
             assert.fail();
         }
 
@@ -188,7 +198,9 @@ contract('FeralfileVault', async (accounts) => {
         try {
             await this.vault.payForSale(r, s, v, saleData);
         } catch (error) {
-            assert.ok(error.message.includes("FeralfileVault: not pay by vault"));
+            assert.ok(
+                error.message.includes("FeralfileVault: not pay by vault")
+            );
         }
     });
 
@@ -246,25 +258,29 @@ contract('FeralfileVault', async (accounts) => {
         try {
             await this.vault.payForSale(r, s, v, saleData);
         } catch (error) {
-            assert.ok(error.message.includes("FeralfileVault: insufficient balance"));
+            assert.ok(
+                error.message.includes("FeralfileVault: insufficient balance")
+            );
         }
     });
 
     it("check withdraw fund by owner", async function () {
         try {
-            const vaultBalanceBefore = await web3.eth.getBalance(this.vault.address);
+            const vaultBalanceBefore = await web3.eth.getBalance(
+                this.vault.address
+            );
             // withdraw 0.1 ether
             await this.vault.withdrawFund(BigInt(0.1 * 1e18));
-            const vaultBalanceAfter = await web3.eth.getBalance(this.vault.address);
+            const vaultBalanceAfter = await web3.eth.getBalance(
+                this.vault.address
+            );
             assert.equal(
                 (
                     BigInt(vaultBalanceBefore) - BigInt(vaultBalanceAfter)
                 ).toString(),
-                BigInt((0.1 * 1e18).toString()
-                )
+                BigInt((0.1 * 1e18).toString())
             );
         } catch (error) {
-            console.log(error)
             assert.fail();
         }
     });
@@ -273,7 +289,9 @@ contract('FeralfileVault', async (accounts) => {
         try {
             await this.vault.withdrawFund(BigInt(1 * 1e18));
         } catch (error) {
-            assert.ok(error.message.includes("FeralfileVault: insufficient balance"));
+            assert.ok(
+                error.message.includes("FeralfileVault: insufficient balance")
+            );
         }
     });
 });

@@ -67,7 +67,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
     });
 
     it("test duplicate series in constructor", async function () {
-        // Deploy contract with duplicate series defined 
+        // Deploy contract with duplicate series defined
         let seriesIds = [0, 1, 2, 3, 1];
         let seriesMaxSupply = [1, 1, 100, 1000, 10000];
         try {
@@ -90,7 +90,7 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                 )
             );
         }
-    })
+    });
 
     it("test mint artwork", async function () {
         const contract = this.contracts[0];
@@ -345,9 +345,8 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(
-                COST_RECEIVER
-            );
+            const accCostReceiverBalanceBefore =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             await contract.startSale();
             await contract.buyArtworks(
@@ -399,9 +398,8 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
 
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(
-                COST_RECEIVER
-            );
+            const accCostReceiverBalanceAfter =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
                 (
@@ -423,7 +421,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                 BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -497,9 +494,8 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             const vaultBalanceBefore = await web3.eth.getBalance(
                 this.vault.address
             );
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(
-                COST_RECEIVER
-            );
+            const accCostReceiverBalanceBefore =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             await contract.startSale();
             await contract.buyArtworks(
@@ -548,9 +544,8 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             const vaultBalanceAfter = await web3.eth.getBalance(
                 this.vault.address
             );
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(
-                COST_RECEIVER
-            );
+            const accCostReceiverBalanceAfter =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
                 (
@@ -578,7 +573,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                 BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -753,7 +747,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
             selling = await contract.selling();
             assert.equal(selling, true);
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -761,7 +754,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         try {
             await contract.stopSaleAndBurn();
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -889,7 +881,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
         try {
             await contract.mintArtworks(data);
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -900,7 +891,6 @@ contract("FeralfileExhibitionV4_0", async (accounts) => {
                 from: owner1,
             });
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
