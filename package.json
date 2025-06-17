@@ -8,6 +8,8 @@
     },
     "scripts": {
         "flattern": "truffle-flattener",
+        "clean": "rm -rf build",
+        "build": "npx truffle compile --all",
         "test": "npx truffle test test/*",
         "coverage": "npx truffle run coverage --file 'test/*'"
     },
@@ -15,10 +17,7 @@
     "license": "ISC",
     "dependencies": {
         "@0xsequence/sstore2": "github:0xsequence/sstore2",
-        "@openzeppelin/contracts": "^4.9.6",
-        "@truffle/hdwallet-provider": "^2.0.3",
-        "axios": "^0.27.2",
-        "ethereumjs-util": "^7.1.5"
+        "@openzeppelin/contracts": "^4.9.6"
     },
     "devDependencies": {
         "@openzeppelin/test-helpers": "^0.5.16",
@@ -30,6 +29,8 @@
         "truffle": "^5.4.29",
         "truffle-contract-size": "^2.0.1",
         "truffle-flattener": "^1.2.11",
-        "truffle-plugin-verify": "^0.5.33"
+        "truffle-plugin-verify": "^0.5.33",
+        "ethereumjs-util": "^7.1.5",
+        "@truffle/hdwallet-provider": "^2.0.3"
     }
 }
