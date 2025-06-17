@@ -421,7 +421,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
                 BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -574,7 +573,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
                 BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -749,7 +747,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
             selling = await contract.selling();
             assert.equal(selling, true);
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -757,7 +754,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         try {
             await contract.stopSaleAndBurn();
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -885,7 +881,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         try {
             await contract.mintArtworks(data);
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -896,7 +891,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
                 from: owner1,
             });
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -971,7 +965,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
         try {
             await contract.setAdvanceSetting(updatedAddresses, updatedAmounts);
         } catch (error) {
-            console.log(error);
             assert.equal(error.reason, "Custom error (could not decode)");
         }
     });
@@ -1180,7 +1173,6 @@ contract("FeralfileExhibitionV4_1", async (accounts) => {
                 web3.utils.toWei("0.84", "ether")
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });

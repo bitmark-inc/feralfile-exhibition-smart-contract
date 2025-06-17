@@ -12,7 +12,9 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         this.vault = await FeralfileVault.new(this.signer);
         this.seriesIds = [0, 1, 2, 3, 4];
         this.seriesMaxSupply = [1, 1, 100, 1000, 10000];
-        this.seriesNextPurchasableTokenIds = [1, 1000001, 2000001, 3000001, 4000001]
+        this.seriesNextPurchasableTokenIds = [
+            1, 1000001, 2000001, 3000001, 4000001,
+        ];
         // Deploy multiple contracts
         this.contracts = [];
         for (let i = 0; i < 12; i++) {
@@ -27,7 +29,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
                 CONTRACT_URI,
                 this.seriesIds,
                 this.seriesMaxSupply,
-                this.seriesNextPurchasableTokenIds,
+                this.seriesNextPurchasableTokenIds
             );
             this.contracts.push(contract);
         }
@@ -71,7 +73,9 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         // Deploy contract with duplicate series defined
         let seriesIds = [0, 1, 2, 3, 1];
         let seriesMaxSupply = [1, 1, 100, 1000, 10000];
-        let seriesNextPurchasableTokenIds = [1, 1000001, 2000001, 3000001, 1000001]
+        let seriesNextPurchasableTokenIds = [
+            1, 1000001, 2000001, 3000001, 1000001,
+        ];
         try {
             await FeralfileExhibitionV4_2.new(
                 "Feral File V4 Test",
@@ -340,7 +344,6 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             selling = await contract.selling();
             assert.equal(selling, true);
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -348,7 +351,6 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         try {
             await contract.stopSaleAndBurn();
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -476,7 +478,6 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         try {
             await contract.mintArtworks(data);
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -487,7 +488,6 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
                 from: owner1,
             });
         } catch (error) {
-            console.log(error);
             assert.fail();
         }
 
@@ -541,7 +541,6 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         try {
             await contract.setAdvanceSetting(updatedAddresses, updatedAmounts);
         } catch (error) {
-            console.log(error);
             assert.equal(error.reason, "Custom error (could not decode)");
         }
     });
@@ -581,7 +580,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
             [this.seriesIds[3], 3000002, owner],
-            [this.seriesIds[3], 3000003, owner]
+            [this.seriesIds[3], 3000003, owner],
         ]);
 
         // Generate signature
@@ -610,7 +609,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [
                 BigInt(await web3.eth.getChainId()).toString(),
                 contract.address,
-                saleData
+                saleData,
             ]
         );
 
@@ -624,7 +623,8 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
+            const accCostReceiverBalanceBefore =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             await contract.startSale();
             await contract.buyBulkArtworks(
@@ -644,22 +644,29 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             // Validate balances
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
+            const accCostReceiverBalanceAfter =
+                await web3.eth.getBalance(COST_RECEIVER);
 
             assert.equal(
-                (BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)).toString(),
+                (
+                    BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)
+                ).toString(),
                 BigInt((0.23 * 1e18 * 80) / 100).toString()
             );
             assert.equal(
-                (BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)).toString(),
+                (
+                    BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
+                ).toString(),
                 BigInt((0.23 * 1e18 * 20) / 100).toString()
             );
             assert.equal(
-                (BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)).toString(),
+                (
+                    BigInt(accCostReceiverBalanceAfter) -
+                    BigInt(accCostReceiverBalanceBefore)
+                ).toString(),
                 BigInt(0.02 * 1e18).toString()
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -673,7 +680,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
             [this.seriesIds[3], 3000002, owner],
-            [this.seriesIds[3], 3000003, owner]
+            [this.seriesIds[3], 3000003, owner],
         ]);
 
         await web3.eth.sendTransaction({
@@ -708,7 +715,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [
                 BigInt(await web3.eth.getChainId()).toString(),
                 contract.address,
-                saleData
+                saleData,
             ]
         );
 
@@ -722,7 +729,8 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
         try {
             const acc3BalanceBefore = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceBefore = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceBefore = await web3.eth.getBalance(COST_RECEIVER);
+            const accCostReceiverBalanceBefore =
+                await web3.eth.getBalance(COST_RECEIVER);
             const vaultBalanceBefore = await web3.eth.getBalance(
                 this.vault.address
             );
@@ -745,21 +753,29 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             // Validate balances
             const acc3BalanceAfter = await web3.eth.getBalance(accounts[3]);
             const acc4BalanceAfter = await web3.eth.getBalance(accounts[4]);
-            const accCostReceiverBalanceAfter = await web3.eth.getBalance(COST_RECEIVER);
+            const accCostReceiverBalanceAfter =
+                await web3.eth.getBalance(COST_RECEIVER);
             const vaultBalanceAfter = await web3.eth.getBalance(
                 this.vault.address
             );
 
             assert.equal(
-                (BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)).toString(),
+                (
+                    BigInt(acc3BalanceAfter) - BigInt(acc3BalanceBefore)
+                ).toString(),
                 BigInt((0.23 * 1e18 * 80) / 100).toString()
             );
             assert.equal(
-                (BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)).toString(),
+                (
+                    BigInt(acc4BalanceAfter) - BigInt(acc4BalanceBefore)
+                ).toString(),
                 BigInt((0.23 * 1e18 * 20) / 100).toString()
             );
             assert.equal(
-                (BigInt(accCostReceiverBalanceAfter) - BigInt(accCostReceiverBalanceBefore)).toString(),
+                (
+                    BigInt(accCostReceiverBalanceAfter) -
+                    BigInt(accCostReceiverBalanceBefore)
+                ).toString(),
                 BigInt(0.02 * 1e18).toString()
             );
             assert.equal(
@@ -769,7 +785,6 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
                 BigInt(0.25 * 1e18).toString()
             );
         } catch (err) {
-            console.log(err);
             assert.fail();
         }
     });
@@ -783,7 +798,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
             [this.seriesIds[3], 3000002, owner],
-            [this.seriesIds[3], 3000003, owner]
+            [this.seriesIds[3], 3000003, owner],
         ]);
 
         // Generate signature
@@ -812,7 +827,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [
                 BigInt(await web3.eth.getChainId()).toString(),
                 contract.address,
-                saleData
+                saleData,
             ]
         );
 
@@ -846,7 +861,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
             [this.seriesIds[3], 3000002, owner],
-            [this.seriesIds[3], 3000003, owner]
+            [this.seriesIds[3], 3000003, owner],
         ]);
 
         // Generate signature
@@ -875,7 +890,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [
                 BigInt(await web3.eth.getChainId()).toString(),
                 contract.address,
-                saleData
+                saleData,
             ]
         );
 
@@ -909,7 +924,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [this.seriesIds[3], 3000000, owner],
             [this.seriesIds[3], 3000001, owner],
             [this.seriesIds[3], 3000002, owner],
-            [this.seriesIds[3], 3000003, owner]
+            [this.seriesIds[3], 3000003, owner],
         ]);
 
         // Generate signature
@@ -938,7 +953,7 @@ contract("FeralfileExhibitionV4_2", async (accounts) => {
             [
                 BigInt(await web3.eth.getChainId()).toString(),
                 contract.address,
-                saleData
+                saleData,
             ]
         );
 
