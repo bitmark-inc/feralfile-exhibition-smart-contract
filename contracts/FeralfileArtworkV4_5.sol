@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "./FeralfileArtworkV4_1.sol";
+import {FeralfileExhibitionV4_1} from "./FeralfileArtworkV4_1.sol";
 
 contract FeralfileExhibitionV4_5 is FeralfileExhibitionV4_1 {
-    // Struct to represent token ID to index mapping
-    struct TokenIndex {
-        uint256 tokenId;
-        uint256 index;
-    }
 
     // Constants for token ID calculation
-    uint256 private constant TOKEN_ID_PREFIX_LENGTH = 32; // 128 bits in hex
     uint256 private constant SERIES_MULTIPLIER = 1000000;
 
     constructor(
