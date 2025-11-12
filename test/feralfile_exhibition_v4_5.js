@@ -5,11 +5,16 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
   let exhibition;
   let vault;
   const owner = accounts[0];
+  const owner2 = accounts[2];
   const signer = accounts[1];
   const costReceiver = accounts[3];
   
-  // Exhibition ID without dashes (32 hex characters = 128 bits)
-  const exhibitionId = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"; // 32 chars
+  // Helper function to generate tokenId from seriesId and artworkIndex
+  // TokenId structure: any prefix in upper 128 bits + (seriesId * 1000000 + artworkIndex) in lower 128 bits
+  const generateTokenId = (seriesId, artworkIndex) => {
+    // For simplicity, we use 0 as prefix since the contract only uses lower 128 bits
+    return BigInt(seriesId * 1000000 + artworkIndex);
+  };
   
   beforeEach(async () => {
     // Deploy vault first
@@ -28,33 +33,15 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
       costReceiver,
       "ipfs://test-contract-uri",
       seriesIds,
-      seriesMaxSupplies,
-      exhibitionId
+      seriesMaxSupplies
     );
   });
 
-  it("should store the token ID prefix shard correctly", async () => {
-    const storedShard = await exhibition.tokenIdPrefixShard();
-    assert.equal(storedShard, exhibitionId, "Token ID prefix shard should match");
-  });
-
   it("should calculate artwork index correctly for a token", async () => {
-    // Simulate a token ID calculation
-    // For seriesId = 1, artworkIndex = 5
-    // part2 = 1 * 1000000 + 5 = 1000005 = 0xF4245
-    // tokenId = (exhibitionId as uint128 << 128) | part2
-    
     const seriesId = 1;
     const artworkIndex = 5;
+    const tokenId = generateTokenId(seriesId, artworkIndex);
     
-    // Convert exhibition ID hex string to BigInt
-    const exhibitionIdInt = BigInt("0x" + exhibitionId);
-    const part2 = BigInt(seriesId * 1000000 + artworkIndex);
-    
-    // Construct tokenId: prefix in upper 128 bits, part2 in lower 128 bits
-    const tokenId = (exhibitionIdInt << BigInt(128)) | part2;
-    
-    // First, we need to mint this token
     const mintData = [
       {
         seriesId: seriesId,
@@ -74,17 +61,15 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
     );
   });
 
-  it("should calculate artwork indexes for multiple tokens", async () => {
+  it("should return artwork indexes for all tokens in same series owned by same owner", async () => {
     const seriesId = 1;
     const artworkIndexes = [0, 1, 2, 10, 99];
     
-    const exhibitionIdInt = BigInt("0x" + exhibitionId);
     const tokenIds = [];
     const mintData = [];
 
     for (const artworkIndex of artworkIndexes) {
-      const part2 = BigInt(seriesId * 1000000 + artworkIndex);
-      const tokenId = (exhibitionIdInt << BigInt(128)) | part2;
+      const tokenId = generateTokenId(seriesId, artworkIndex);
       tokenIds.push(tokenId.toString());
       mintData.push({
         seriesId: seriesId,
@@ -95,36 +80,30 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
 
     await exhibition.mintArtworks(mintData, { from: owner });
 
-    // Test tokenIndexesByOwner - now takes owner address and returns TokenIndex[] struct array
-    const tokenIndexMappings = await exhibition.tokenIndexesByOwner(owner);
+    // Test seriesArtworkIndexesOfOwner using the first token as reference
+    const returnedIndexes = await exhibition.seriesArtworkIndexesOfOwner(tokenIds[0]);
     
     assert.equal(
-      tokenIndexMappings.length,
+      returnedIndexes.length,
       artworkIndexes.length,
-      "Should return correct number of tokens"
+      "Should return correct number of indexes"
     );
     
-    // Create a map for easier lookup since order might differ
-    const indexMap = {};
-    for (let i = 0; i < tokenIndexMappings.length; i++) {
-      indexMap[tokenIndexMappings[i].tokenId.toString()] = tokenIndexMappings[i].index.toString();
-    }
+    // Sort both arrays for comparison (since order may not be guaranteed)
+    const sortedReturned = returnedIndexes.map(idx => idx.toString()).sort((a, b) => Number(a) - Number(b));
+    const sortedExpected = artworkIndexes.map(idx => idx.toString()).sort((a, b) => Number(a) - Number(b));
     
-    // Verify each token and its index
-    for (let i = 0; i < artworkIndexes.length; i++) {
-      assert.isDefined(
-        indexMap[tokenIds[i]],
-        `Token ID ${tokenIds[i]} should be in the result`
-      );
+    // Verify all indexes match
+    for (let i = 0; i < sortedExpected.length; i++) {
       assert.equal(
-        indexMap[tokenIds[i]],
-        artworkIndexes[i].toString(),
-        `Artwork index for token ${tokenIds[i]} should be ${artworkIndexes[i]}`
+        sortedReturned[i],
+        sortedExpected[i],
+        `Artwork index ${i} should match`
       );
     }
   });
 
-  it("should handle different series IDs correctly", async () => {
+  it("should only return indexes for tokens in the same series", async () => {
     const testCases = [
       { seriesId: 1, artworkIndex: 5 },
       { seriesId: 2, artworkIndex: 10 },
@@ -132,13 +111,11 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
       { seriesId: 2, artworkIndex: 100 },
     ];
     
-    const exhibitionIdInt = BigInt("0x" + exhibitionId);
     const tokenIds = [];
     const mintData = [];
 
     for (const testCase of testCases) {
-      const part2 = BigInt(testCase.seriesId * 1000000 + testCase.artworkIndex);
-      const tokenId = (exhibitionIdInt << BigInt(128)) | part2;
+      const tokenId = generateTokenId(testCase.seriesId, testCase.artworkIndex);
       tokenIds.push(tokenId.toString());
       mintData.push({
         seriesId: testCase.seriesId,
@@ -149,60 +126,21 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
 
     await exhibition.mintArtworks(mintData, { from: owner });
 
-    // Test tokenIndexesByOwner - now takes owner address and returns TokenIndex[] struct array
-    const tokenIndexMappings = await exhibition.tokenIndexesByOwner(owner);
+    // Test seriesArtworkIndexesOfOwner for series 1 (should return indexes 5 and 50)
+    const series1Indexes = await exhibition.seriesArtworkIndexesOfOwner(tokenIds[0]);
+    assert.equal(series1Indexes.length, 2, "Should return 2 indexes for series 1");
     
-    assert.equal(
-      tokenIndexMappings.length,
-      testCases.length,
-      "Should return correct number of tokens"
-    );
-    
-    // Create a map for easier lookup since order might differ
-    const indexMap = {};
-    for (let i = 0; i < tokenIndexMappings.length; i++) {
-      indexMap[tokenIndexMappings[i].tokenId.toString()] = tokenIndexMappings[i].index.toString();
-    }
-    
-    // Verify each token and its index
-    for (let i = 0; i < testCases.length; i++) {
-      assert.isDefined(
-        indexMap[tokenIds[i]],
-        `Token ID ${tokenIds[i]} should be in the result`
-      );
-      assert.equal(
-        indexMap[tokenIds[i]],
-        testCases[i].artworkIndex.toString(),
-        `Artwork index for series ${testCases[i].seriesId} should be ${testCases[i].artworkIndex}`
-      );
-    }
-  });
+    const sortedSeries1 = series1Indexes.map(idx => idx.toString()).sort((a, b) => Number(a) - Number(b));
+    assert.equal(sortedSeries1[0], "5", "First index should be 5");
+    assert.equal(sortedSeries1[1], "50", "Second index should be 50");
 
-  it("should reject invalid prefix shard length", async () => {
-    const seriesIds = [1, 2];
-    const seriesMaxSupplies = [100, 200];
+    // Test seriesArtworkIndexesOfOwner for series 2 (should return indexes 10 and 100)
+    const series2Indexes = await exhibition.seriesArtworkIndexesOfOwner(tokenIds[1]);
+    assert.equal(series2Indexes.length, 2, "Should return 2 indexes for series 2");
     
-    try {
-      await FeralfileExhibitionV4_5.new(
-        "Test Exhibition",
-        "TEST",
-        true,
-        true,
-        signer,
-        vault.address,
-        costReceiver,
-        "ipfs://test-contract-uri",
-        seriesIds,
-        seriesMaxSupplies,
-        "invalidlength" // Too short
-      );
-      assert.fail("Should have thrown an error");
-    } catch (error) {
-      assert(
-        error.message.includes("invalid prefix shard length"),
-        "Should reject invalid prefix shard length"
-      );
-    }
+    const sortedSeries2 = series2Indexes.map(idx => idx.toString()).sort((a, b) => Number(a) - Number(b));
+    assert.equal(sortedSeries2[0], "10", "First index should be 10");
+    assert.equal(sortedSeries2[1], "100", "Second index should be 100");
   });
 
   it("should revert when querying non-existent token", async () => {
@@ -219,18 +157,19 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
     }
   });
 
-  it("should return correct tokenId to index mapping structure", async () => {
+  it("should only return indexes for tokens owned by the same owner", async () => {
     const seriesId = 1;
-    const artworkIndexes = [0, 5, 10];
+    const owner1Indexes = [0, 5, 10];
+    const owner2Indexes = [15, 20];
     
-    const exhibitionIdInt = BigInt("0x" + exhibitionId);
-    const tokenIds = [];
+    const owner1TokenIds = [];
+    const owner2TokenIds = [];
     const mintData = [];
 
-    for (const artworkIndex of artworkIndexes) {
-      const part2 = BigInt(seriesId * 1000000 + artworkIndex);
-      const tokenId = (exhibitionIdInt << BigInt(128)) | part2;
-      tokenIds.push(tokenId.toString());
+    // Mint tokens for owner1
+    for (const artworkIndex of owner1Indexes) {
+      const tokenId = generateTokenId(seriesId, artworkIndex);
+      owner1TokenIds.push(tokenId.toString());
       mintData.push({
         seriesId: seriesId,
         tokenId: tokenId.toString(),
@@ -238,32 +177,95 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
       });
     }
 
+    // Mint tokens for owner2
+    for (const artworkIndex of owner2Indexes) {
+      const tokenId = generateTokenId(seriesId, artworkIndex);
+      owner2TokenIds.push(tokenId.toString());
+      mintData.push({
+        seriesId: seriesId,
+        tokenId: tokenId.toString(),
+        owner: owner2,
+      });
+    }
+
     await exhibition.mintArtworks(mintData, { from: owner });
 
-    // Test that tokenIndexesByOwner returns proper mapping structure
-    // Now takes owner address instead of tokenIds array
-    const mappings = await exhibition.tokenIndexesByOwner(owner);
+    // Test seriesArtworkIndexesOfOwner for owner1 (should only return owner1's indexes)
+    const returnedIndexes = await exhibition.seriesArtworkIndexesOfOwner(owner1TokenIds[0]);
+    assert.equal(returnedIndexes.length, owner1Indexes.length, "Should return only owner1's indexes");
     
-    assert.equal(mappings.length, tokenIds.length, "Should return same number of mappings as owned tokens");
+    const sortedReturned = returnedIndexes.map(idx => idx.toString()).sort((a, b) => Number(a) - Number(b));
+    const sortedExpected = owner1Indexes.map(idx => idx.toString()).sort((a, b) => Number(a) - Number(b));
     
-    // Create a map for easier lookup since order might differ
-    const indexMap = {};
-    for (let i = 0; i < mappings.length; i++) {
-      assert.isDefined(mappings[i].tokenId, `Mapping ${i} should have tokenId`);
-      assert.isDefined(mappings[i].index, `Mapping ${i} should have index`);
-      indexMap[mappings[i].tokenId.toString()] = mappings[i].index.toString();
+    for (let i = 0; i < sortedExpected.length; i++) {
+      assert.equal(sortedReturned[i], sortedExpected[i], `Index ${i} should match`);
     }
+
+    // Test seriesArtworkIndexesOfOwner for owner2 (should only return owner2's indexes)
+    const owner2ReturnedIndexes = await exhibition.seriesArtworkIndexesOfOwner(owner2TokenIds[0]);
+    assert.equal(owner2ReturnedIndexes.length, owner2Indexes.length, "Should return only owner2's indexes");
     
-    // Verify each mapping contains both tokenId and index
-    for (let i = 0; i < tokenIds.length; i++) {
-      assert.isDefined(
-        indexMap[tokenIds[i]],
-        `Token ID ${tokenIds[i]} should be in the result`
-      );
+    const sortedOwner2Returned = owner2ReturnedIndexes.map(idx => idx.toString()).sort((a, b) => Number(a) - Number(b));
+    const sortedOwner2Expected = owner2Indexes.map(idx => idx.toString()).sort((a, b) => Number(a) - Number(b));
+    
+    for (let i = 0; i < sortedOwner2Expected.length; i++) {
+      assert.equal(sortedOwner2Returned[i], sortedOwner2Expected[i], `Owner2 index ${i} should match`);
+    }
+  });
+
+  it("should handle edge case with single token", async () => {
+    const seriesId = 1;
+    const artworkIndex = 42;
+    const tokenId = generateTokenId(seriesId, artworkIndex);
+    
+    const mintData = [{
+      seriesId: seriesId,
+      tokenId: tokenId.toString(),
+      owner: owner,
+    }];
+
+    await exhibition.mintArtworks(mintData, { from: owner });
+
+    // Test seriesArtworkIndexesOfOwner with single token
+    const indexes = await exhibition.seriesArtworkIndexesOfOwner(tokenId.toString());
+    assert.equal(indexes.length, 1, "Should return 1 index");
+    assert.equal(indexes[0].toString(), artworkIndex.toString(), "Index should match");
+
+    // Test getArtworkIndex
+    const index = await exhibition.getArtworkIndex(tokenId.toString());
+    assert.equal(index.toString(), artworkIndex.toString(), "getArtworkIndex should return correct index");
+  });
+
+  it("should calculate correct indexes for edge values", async () => {
+    const testCases = [
+      { seriesId: 1, artworkIndex: 0 }, // Minimum index
+      { seriesId: 1, artworkIndex: 999999 }, // Near maximum for multiplier
+      { seriesId: 2, artworkIndex: 0 },
+      { seriesId: 2, artworkIndex: 150 },
+    ];
+    
+    const mintData = [];
+
+    for (const testCase of testCases) {
+      const tokenId = generateTokenId(testCase.seriesId, testCase.artworkIndex);
+      mintData.push({
+        seriesId: testCase.seriesId,
+        tokenId: tokenId.toString(),
+        owner: owner,
+      });
+    }
+
+    await exhibition.mintArtworks(mintData, { from: owner });
+
+    // Verify each token's index
+    for (const testCase of testCases) {
+      const tokenId = generateTokenId(testCase.seriesId, testCase.artworkIndex);
+      
+      const calculatedIndex = await exhibition.getArtworkIndex(tokenId.toString());
       assert.equal(
-        indexMap[tokenIds[i]],
-        artworkIndexes[i].toString(),
-        `Mapping for token ${tokenIds[i]} index should match expected artwork index`
+        calculatedIndex.toString(),
+        testCase.artworkIndex.toString(),
+        `Index for series ${testCase.seriesId} should be ${testCase.artworkIndex}`
       );
     }
   });

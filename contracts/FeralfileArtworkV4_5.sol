@@ -10,9 +10,6 @@ contract FeralfileExhibitionV4_5 is FeralfileExhibitionV4_1 {
         uint256 index;
     }
 
-    // Token ID prefix shard (exhibition ID without dashes)
-    string public tokenIdPrefixShard;
-
     // Constants for token ID calculation
     uint256 private constant TOKEN_ID_PREFIX_LENGTH = 32; // 128 bits in hex
     uint256 private constant SERIES_MULTIPLIER = 1000000;
@@ -27,8 +24,7 @@ contract FeralfileExhibitionV4_5 is FeralfileExhibitionV4_1 {
         address costReceiver_,
         string memory contractURI_,
         uint256[] memory seriesIds_,
-        uint256[] memory seriesMaxSupplies_,
-        string memory tokenIdPrefixShard_
+        uint256[] memory seriesMaxSupplies_
     )
         FeralfileExhibitionV4_1(
             name_,
@@ -42,48 +38,56 @@ contract FeralfileExhibitionV4_5 is FeralfileExhibitionV4_1 {
             seriesIds_,
             seriesMaxSupplies_
         )
-    {
-        require(
-            bytes(tokenIdPrefixShard_).length == TOKEN_ID_PREFIX_LENGTH,
-            "FeralfileExhibitionV4_5: invalid prefix shard length"
-        );
-        tokenIdPrefixShard = tokenIdPrefixShard_;
-    }
+    {}
 
-    /// @notice Get all tokens owned by an address and their artwork indexes
-    /// @param owner_ - the owner address to query tokens for
-    /// @return tokenIndexes - array of TokenIndex structs containing tokenId to index mappings
-    function tokenIndexesByOwner(address owner_)
+    /// @notice Get the artwork indexes for all tokens in the same series owned by the same owner
+    /// @param tokenId_ - the token ID to use as reference
+    /// @return indexes - array of artwork indexes for tokens in the same series owned by the same owner
+    function seriesArtworkIndexesOfOwner(uint256 tokenId_)
         external
         view
-        returns (TokenIndex[] memory tokenIndexes)
+        returns (uint256[] memory indexes)
     {
-        // Get all token IDs owned by the address
-        uint256[] memory tokenIds = this.tokensOfOwner(owner_);
+        // Get the artwork to retrieve seriesId
+        Artwork memory referenceArtwork = _allArtworks[tokenId_];
+        require(
+            referenceArtwork.tokenId != 0,
+            "FeralfileExhibitionV4_5: token does not exist"
+        );
+        // Get the owner of the reference token
+        address owner = ownerOf(tokenId_);
         
-        tokenIndexes = new TokenIndex[](tokenIds.length);
+        uint256 targetSeriesId = referenceArtwork.seriesId;
         
-        for (uint256 i = 0; i < tokenIds.length; ++i) {
-            uint256 tokenId = tokenIds[i];
-            
-            // Get the artwork to retrieve seriesId
-            Artwork memory artwork = _allArtworks[tokenId];
-            require(
-                artwork.tokenId != 0,
-                "FeralfileExhibitionV4_5: token does not exist"
-            );
-            
-            // Calculate the artwork index from tokenId
-            uint256 artworkIndex = _calculateArtworkIndex(tokenId, artwork.seriesId);
-            
-            // Create TokenIndex mapping
-            tokenIndexes[i] = TokenIndex({
-                tokenId: tokenId,
-                index: artworkIndex
-            });
+        // Get all token IDs owned by the owner
+        uint256[] memory allTokenIds = this.tokensOfOwner(owner);
+        
+        // First pass: count how many tokens belong to the same series
+        uint256 matchCount = 0;
+        for (uint256 i = 0; i < allTokenIds.length; ++i) {
+            Artwork memory artwork = _allArtworks[allTokenIds[i]];
+            if (artwork.seriesId == targetSeriesId) {
+                ++matchCount;
+            }
         }
         
-        return tokenIndexes;
+        // Initialize the result array with the correct size
+        indexes = new uint256[](matchCount);
+        
+        // Second pass: populate the result array with indexes
+        uint256 resultIndex = 0;
+        for (uint256 i = 0; i < allTokenIds.length; ++i) {
+            uint256 tokenId = allTokenIds[i];
+            Artwork memory artwork = _allArtworks[tokenId];
+            
+            if (artwork.seriesId == targetSeriesId) {
+                // Calculate the artwork index from tokenId and store it directly
+                indexes[resultIndex] = _calculateArtworkIndex(tokenId, artwork.seriesId);
+                ++resultIndex;
+            }
+        }
+        
+        return indexes;
     }
 
     /// @notice Internal function to calculate artwork index from token ID

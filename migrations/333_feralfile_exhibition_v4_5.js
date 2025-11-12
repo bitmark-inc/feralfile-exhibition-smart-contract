@@ -5,7 +5,6 @@ const argv = require("minimist")(process.argv.slice(2), {
         "exhibition_signer",
         "exhibition_vault",
         "exhibition_cost_receiver",
-        "exhibition_token_id_prefix_shard",
     ],
 });
 
@@ -19,9 +18,6 @@ module.exports = function (deployer) {
     let exhibition_cost_receiver =
         argv.exhibition_cost_receiver ||
         "0x6732389c6d47d01487dcDc96e2Cc6BAf108452f2";
-    let exhibition_tokenId_prefix_shard =
-        argv.exhibition_token_id_prefix_shard ||
-        "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6";
     let burnable = argv.burnable || true;
     let bridgeable = argv.bridgeable || true;
     let contract_uri =
@@ -41,7 +37,6 @@ module.exports = function (deployer) {
         exhibition_cost_receiver,
         contract_uri,
         series_ids,
-        max_supplies,
-        exhibition_tokenId_prefix_shard
+        max_supplies
     );
 };
