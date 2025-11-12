@@ -50,18 +50,21 @@ contract FeralfileExhibitionV4_5 is FeralfileExhibitionV4_1 {
         tokenIdPrefixShard = tokenIdPrefixShard_;
     }
 
-    /// @notice Calculate artwork indexes from token IDs and return mapping
-    /// @param tokenIds_ - array of token IDs to calculate indexes for
+    /// @notice Get all tokens owned by an address and their artwork indexes
+    /// @param owner_ - the owner address to query tokens for
     /// @return tokenIndexes - array of TokenIndex structs containing tokenId to index mappings
-    function tokenIndexesByOwner(uint256[] calldata tokenIds_)
+    function tokenIndexesByOwner(address owner_)
         external
         view
         returns (TokenIndex[] memory tokenIndexes)
     {
-        tokenIndexes = new TokenIndex[](tokenIds_.length);
+        // Get all token IDs owned by the address
+        uint256[] memory tokenIds = this.tokensOfOwner(owner_);
         
-        for (uint256 i = 0; i < tokenIds_.length; ++i) {
-            uint256 tokenId = tokenIds_[i];
+        tokenIndexes = new TokenIndex[](tokenIds.length);
+        
+        for (uint256 i = 0; i < tokenIds.length; ++i) {
+            uint256 tokenId = tokenIds[i];
             
             // Get the artwork to retrieve seriesId
             Artwork memory artwork = _allArtworks[tokenId];

@@ -95,19 +95,31 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
 
     await exhibition.mintArtworks(mintData, { from: owner });
 
-    // Test tokenIndexesByOwner - now returns TokenIndex[] struct array
-    const tokenIndexMappings = await exhibition.tokenIndexesByOwner(tokenIds);
+    // Test tokenIndexesByOwner - now takes owner address and returns TokenIndex[] struct array
+    const tokenIndexMappings = await exhibition.tokenIndexesByOwner(owner);
     
+    assert.equal(
+      tokenIndexMappings.length,
+      artworkIndexes.length,
+      "Should return correct number of tokens"
+    );
+    
+    // Create a map for easier lookup since order might differ
+    const indexMap = {};
+    for (let i = 0; i < tokenIndexMappings.length; i++) {
+      indexMap[tokenIndexMappings[i].tokenId.toString()] = tokenIndexMappings[i].index.toString();
+    }
+    
+    // Verify each token and its index
     for (let i = 0; i < artworkIndexes.length; i++) {
-      assert.equal(
-        tokenIndexMappings[i].tokenId.toString(),
-        tokenIds[i],
-        `Token ID ${i} should match`
+      assert.isDefined(
+        indexMap[tokenIds[i]],
+        `Token ID ${tokenIds[i]} should be in the result`
       );
       assert.equal(
-        tokenIndexMappings[i].index.toString(),
+        indexMap[tokenIds[i]],
         artworkIndexes[i].toString(),
-        `Artwork index ${i} should be ${artworkIndexes[i]}`
+        `Artwork index for token ${tokenIds[i]} should be ${artworkIndexes[i]}`
       );
     }
   });
@@ -137,17 +149,29 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
 
     await exhibition.mintArtworks(mintData, { from: owner });
 
-    // Test tokenIndexesByOwner - now returns TokenIndex[] struct array
-    const tokenIndexMappings = await exhibition.tokenIndexesByOwner(tokenIds);
+    // Test tokenIndexesByOwner - now takes owner address and returns TokenIndex[] struct array
+    const tokenIndexMappings = await exhibition.tokenIndexesByOwner(owner);
     
+    assert.equal(
+      tokenIndexMappings.length,
+      testCases.length,
+      "Should return correct number of tokens"
+    );
+    
+    // Create a map for easier lookup since order might differ
+    const indexMap = {};
+    for (let i = 0; i < tokenIndexMappings.length; i++) {
+      indexMap[tokenIndexMappings[i].tokenId.toString()] = tokenIndexMappings[i].index.toString();
+    }
+    
+    // Verify each token and its index
     for (let i = 0; i < testCases.length; i++) {
-      assert.equal(
-        tokenIndexMappings[i].tokenId.toString(),
-        tokenIds[i],
-        `Token ID ${i} should match`
+      assert.isDefined(
+        indexMap[tokenIds[i]],
+        `Token ID ${tokenIds[i]} should be in the result`
       );
       assert.equal(
-        tokenIndexMappings[i].index.toString(),
+        indexMap[tokenIds[i]],
         testCases[i].artworkIndex.toString(),
         `Artwork index for series ${testCases[i].seriesId} should be ${testCases[i].artworkIndex}`
       );
@@ -217,23 +241,29 @@ contract("FeralfileExhibitionV4_5", async (accounts) => {
     await exhibition.mintArtworks(mintData, { from: owner });
 
     // Test that tokenIndexesByOwner returns proper mapping structure
-    const mappings = await exhibition.tokenIndexesByOwner(tokenIds);
+    // Now takes owner address instead of tokenIds array
+    const mappings = await exhibition.tokenIndexesByOwner(owner);
     
-    assert.equal(mappings.length, tokenIds.length, "Should return same number of mappings as input tokens");
+    assert.equal(mappings.length, tokenIds.length, "Should return same number of mappings as owned tokens");
     
-    // Verify each mapping contains both tokenId and index
+    // Create a map for easier lookup since order might differ
+    const indexMap = {};
     for (let i = 0; i < mappings.length; i++) {
       assert.isDefined(mappings[i].tokenId, `Mapping ${i} should have tokenId`);
       assert.isDefined(mappings[i].index, `Mapping ${i} should have index`);
-      assert.equal(
-        mappings[i].tokenId.toString(),
-        tokenIds[i],
-        `Mapping ${i} tokenId should match input`
+      indexMap[mappings[i].tokenId.toString()] = mappings[i].index.toString();
+    }
+    
+    // Verify each mapping contains both tokenId and index
+    for (let i = 0; i < tokenIds.length; i++) {
+      assert.isDefined(
+        indexMap[tokenIds[i]],
+        `Token ID ${tokenIds[i]} should be in the result`
       );
       assert.equal(
-        mappings[i].index.toString(),
+        indexMap[tokenIds[i]],
         artworkIndexes[i].toString(),
-        `Mapping ${i} index should match expected artwork index`
+        `Mapping for token ${tokenIds[i]} index should match expected artwork index`
       );
     }
   });
