@@ -34,7 +34,7 @@ contract FeralfileExhibitionV4_5 is FeralfileExhibitionV4_1 {
         )
     {}
 
-    /// @notice Get the artwork indexes for all tokens in the same series owned by the same owner
+    /// @notice Get all tokens in the same series owned by the same owner
     /// @param tokenId_ - the token ID to use as reference
     /// @return tokenIds - array of token Id in the same series owned by the same owner
     function seriesArtworksOfOwner(uint256 tokenId_)
